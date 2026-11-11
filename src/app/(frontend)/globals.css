@@ -1,0 +1,85 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Design tokens derived from benyom.hu (css/style.css):
+ *   accent #ff0000 (logo bar, links, buttons), dark header #000/#111, white surfaces,
+ *   text #666666 / headings #333 / #111, borders #dddddd, muted #f2f2f2,
+ *   Montserrat headings + Open Sans body, pill-shaped buttons (border-radius: 50px).
+ * Interactive red is darkened to #e00000 so white-on-red and red text meet WCAG AA (≈5:1);
+ * the pure #ff0000 stays as a decorative brand accent.
+ */
+:root {
+  --radius: 0.625rem;
+  --brand-red: #ff0000;
+  --ink: #111111;
+  --background: #ffffff;
+  --foreground: #333333;
+  --card: #ffffff;
+  --card-foreground: #333333;
+  --popover: #ffffff;
+  --popover-foreground: #333333;
+  --primary: #e00000;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #111111;
+  --muted: #f2f2f2;
+  --muted-foreground: #5e5e5e;
+  --accent: #f6f6f6;
+  --accent-foreground: #111111;
+  --destructive: #b42318;
+  --border: #dddddd;
+  --input: #c9c9c9;
+  --ring: #e00000;
+}
+
+@theme inline {
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-red: var(--brand-red);
+  --color-ink: var(--ink);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading text-ink;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

@@ -1,0 +1,40 @@
+import { withPayload } from '@payloadcms/next/withPayload'
+import type { NextConfig } from 'next'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const dirname: string = path.dirname(fileURLToPath(import.meta.url))
+
+const securityHeaders: { key: string; value: string }[] = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+]
+
+const nextConfig: NextConfig = {
+  // Decision links carry a secret token in the path; keep it out of the dev request log.
+  logging: { incomingRequests: { ignore: [/\/arvaltozas\//] } },
+  images: {
+    localPatterns: [{ pathname: '/api/media/file/**' }, { pathname: '/sample-media/**' }],
+  },
+  async headers() {
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // Decision links carry a secret token in the path: never leak it via Referer.
+      { source: '/arvaltozas/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+    ]
+  },
+  webpack: (webpackConfig) => {
+    webpackConfig.resolve.extensionAlias = {
+      '.cjs': ['.cts', '.cjs'],
+      '.js': ['.ts', '.tsx', '.js', '.jsx'],
+      '.mjs': ['.mts', '.mjs'],
+    }
+    return webpackConfig
+  },
+  turbopack: {
+    root: path.resolve(dirname),
+  },
+}
+
+export default withPayload(nextConfig, { devBundleServerPackages: false })

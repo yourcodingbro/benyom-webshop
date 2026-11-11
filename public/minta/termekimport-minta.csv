@@ -1,0 +1,5 @@
+﻿product_id;product_slug;product_name;model;brand_slug;brand_name;category_slugs;category_names;status;featured;product_orderability;description;sku;color_hex;color_label;storage_gb;ram_gb;case_size_mm;price_huf;variant_orderability;procurement_min_days;procurement_max_days;image_keys
+prod-nothing-phone-3;nothing-phone-3;Nothing Phone (3);Phone (3);nothing;Nothing;mobiltelefon;;published;nem;preorderable;"Minta termékleírás; idézőjelben ""pontosvesszővel""";NOT-PH3-128-01;#1F1F1F;Obszidián;128;12;;349990;preorderable;5;10;
+prod-nothing-phone-3;;;;;;;;;;;;NOT-PH3-256-01;#1F1F1F;Obszidián;256;12;;389990;preorderable;;;
+prod-nothing-phone-3;;;;;;;;;;;;NOT-PH3-128-02;#E8E4DA;;128;12;;349990;temporarily_unavailable;;;
+prod-iphone-17;;;;;;;;;;;;APL-IP17-256-01;;;;;;459990;;;;
