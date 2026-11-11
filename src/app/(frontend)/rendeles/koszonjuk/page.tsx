@@ -4,9 +4,11 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import type React from 'react'
 
+import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { Reveal } from '@/components/Reveal'
 import { Alert, AlertDescription, AlertTitle } from '@/components/shadcn/alert'
+import { getEmailConfig } from '@/config/email'
 import { ORDER_ACCESS_COOKIE } from '@/config/shop'
 import { orderService } from '@/services/orderService'
 
@@ -21,10 +23,13 @@ export default async function ConfirmationPage(): Promise<React.JSX.Element> {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       {order ? (
+        <>
+        {/* Only a successfully created order reaches the final stage. */}
+        <CheckoutProgress current={4} initialFraction={0.75} />
         <Reveal>
           <h1 className="text-3xl font-bold">Köszönjük, megkaptuk előrendelését!</h1>
           <p className="mt-3 text-muted-foreground">
-            Visszaigazolást küldtünk a(z) <strong>{order.submission.customer.email}</strong> címre (minta módban csak a fejlesztői naplóba).
+            Visszaigazolást küldtünk a(z) <strong>{order.submission.customer.email}</strong> címre{getEmailConfig().mode === 'resend' ? '.' : ' (naplózó módban csak a fejlesztői e-mail naplóba).'}
           </p>
           <Alert className="my-6">
             <AlertTitle>Most nem kell fizetnie</AlertTitle>
@@ -34,6 +39,7 @@ export default async function ConfirmationPage(): Promise<React.JSX.Element> {
           </Alert>
           <OrderSummary order={order} />
         </Reveal>
+        </>
       ) : (
         <>
           <h1 className="text-3xl font-bold">A rendelés részletei nem érhetők el</h1>

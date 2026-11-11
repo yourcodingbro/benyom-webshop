@@ -11,6 +11,7 @@ export const StoreSettings: GlobalConfig = {
   fields: [
     { name: 'storeName', label: 'Áruház neve', type: 'text', required: true },
     { name: 'storeNotificationEmail', label: 'Bolti értesítési e-mail', type: 'email', required: true, access: { read: ({ req }) => Boolean(req.user) } },
+    { name: 'contactRecipientEmail', label: 'Kapcsolati űrlap címzettje', type: 'email', required: true, access: { read: ({ req }) => Boolean(req.user) }, admin: { description: 'Ide érkeznek a kapcsolati űrlap üzenetei. A látogató címe csak válaszcím (Reply-To) lesz.' } },
     { name: 'contact', label: 'Kapcsolat', type: 'group', fields: [{ name: 'email', label: 'E-mail', type: 'email' }, { name: 'phone', label: 'Telefon', type: 'text' }, { name: 'address', label: 'Cím', type: 'text' }] },
     {
       name: 'collection',

@@ -1,9 +1,10 @@
 'use client'
 
-import { MinusIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { Trash2Icon } from 'lucide-react'
 import Link from 'next/link'
 import type React from 'react'
 
+import { QuantitySelector } from '@/components/cart/QuantitySelector'
 import { ColorSwatch } from '@/components/product/ColorSwatch'
 import { ProductPicture } from '@/components/product/ProductPicture'
 import { Button } from '@/components/shadcn/button'
@@ -60,14 +61,16 @@ export function CartLines(props: CartLinesProps): React.JSX.Element {
               {props.readOnly ? (
                 <span className="text-sm">{line.quantity} db</span>
               ) : (
-                <div className="flex items-center gap-1" role="group" aria-label={`${line.productName} mennyisége`}>
-                  <Button type="button" size="icon-sm" variant="outline" aria-label="Mennyiség csökkentése" disabled={line.quantity <= 1 || cart.pending} onClick={() => void cart.setQuantity(line.sku, line.quantity - 1)}>
-                    <MinusIcon aria-hidden="true" />
-                  </Button>
-                  <span className="w-8 text-center text-sm" aria-live="polite">{line.quantity}</span>
-                  <Button type="button" size="icon-sm" variant="outline" aria-label="Mennyiség növelése" disabled={line.quantity >= MAX_LINE_QUANTITY || cart.pending} onClick={() => void cart.setQuantity(line.sku, line.quantity + 1)}>
-                    <PlusIcon aria-hidden="true" />
-                  </Button>
+                <div className="flex items-start gap-1">
+                  <QuantitySelector
+                    value={line.quantity}
+                    onChange={(value: number | null) => {
+                      if (value !== null && value !== line.quantity) void cart.setQuantity(line.sku, value)
+                    }}
+                    max={MAX_LINE_QUANTITY}
+                    label={`${line.productName} mennyisége`}
+                    compact
+                  />
                   <Button type="button" size="icon-sm" variant="ghost" aria-label={`${line.productName} eltávolítása`} disabled={cart.pending} onClick={() => void cart.removeItem(line.sku)}>
                     <Trash2Icon aria-hidden="true" />
                   </Button>

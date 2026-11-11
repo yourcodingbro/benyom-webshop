@@ -16,19 +16,31 @@ export function CartDrawer(): React.JSX.Element {
   const count = cart.hydrated ? cart.itemCount : 0
   const close = (): void => cart.setDrawerOpen(false)
 
+  // Radix focuses the first focusable element by default (a quantity input, which opens the mobile
+  // keyboard). Focus the heading instead; the focus trap, Escape and focus return stay intact.
+  const focusHeading = (event: Event): void => {
+    event.preventDefault()
+    const content = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+    content?.querySelector<HTMLElement>('[data-slot="sheet-title"]')?.focus()
+  }
+
   return (
     <Sheet open={cart.drawerOpen} onOpenChange={cart.setDrawerOpen}>
-      <SheetTrigger className="relative flex size-10 items-center justify-center rounded-full text-white hover:bg-white/10" aria-label={`Kosár megnyitása, ${count} termék`}>
+      <SheetTrigger asChild>
+        <Button variant="ghostInverse" size="icon" className="relative" aria-label={`Kosár megnyitása, ${count} termék`}>
         <ShoppingBagIcon className="size-5" aria-hidden="true" />
         {count > 0 ? (
           <span className="absolute -top-0.5 -right-0.5 flex min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[11px] leading-5 font-bold text-white" aria-hidden="true">
             {count}
           </span>
         ) : null}
+        </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex w-full flex-col sm:max-w-md">
+      <SheetContent side="right" className="flex w-full flex-col sm:max-w-md" onOpenAutoFocus={focusHeading}>
         <SheetHeader>
-          <SheetTitle>Kosár</SheetTitle>
+          <SheetTitle tabIndex={-1} className="outline-none">
+            Kosár
+          </SheetTitle>
           <SheetDescription>Előrendelés – fizetés átvételkor vagy kiszállításkor.</SheetDescription>
         </SheetHeader>
         <div className="flex-1 overflow-y-auto px-4">

@@ -4,6 +4,9 @@ import { createContext, useContext } from 'react'
 
 import type { CartQuote, StoredCartLine } from '@/types/cart'
 
+/** Outcome of adding to the cart; the message is ready to show to the customer. */
+export type AddItemResult = { ok: true; quantityInCart: number } | { ok: false; message: string }
+
 export type UseCartResult = {
   /** Lines persisted in localStorage (SKU, quantity, signed quote token). */
   lines: StoredCartLine[]
@@ -15,7 +18,8 @@ export type UseCartResult = {
   error: string | null
   drawerOpen: boolean
   setDrawerOpen: (open: boolean) => void
-  addItem: (sku: string, quantity: number) => Promise<boolean>
+  /** Adds the exact SKU; an existing line is increased. Prices and orderability are re-checked by the server. */
+  addItem: (sku: string, quantity: number) => Promise<AddItemResult>
   setQuantity: (sku: string, quantity: number) => Promise<void>
   removeItem: (sku: string) => Promise<void>
   refresh: () => Promise<void>

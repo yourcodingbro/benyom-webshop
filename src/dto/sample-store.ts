@@ -2,6 +2,7 @@ import 'server-only'
 
 import { sampleData } from '@/sample'
 import type { Brand, Category, Product } from '@/types/catalog'
+import type { ContactMessage } from '@/types/contact'
 import type { EmailLogEntry } from '@/types/email'
 import type { Order } from '@/types/order'
 import type { PriceChangeProposal } from '@/types/proposal'
@@ -25,6 +26,7 @@ export type SampleStore = {
   proposals: PriceChangeProposal[]
   settings: StoreSettings
   emailLog: EmailLogEntry[]
+  contactMessages: ContactMessage[]
   startedAt: string
   /** Content fingerprint of the sample data this store was cloned from. */
   source: string
@@ -45,6 +47,7 @@ function createStore(): SampleStore {
     proposals: structuredClone(sampleData.proposals),
     settings: structuredClone(sampleData.settings),
     emailLog: [],
+    contactMessages: [],
     startedAt: new Date().toISOString(),
     source: SAMPLE_FINGERPRINT,
   }

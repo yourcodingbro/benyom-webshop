@@ -28,7 +28,7 @@ export default async function EmailPreviewPage(props: EmailPreviewPageProps): Pr
       </Link>
       <h1 className="text-2xl font-bold">{entry.subject}</h1>
       <p className="text-sm text-muted-foreground">
-        SZIMULÁLT – nem került kiküldésre · {formatDateTime(entry.at)} · címzett: {entry.to} · sablon: {entry.templateId} · állapot: {entry.status}
+        {entry.status === 'sent' ? `Resend által elfogadva (${entry.messageId})` : entry.status === 'sent_simulated' ? 'SZIMULÁLT – nem került kiküldésre' : 'SIKERTELEN küldés'} · {formatDateTime(entry.at)} · címzett: {entry.to} · sablon: {entry.templateId} · állapot: {entry.status}
       </p>
       <iframe title="E-mail HTML előnézet" srcDoc={entry.preview.html} sandbox="allow-popups allow-top-navigation-by-user-activation" className="h-[720px] w-full rounded-xl border bg-white" />
       <details>

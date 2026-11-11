@@ -38,7 +38,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                   <ArrowRightIcon aria-hidden="true" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-white bg-transparent text-white hover:bg-white hover:text-ink">
+              <Button asChild size="lg" variant="secondary">
                 <Link href="/oldal/gyik">Hogyan működik?</Link>
               </Button>
             </div>

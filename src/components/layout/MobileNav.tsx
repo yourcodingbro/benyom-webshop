@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type React from 'react'
 
 import { SearchForm } from '@/components/layout/SearchForm'
+import { Button } from '@/components/shadcn/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/shadcn/sheet'
 
 export type NavigationEntry = {
@@ -20,8 +21,10 @@ type MobileNavProps = {
 export function MobileNav(props: MobileNavProps): React.JSX.Element {
   return (
     <Sheet>
-      <SheetTrigger className="flex size-10 items-center justify-center rounded-full text-white hover:bg-white/10 lg:hidden" aria-label="Menü megnyitása">
-        <MenuIcon className="size-5" aria-hidden="true" />
+      <SheetTrigger asChild>
+        <Button variant="ghostInverse" size="icon" className="lg:hidden" aria-label="Menü megnyitása">
+          <MenuIcon className="size-5" aria-hidden="true" />
+        </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[85vw] max-w-sm overflow-y-auto bg-ink text-white">
         <SheetHeader>

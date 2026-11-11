@@ -6,6 +6,8 @@ src/
 │   ├── (frontend)/          storefront route group (own <html> layout)
 │   │   ├── page.tsx                     home (popular brands + categories, featured products)
 │   │   ├── markak/, kategoriak/         all brands, all categories
+│   │   ├── fizetes-es-szallitas/        payment & delivery (from store settings)
+│   │   ├── kapcsolat/                   contact page + submitContactAction
 │   │   ├── termekek/                    all products, search (?q=) and filters
 │   │   ├── marka/[brand]/[category]/    brand and brand+category pages
 │   │   ├── kategoria/[category]/        category pages
@@ -23,9 +25,10 @@ src/
 │   ├── layout/              SiteHeader, SiteFooter, MobileNav, SearchForm, SampleModeBanner, MotionProvider
 │   ├── product/             ProductCard (preview + quick add), ProductConfigurator, VariantOptions, ProductPicture,
 │   │                        ColorSwatch, OrderabilityBadge, CatalogListing, ListingFilters, Pagination
-│   ├── cart/                CartProvider, CartDrawer, CartLines, CartPageContent
-│   ├── checkout/            CheckoutForm, OrderSummary
+│   ├── cart/                CartProvider, CartDrawer, CartLines, CartPageContent, QuantitySelector
+│   ├── checkout/            CheckoutForm (animated panels), CheckoutProgress, OrderSummary
 │   ├── home/                PopularSelector (homepage popular brands/categories)
+│   ├── contact/             ContactForm
 │   ├── dev/                 CsvImportForm (development tools)
 │   ├── shadcn/              shadcn/ui primitives (alias "ui" → @/components/shadcn)
 │   ├── Logo.tsx, Breadcrumbs.tsx
@@ -36,7 +39,7 @@ src/
 ├── services/                business services (emailService.ts, orderService.ts, …)
 ├── types/                   shared, browser-safe application types
 ├── schemas/                 zod schemas (checkout, proposal, listing URL parsing)
-├── emails/                  Hungarian email templates (HTML + text)
+├── emails/                  Hungarian React Email templates (.tsx), rendered to HTML + text
 ├── config/                  shop constants, labels, order rules, runtime flags
 ├── lib/                     technical utilities (money, hex, clock, crypto, csv, …)
 ├── tests/                   Vitest tests
@@ -54,6 +57,7 @@ Root-level exceptions: `package.json`, `next.config.ts`, `tsconfig.json`, `eslin
 ## Conventions
 
 - Components are PascalCase function declarations with a single typed `props` object and an explicit return type. Component-specific types stay in the component file.
+- Buttons and button-styled links always use `components/shadcn/button.tsx`: pill-shaped (`rounded-full`), variants `default` (primary), `secondary`, `outline`, `ghost`, `ghostInverse` (on the dark header), `destructive`, `link`; sizes `xs`/`sm`/`default`/`lg` and circular `icon-*`; `loading` shows a spinner and blocks repeat clicks. Links use `<Button asChild>`. Color swatches stay square; inputs keep their own geometry.
 - Icons come from `lucide-react`. Decorative icons get `aria-hidden`; icon-only buttons have an `aria-label`.
 - Hooks are `useName` with a params object when parameters exist. Result types live in the hook file (`UseCartResult`).
 - Services are `xxxService` objects typed by a local contract (`type OrderService = { … }`). There are no classes and no DI.

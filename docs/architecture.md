@@ -31,7 +31,8 @@ Sample runtime store (src/dto/sample-store.ts)  ← src/sample.ts (immutable see
 | Price changes | `priceChangeService.createProposal`, `.getDecisionView`, `.decide`, `.processDueProposals` |
 | Email | `emailService.sendEmail(input)` (called only by `notificationService.notify`) |
 | CSV | `importService.previewImport`, `importService.applyImport` |
-| Navigation | `catalogService.getNavigation()` |
+| Navigation | `catalogService.getNavigation()` (mobile menu, /markak). The desktop header has fixed links: Összes termék, Fizetés és szállítás, Kapcsolat |
+| Contact form | `contactService.submitContactMessage(input)` → `addContactMessage` (idempotent) → `emailService.sendEmail` |
 | Dev controls | `simulationService.*` |
 
 ## Data flow example: checkout

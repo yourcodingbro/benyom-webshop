@@ -7,6 +7,7 @@ import { ListingFilters } from '@/components/product/ListingFilters'
 import { Pagination } from '@/components/product/Pagination'
 import { ProductCard } from '@/components/product/ProductCard'
 import { Reveal } from '@/components/Reveal'
+import { Button } from '@/components/shadcn/button'
 import { getBrands } from '@/dto/brands'
 import { getCategories } from '@/dto/categories'
 import { getProducts } from '@/dto/products'
@@ -51,9 +52,9 @@ export async function CatalogListing(props: CatalogListingProps): Promise<React.
         <ul className="mt-5 flex flex-wrap gap-2">
           {props.chips.map((chip) => (
             <li key={chip.href}>
-              <Link href={chip.href} className="inline-block rounded-full border px-4 py-1.5 text-sm font-semibold hover:border-ink">
-                {chip.label}
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href={chip.href}>{chip.label}</Link>
+              </Button>
             </li>
           ))}
         </ul>

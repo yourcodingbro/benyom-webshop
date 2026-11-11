@@ -415,6 +415,7 @@ const settings: StoreSettings = {
     address: '0000 Mintaváros, Példa utca 1. (fiktív cím)',
   },
   storeNotificationEmail: 'rendelesek@minta-webshop.example',
+  contactRecipientEmail: 'kapcsolat@minta-webshop.example',
   collection: {
     address: '0000 Mintaváros, Példa utca 1. (fiktív átvételi pont)',
     openingHours: ['Hétfő–Péntek: 9:00–17:00', 'Szombat: 9:00–12:00', 'Vasárnap: zárva'],
@@ -480,14 +481,6 @@ const settings: StoreSettings = {
       ],
     },
     {
-      slug: 'szallitas',
-      title: 'Szállítás és átvétel',
-      paragraphs: [
-        'Mintaszöveg. Személyes átvétel díjmentes. A házhozszállítás 2 990 Ft-os díja fiktív mintaérték.',
-        'A csomagautomatás szállítás díja még nincs meghatározva, ezért jelenleg nem választható.',
-      ],
-    },
-    {
       slug: 'garancia',
       title: 'Garancia és jótállás',
       paragraphs: ['Mintaszöveg – a jótállási feltételeket a végleges üzlet adja meg.'],
@@ -500,11 +493,6 @@ const settings: StoreSettings = {
         'Változhat-e a rendelésem ára? Csak akkor, ha Ön egy árváltozási ajánlatot kifejezetten elfogad.',
         'Mi történik, ha nem válaszolok az árváltozási ajánlatra? 24 óra után emlékeztetőt küldünk; az emlékeztető elküldését követő újabb 24 óra elteltével a rendelés törlődik.',
       ],
-    },
-    {
-      slug: 'kapcsolat',
-      title: 'Kapcsolat',
-      paragraphs: ['E-mail: info@minta-webshop.example (fiktív)', 'Telefon: +36 1 000 0000 (fiktív)'],
     },
   ],
 }

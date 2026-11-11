@@ -9,6 +9,7 @@ Scope and reset:
 - One store per server process. A restart, redeploy, or another serverless instance means an empty or fresh store. In-memory state does **not** survive any of these, and multiple instances do not share it.
 - `/fejlesztes` → *Teljes visszaállítás* restores the initial state, resets the clock and clears failure simulation.
 - Editing `src/sample.ts` during development rebuilds the store automatically on the next request (content fingerprint check), discarding runtime changes.
+- Contact-form messages are stored in the runtime store (`contactMessages`) and forwarded only as a simulated email to `contactRecipientEmail`.
 - The browser cart lives in `localStorage` (`benyom-kosar-v1`): SKU, quantity and signed quote token only.
 
 Sample persistence must not be used for real customer orders. The sample checkout is disabled when `APP_ENV=production` or `VERCEL_ENV=production`. A permanent banner says orders are not real.

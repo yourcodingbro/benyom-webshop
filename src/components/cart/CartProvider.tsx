@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { quoteCartAction } from '@/app/(frontend)/actions'
 import { CART_STORAGE_KEY, MAX_CART_LINES, MAX_LINE_QUANTITY } from '@/config/shop'
-import { CartContext, type UseCartResult } from '@/hooks/useCart'
+import { type AddItemResult, CartContext, type UseCartResult } from '@/hooks/useCart'
 import type { CartQuote, StoredCartLine } from '@/types/cart'
 
 type CartProviderProps = {
@@ -51,7 +51,8 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false)
   const requestId = useRef<number>(0)
 
-  const requote = useCallback(async (next: StoredCartLine[]): Promise<CartQuote | null> => {
+  /** New server quote, an error message, or null when a newer request superseded this one. */
+  const requote = useCallback(async (next: StoredCartLine[]): Promise<CartQuote | string | null> => {
     const id = ++requestId.current
     setPending(true)
     try {
@@ -59,7 +60,7 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
       if (id !== requestId.current) return null
       if (!result.ok) {
         setError(result.message)
-        return null
+        return result.message
       }
       const withTokens = next.map((line: StoredCartLine) => ({
         ...line,
@@ -71,8 +72,10 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
       setError(null)
       return result.quote
     } catch {
-      if (id === requestId.current) setError('Az árak frissítése nem sikerült. Ellenőrizze a kapcsolatot.')
-      return null
+      if (id !== requestId.current) return null
+      const message = 'Az árak frissítése nem sikerült. Ellenőrizze a kapcsolatot.'
+      setError(message)
+      return message
     } finally {
       if (id === requestId.current) setPending(false)
     }
@@ -89,25 +92,30 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
   }, [requote])
 
   const addItem = useCallback(
-    async (sku: string, quantity: number): Promise<boolean> => {
+    async (sku: string, quantity: number): Promise<AddItemResult> => {
+      if (!Number.isSafeInteger(quantity) || quantity < 1) return { ok: false, message: 'A mennyiség pozitív egész szám legyen.' }
       const existing = lines.find((line: StoredCartLine) => line.sku === sku)
-      if (!existing && lines.length >= MAX_CART_LINES) {
-        setError(`Legfeljebb ${MAX_CART_LINES} tétel lehet a kosárban.`)
-        return false
+      if (!existing && lines.length >= MAX_CART_LINES) return { ok: false, message: `Legfeljebb ${MAX_CART_LINES} tétel lehet a kosárban.` }
+      const total = (existing?.quantity ?? 0) + quantity
+      // Per-line order cap (not a stock limit): report it instead of silently clamping.
+      if (total > MAX_LINE_QUANTITY) {
+        const inCart = existing ? ` (a kosárban már ${existing.quantity} db van)` : ''
+        return { ok: false, message: `Tételenként legfeljebb ${MAX_LINE_QUANTITY} db rendelhető${inCart}.` }
       }
       const next = existing
-        ? lines.map((line: StoredCartLine) => (line.sku === sku ? { ...line, quantity: clampQuantity(line.quantity + quantity) } : line))
-        : [...lines, { sku, quantity: clampQuantity(quantity), quoteToken: null }]
+        ? lines.map((line: StoredCartLine) => (line.sku === sku ? { ...line, quantity: total } : line))
+        : [...lines, { sku, quantity, quoteToken: null }]
       const result = await requote(next)
-      if (!result) return false
+      if (result === null) return { ok: false, message: 'A kosár időközben megváltozott. Próbálja újra.' }
+      if (typeof result === 'string') return { ok: false, message: result }
       if (result.lines.find((line) => line.sku === sku)?.status !== 'ok') {
         // The server refused the variant: restore the previous cart.
         await requote(lines)
         setError('Ez a változat jelenleg nem rendelhető.')
-        return false
+        return { ok: false, message: 'Ez a változat jelenleg nem rendelhető.' }
       }
       setDrawerOpen(true)
-      return true
+      return { ok: true, quantityInCart: total }
     },
     [lines, requote],
   )

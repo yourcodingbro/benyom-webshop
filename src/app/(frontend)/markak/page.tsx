@@ -5,6 +5,7 @@ import type React from 'react'
 
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Reveal } from '@/components/Reveal'
+import { Button } from '@/components/shadcn/button'
 import { catalogService } from '@/services/catalogService'
 
 export const metadata: Metadata = { title: 'Összes márka', alternates: { canonical: '/markak' } }
@@ -29,9 +30,9 @@ export default async function BrandsPage(): Promise<React.JSX.Element> {
               <ul className="mt-4 flex flex-wrap gap-2" aria-label={`${item.brand.name} kategóriái`}>
                 {item.categories.map((category) => (
                   <li key={category.id}>
-                    <Link href={`/marka/${item.brand.slug}/${category.slug}`} className="inline-block rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors hover:border-primary hover:text-primary">
-                      {category.name}
-                    </Link>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/marka/${item.brand.slug}/${category.slug}`}>{category.name}</Link>
+                    </Button>
                   </li>
                 ))}
               </ul>

@@ -1,5 +1,6 @@
 'use client'
 
+import { AnimatePresence, motion, useReducedMotion, type Variants } from 'framer-motion'
 import { ArrowLeftIcon, ArrowRightIcon, SendIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -8,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { placeOrderAction } from '@/app/(frontend)/actions'
 import { CartLines } from '@/components/cart/CartLines'
+import { CHECKOUT_STAGES, CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 import { Alert, AlertDescription, AlertTitle } from '@/components/shadcn/alert'
 import { Button } from '@/components/shadcn/button'
 import { Checkbox } from '@/components/shadcn/checkbox'
@@ -16,11 +18,12 @@ import { Label } from '@/components/shadcn/label'
 import { RadioGroup, RadioGroupItem } from '@/components/shadcn/radio-group'
 import { Textarea } from '@/components/shadcn/textarea'
 import { useCart } from '@/hooks/useCart'
+import { describeDeliveryFee } from '@/lib/delivery'
 import { formatHuf } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { addressSchema, customerSchema } from '@/schemas/checkout'
 import type { FieldErrors } from '@/types/common'
-import type { DeliveryFee, DeliveryMethod } from '@/types/settings'
+import type { DeliveryMethod } from '@/types/settings'
 
 type CheckoutFormProps = {
   deliveryMethods: DeliveryMethod[]
@@ -44,15 +47,13 @@ type TextFieldProps = {
   optional?: boolean
 }
 
-const STEPS: readonly string[] = ['Kosár', 'Adatok', 'Átvétel', 'Áttekintés']
+/** The form owns stages 0–3; stage 4 (Visszaigazolás) is the confirmation page after a successful order. */
+const PANEL_TITLES: readonly string[] = CHECKOUT_STAGES.slice(0, 4)
+const LAST_PANEL: number = PANEL_TITLES.length - 1
+
+type FocusIntent = 'heading' | 'invalid'
 const KEY_STORAGE: string = 'benyom-penztar-kulcs'
 const EMPTY_ADDRESS: AddressState = { postalCode: '', city: '', street: '' }
-
-function feeLabel(fee: DeliveryFee): string {
-  if (fee.kind === 'free') return 'Ingyenes'
-  if (fee.kind === 'fixed') return `${formatHuf(fee.amount)}${fee.isSampleValue ? ' (fiktív mintadíj)' : ''}`
-  return 'Díj még nincs meghatározva – nem választható'
-}
 
 function TextField(props: TextFieldProps): React.JSX.Element {
   const errorId = `${props.id}-hiba`
@@ -115,8 +116,14 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<boolean>(false)
+  /** +1 forward, -1 backward: drives the panel slide direction. */
+  const [direction, setDirection] = useState<number>(1)
   const idempotencyKey = useRef<string>('')
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const focusIntent = useRef<FocusIntent | null>(null)
+  const submittingRef = useRef<boolean>(false)
+  const reduceMotion = useReducedMotion()
 
   useEffect(() => {
     try {
@@ -126,9 +133,30 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
     }
   }, [])
 
-  useEffect(() => {
-    headingRef.current?.focus()
-  }, [step])
+  const focusTarget = (intent: FocusIntent): void => {
+    const invalid = intent === 'invalid' ? panelRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]') : null
+    // Groups (e.g. the delivery radio group) are not focusable themselves: focus their first enabled control.
+    const target = invalid?.matches('input, button, select, textarea') ? invalid : invalid?.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled])')
+    if (target) target.focus()
+    else headingRef.current?.focus()
+  }
+
+  /** Changes panel; focus moves once the incoming panel has finished animating. */
+  const goTo = (target: number, intent: FocusIntent): void => {
+    if (target === step) {
+      requestAnimationFrame(() => focusTarget(intent))
+      return
+    }
+    focusIntent.current = intent
+    setDirection(target > step ? 1 : -1)
+    setStep(target)
+  }
+
+  const onPanelShown = (): void => {
+    const intent = focusIntent.current
+    focusIntent.current = null
+    if (intent) focusTarget(intent)
+  }
 
   const method = props.deliveryMethods.find((item) => item.id === methodId)
   const fee = method?.fee.kind === 'fixed' ? method.fee.amount : 0
@@ -157,18 +185,22 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
   function next(): void {
     const found = validate(step)
     setErrors(found)
-    setFormError(Object.keys(found).length > 0 ? 'Kérjük, javítsa a megjelölt mezőket.' : null)
-    if (Object.keys(found).length === 0) setStep(step + 1)
+    const invalid = Object.keys(found).length > 0
+    setFormError(invalid ? 'Kérjük, javítsa a megjelölt mezőket.' : null)
+    // Never advance past invalid required fields; focus the first one instead.
+    goTo(invalid ? step : step + 1, invalid ? 'invalid' : 'heading')
   }
 
   async function submit(): Promise<void> {
-    const found = validate(3)
+    if (submittingRef.current) return
+    const found = validate(LAST_PANEL)
     setErrors(found)
     if (Object.keys(found).length > 0) {
       setFormError('Kérjük, javítsa a megjelölt mezőket.')
-      setStep(Math.min(...Object.keys(found).map(stepForField)))
+      goTo(Math.min(...Object.keys(found).map(stepForField)), 'invalid')
       return
     }
+    submittingRef.current = true
     setSubmitting(true)
     setFormError(null)
     const shippingAddress = method?.kind === 'delivery' ? { ...(sameAsBilling ? billing : shipping), country: 'HU' } : null
@@ -183,19 +215,25 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
       termsAccepted: terms,
       privacyAccepted: privacy,
     }).catch(() => null)
-    setSubmitting(false)
+    if (!result || !result.ok) {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
     if (!result) {
       setFormError('A kapcsolat megszakadt. Próbálja újra – a rendelés nem lesz kétszer rögzítve.')
+      requestAnimationFrame(() => focusTarget('heading'))
       return
     }
     if (!result.ok) {
+      // Stay on (or return to) the panel that owns the failing fields, with the message shown.
       setErrors(result.fieldErrors)
       setFormError(result.message)
       const fields = Object.keys(result.fieldErrors)
-      if (fields.length > 0) setStep(Math.min(...fields.map(stepForField)))
+      goTo(fields.length > 0 ? Math.min(...fields.map(stepForField)) : step, fields.length > 0 ? 'invalid' : 'heading')
       void cart.refresh()
       return
     }
+    // Success: keep the button locked while navigating to the confirmation stage.
     try {
       window.sessionStorage.removeItem(KEY_STORAGE)
     } catch {
@@ -224,6 +262,14 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
     )
   }
 
+  const distance = reduceMotion ? 0 : 24
+  const panelVariants: Variants = {
+    enter: (dir: number) => ({ opacity: 0, x: dir * distance }),
+    center: { opacity: 1, x: 0, pointerEvents: 'auto' },
+    // Outgoing panel cannot be clicked while it fades out.
+    exit: (dir: number) => ({ opacity: 0, x: -dir * distance, pointerEvents: 'none' }),
+  }
+
   const setCustomerField = (field: keyof CustomerState) => (value: string): void => setCustomer({ ...customer, [field]: value })
   const setBillingField = (field: keyof AddressState) => (value: string): void => setBilling({ ...billing, [field]: value })
   const setShippingField = (field: keyof AddressState) => (value: string): void => setShipping({ ...shipping, [field]: value })
@@ -231,16 +277,10 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
       <div>
-        <ol className="mb-6 flex flex-wrap gap-2 text-sm" aria-label="Pénztár lépései">
-          {STEPS.map((label: string, index: number) => (
-            <li key={label} aria-current={index === step ? 'step' : undefined} className={cn('rounded-full border px-3 py-1', index === step ? 'border-ink bg-ink text-white' : index < step ? 'border-ink' : 'text-muted-foreground')}>
-              {index + 1}. {label}
-            </li>
-          ))}
-        </ol>
+        <CheckoutProgress current={step} onSelect={(stage: number) => goTo(stage, 'heading')} />
 
         <h2 ref={headingRef} tabIndex={-1} className="mb-4 text-xl font-bold outline-none">
-          {STEPS[step]}
+          {PANEL_TITLES[step]}
         </h2>
 
         {formError ? (
@@ -259,6 +299,20 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
           </Alert>
         ) : null}
 
+        <div ref={panelRef} className="overflow-x-clip">
+        <AnimatePresence mode="wait" initial={false} custom={direction}>
+        <motion.div
+          key={step}
+          custom={direction}
+          variants={panelVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ duration: reduceMotion ? 0.01 : 0.18, ease: 'easeOut' }}
+          onAnimationComplete={(definition: unknown) => {
+            if (definition === 'center') onPanelShown()
+          }}
+        >
         {step === 0 ? (
           <div className="rounded-xl border px-4">
             <CartLines />
@@ -291,7 +345,7 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
           <div className="space-y-6">
             <fieldset>
               <legend className="mb-3 font-semibold">Átvétel módja</legend>
-              <RadioGroup value={methodId} onValueChange={setMethodId} aria-describedby={errors.deliveryMethodId ? 'mod-hiba' : undefined} className="gap-3">
+              <RadioGroup value={methodId} onValueChange={setMethodId} aria-invalid={errors.deliveryMethodId ? true : undefined} aria-describedby={errors.deliveryMethodId ? 'mod-hiba' : undefined} className="gap-3">
                 {props.deliveryMethods
                   .filter((item) => item.enabled)
                   .map((item) => {
@@ -302,7 +356,7 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
                         <span>
                           <span className="block font-semibold">{item.name}</span>
                           <span className="block text-sm text-muted-foreground">{item.description}</span>
-                          <span className="mt-1 block text-sm font-semibold">{feeLabel(item.fee)}</span>
+                          <span className="mt-1 block text-sm font-semibold">{describeDeliveryFee(item.fee)}</span>
                         </span>
                       </Label>
                     )
@@ -357,7 +411,7 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
           </div>
         ) : null}
 
-        {step === 3 ? (
+        {step === LAST_PANEL ? (
           <div className="space-y-6">
             <div className="rounded-xl border px-4">
               <CartLines readOnly />
@@ -426,24 +480,27 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
             </div>
           </div>
         ) : null}
+        </motion.div>
+        </AnimatePresence>
+        </div>
 
         <div className="mt-8 flex flex-wrap justify-between gap-3">
           {step > 0 ? (
-            <Button type="button" variant="outline" onClick={() => setStep(step - 1)} disabled={submitting}>
+            <Button type="button" variant="outline" onClick={() => goTo(step - 1, 'heading')} disabled={submitting}>
               <ArrowLeftIcon aria-hidden="true" />
               Vissza
             </Button>
           ) : (
             <span />
           )}
-          {step < 3 ? (
+          {step < LAST_PANEL ? (
             <Button type="button" size="lg" onClick={next} disabled={!cart.quote || cart.quote.hasUnavailable || cart.pending}>
               Tovább
               <ArrowRightIcon aria-hidden="true" />
             </Button>
           ) : (
-            <Button type="button" size="lg" onClick={() => void submit()} disabled={submitting || !cart.quote || cart.quote.hasUnavailable}>
-              <SendIcon aria-hidden="true" />
+            <Button type="button" size="lg" onClick={() => void submit()} loading={submitting} disabled={!cart.quote || cart.quote.hasUnavailable}>
+              {submitting ? null : <SendIcon aria-hidden="true" />}
               {submitting ? 'Küldés…' : 'Előrendelés elküldése'}
             </Button>
           )}
@@ -457,7 +514,7 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
         </div>
         <div className="flex justify-between gap-3">
           <span>{method?.name ?? 'Átvétel'}</span>
-          <span>{method ? feeLabel(method.fee) : '–'}</span>
+          <span>{method ? describeDeliveryFee(method.fee) : '–'}</span>
         </div>
         <div className="flex justify-between border-t pt-2 text-base font-bold text-ink">
           <span>Fizetendő átvételkor</span>

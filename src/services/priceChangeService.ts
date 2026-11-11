@@ -17,10 +17,11 @@ import {
 import { getStoreSettings } from '@/dto/settings'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import { addHours, clock } from '@/lib/clock'
-import { randomToken, sha256 } from '@/lib/crypto'
+import { hmac, randomToken, sha256 } from '@/lib/crypto'
 import { AppError } from '@/lib/errors'
 import { multiplyHuf, sumHuf } from '@/lib/money'
 import { createProposalSchema, decisionSchema } from '@/schemas/proposal'
+import { isDelivered } from '@/services/emailService'
 import { notificationService } from '@/services/notificationService'
 import type { AuthorizationContext } from '@/types/auth'
 import type { IsoDateTime } from '@/types/common'
@@ -88,9 +89,20 @@ async function requireOrder(reference: string, auth: AuthorizationContext): Prom
 }
 
 /**
- * Sends the proposal or reminder email under a claim, so concurrent scheduler runs or
- * retries cannot send twice. A fresh decision token is issued per email; only its hash is
- * stored, and only once the send succeeded. A failed attempt does not start any period.
+ * Decision token for one proposal email. Derived (HMAC with the server secret) instead of random,
+ * so a retry renders exactly the same email: together with the stable idempotency key the
+ * provider can deduplicate a request that was accepted but whose response was lost. Only the
+ * SHA-256 hash is stored, and only after the provider accepted the email.
+ */
+function decisionToken(proposalId: string, kind: EmailKind): string {
+  return hmac(`decision-token:${proposalId}:${kind}`)
+}
+
+/**
+ * Sends the proposal or reminder email under a claim, so concurrent scheduler runs or retries
+ * cannot send twice. A failed attempt does not start any period: periods start at `sentAt`, the
+ * moment the provider accepted the email. The deadline printed in the email is anchored to the
+ * first attempt (stable across retries), so it is never later than the real deadline.
  */
 async function dispatchProposalEmail(proposalId: string, kind: EmailKind, auth: AuthorizationContext): Promise<'sent' | 'failed' | 'skipped'> {
   const now = clock.nowIso()
@@ -101,14 +113,15 @@ async function dispatchProposalEmail(proposalId: string, kind: EmailKind, auth: 
   if (!proposal) return 'skipped'
   const order = await requireOrder(proposal.orderReference, auth)
   const settings = await getStoreSettings()
-  const token = randomToken(32)
+  const token = decisionToken(proposalId, kind)
   const url = decisionUrl(token)
+  const anchor = (kind === 'proposal' ? proposal.proposalEmail : proposal.reminderEmail).firstAttemptAt ?? now
   const result = await notificationService.notify({
     order,
     template:
       kind === 'proposal'
-        ? { id: 'price-change-proposal', order, proposal, decisionUrl: url, earliestCancellation: addHours(now, PROPOSAL_REMINDER_AFTER_HOURS + PROPOSAL_FINAL_WINDOW_HOURS) }
-        : { id: 'price-change-reminder', order, proposal, decisionUrl: url, deadline: addHours(now, PROPOSAL_FINAL_WINDOW_HOURS) },
+        ? { id: 'price-change-proposal', order, proposal, decisionUrl: url, earliestCancellation: addHours(anchor, PROPOSAL_REMINDER_AFTER_HOURS + PROPOSAL_FINAL_WINDOW_HOURS) }
+        : { id: 'price-change-reminder', order, proposal, decisionUrl: url, deadline: addHours(anchor, PROPOSAL_FINAL_WINDOW_HOURS) },
     recipientRole: 'customer',
     settings,
     proposalId,
@@ -116,12 +129,10 @@ async function dispatchProposalEmail(proposalId: string, kind: EmailKind, auth: 
   await completeProposalEmail(
     proposalId,
     kind,
-    result.status === 'sent_simulated'
-      ? { ok: true, sentAt: result.sentAt, tokenHash: sha256(token) }
-      : { ok: false, attemptedAt: result.attemptedAt, error: result.error },
+    isDelivered(result) ? { ok: true, sentAt: result.sentAt, tokenHash: sha256(token) } : { ok: false, attemptedAt: result.attemptedAt, error: result.error },
     auth,
   )
-  return result.status === 'sent_simulated' ? 'sent' : 'failed'
+  return isDelivered(result) ? 'sent' : 'failed'
 }
 
 export const priceChangeService: PriceChangeService = {
@@ -171,7 +182,7 @@ export const priceChangeService: PriceChangeService = {
     const itemsTotal = sumHuf(lines.map((line: ProposalLine) => multiplyHuf(line.proposedUnitPrice, line.quantity)))
     const deliveryFee = order.agreed.totals.deliveryFee
     const now = clock.nowIso()
-    const emptyDispatch = { attempts: 0, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null }
+    const emptyDispatch = { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null }
 
     const proposal = await addProposal(
       {

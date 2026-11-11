@@ -7,6 +7,10 @@ Preorder only: cart → contact/billing → collection or delivery → review �
 - **invoicing**: none. The checkout says so.
 - **inventory**: none. Orderability flags only.
 
+## Checkout UI
+
+`CheckoutForm` is one flow with four panels (Kosár, Adatok, Átvétel és szállítás, Összesítés); the fifth stage (Visszaigazolás) is the confirmation page and only appears after the order was created. `CheckoutProgress` shows a framer-motion progress fill (scaleX, so reduced-motion users get no movement) with numbered stages: completed stages show a check icon and can be clicked to go back, the current stage is ring-marked with `aria-current="step"`, upcoming stages are outlined; small screens show "n/5. lépés: …". Panels change through `AnimatePresence mode="wait"` with a short fade and horizontal slide in the navigation direction; the outgoing panel ignores pointer input. Form state lives in the parent, so going back keeps all data. "Tovább" never advances past invalid required fields and focuses the first invalid control; after a successful step change focus moves to the new panel heading. Submission is guarded against duplicates (ref + loading button) and failures keep the customer on the relevant panel with the message.
+
 ## Checkout validation (server)
 
 `orderService.placeOrder(input: unknown)`:

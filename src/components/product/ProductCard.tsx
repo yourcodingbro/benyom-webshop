@@ -5,11 +5,13 @@ import Link from 'next/link'
 import type React from 'react'
 import { useState } from 'react'
 
+import { QuantitySelector } from '@/components/cart/QuantitySelector'
 import { OrderabilityBadge } from '@/components/product/OrderabilityBadge'
 import { ProductPicture } from '@/components/product/ProductPicture'
 import { VariantOptions } from '@/components/product/VariantOptions'
 import { Button } from '@/components/shadcn/button'
 import { VARIANT_DIMENSION_LABELS } from '@/config/labels'
+import { MAX_LINE_QUANTITY } from '@/config/shop'
 import { useCart } from '@/hooks/useCart'
 import { useVariantSelection } from '@/hooks/useVariantSelection'
 import { describeAttributes, effectiveOrderability } from '@/lib/catalog'
@@ -40,6 +42,7 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
   const cart = useCart()
   const variants = useVariantSelection({ product, initialSku: null, autoComplete: false })
   const [adding, setAdding] = useState<boolean>(false)
+  const [quantity, setQuantity] = useState<number | null>(1)
   const [feedback, setFeedback] = useState<Feedback>(null)
 
   const selected = variants.selectedVariant
@@ -56,11 +59,20 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
       setFeedback({ kind: 'error', text: `Válassza ki: ${variants.missing.map((dimension) => VARIANT_DIMENSION_LABELS[dimension].toLowerCase()).join(', ')}.` })
       return
     }
+    if (quantity === null) {
+      setFeedback({ kind: 'error', text: 'Adjon meg érvényes mennyiséget.' })
+      return
+    }
     setAdding(true)
     setFeedback(null)
-    const ok = await cart.addItem(selected.sku, 1)
+    const result = await cart.addItem(selected.sku, quantity)
     setAdding(false)
-    setFeedback(ok ? { kind: 'success', text: `Kosárba téve: ${describeAttributes(selected.attributes) || product.name}` } : { kind: 'error', text: cart.error ?? 'A termék nem tehető a kosárba.' })
+    if (!result.ok) {
+      setFeedback({ kind: 'error', text: result.message })
+      return
+    }
+    setFeedback({ kind: 'success', text: `${quantity} db kosárba téve (összesen ${result.quantityInCart} db): ${describeAttributes(selected.attributes) || product.name}` })
+    setQuantity(1)
   }
 
   return (
@@ -96,17 +108,33 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
         {/* z-10 lifts the controls above the stretched link overlay. */}
         <div className="relative z-10 mt-auto space-y-2 pt-1">
           <VariantOptions product={product} selection={variants} onChoose={choose} compact />
-          <Button
-            type="button"
-            size="sm"
-            className="w-full"
-            disabled={!cart.hydrated || adding || orderability !== 'preorderable'}
-            onClick={() => void addToCart()}
-            aria-label={orderability === 'preorderable' && !adding ? `${product.name} kosárba` : undefined}
-          >
-            <ShoppingCartIcon aria-hidden="true" />
-            {orderability !== 'preorderable' ? 'Nem rendelhető' : adding ? 'Hozzáadás…' : 'Kosárba'}
-          </Button>
+          {/* Container query: in narrow cards (2-column phone grid) the button shows only its icon. */}
+          <div className="@container flex items-start gap-2">
+            <QuantitySelector
+              value={quantity}
+              onChange={(value: number | null) => {
+                setQuantity(value)
+                setFeedback(null)
+              }}
+              max={MAX_LINE_QUANTITY}
+              label={`${product.name} mennyisége`}
+              disabled={orderability !== 'preorderable'}
+              compact
+              className="shrink-0"
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="min-w-0 flex-1 gap-1 px-2 has-[>svg]:px-2"
+              loading={adding}
+              disabled={!cart.hydrated || orderability !== 'preorderable'}
+              onClick={() => void addToCart()}
+              aria-label={orderability !== 'preorderable' ? 'Nem rendelhető' : `${product.name} kosárba`}
+            >
+              {adding ? null : <ShoppingCartIcon aria-hidden="true" />}
+              <span className="hidden truncate @[12rem]:inline">{orderability !== 'preorderable' ? 'Nem rendelhető' : adding ? 'Hozzáadás…' : 'Kosárba'}</span>
+            </Button>
+          </div>
           <p className="min-h-4 text-xs" role={feedback?.kind === 'error' ? 'alert' : 'status'}>
             {feedback ? (
               <span className={feedback.kind === 'error' ? 'text-destructive' : 'inline-flex items-center gap-1 text-emerald-800'}>

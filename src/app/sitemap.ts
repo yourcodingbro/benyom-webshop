@@ -18,6 +18,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/termekek` },
     { url: `${base}/markak` },
     { url: `${base}/kategoriak` },
+    { url: `${base}/fizetes-es-szallitas` },
+    { url: `${base}/kapcsolat` },
     ...brands.map((brand) => ({ url: `${base}/marka/${brand.slug}` })),
     ...brandCategories.flat().map((url: string) => ({ url })),
     ...categories.map((category) => ({ url: `${base}/kategoria/${category.slug}` })),

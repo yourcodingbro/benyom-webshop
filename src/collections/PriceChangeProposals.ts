@@ -11,6 +11,7 @@ const dispatchGroup = (name: string, label: string): Field => ({
   admin: { readOnly: true },
   fields: [
     { name: 'attempts', label: 'Kísérletek', type: 'number', defaultValue: 0 },
+    { name: 'firstAttemptAt', label: 'Első kísérlet', type: 'date' },
     { name: 'lastAttemptAt', label: 'Utolsó kísérlet', type: 'date' },
     { name: 'lastError', label: 'Utolsó hiba', type: 'text' },
     { name: 'claimedAt', label: 'Küldés folyamatban óta', type: 'date' },

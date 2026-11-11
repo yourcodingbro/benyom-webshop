@@ -1,11 +1,12 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { ShoppingCartIcon } from 'lucide-react'
+import { CheckIcon, ShoppingCartIcon } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import type React from 'react'
 import { useId, useState } from 'react'
 
+import { QuantitySelector } from '@/components/cart/QuantitySelector'
 import { OrderabilityBadge } from '@/components/product/OrderabilityBadge'
 import { ProductPicture } from '@/components/product/ProductPicture'
 import { VariantOptions } from '@/components/product/VariantOptions'
@@ -29,11 +30,11 @@ export function ProductConfigurator(props: ProductConfiguratorProps): React.JSX.
   const router = useRouter()
   const pathname = usePathname()
   const cart = useCart()
-  const quantityId = useId()
+  const quantityLabelId = useId()
   const variants = useVariantSelection({ product, initialSku: props.initialSku, autoComplete: true })
-  const [quantity, setQuantity] = useState<number>(1)
+  const [quantity, setQuantity] = useState<number | null>(1)
   const [adding, setAdding] = useState<boolean>(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
 
   const selected = variants.selectedVariant
   if (!selected) return <p>Ehhez a termékhez nincs rendelhető változat.</p>
@@ -48,11 +49,15 @@ export function ProductConfigurator(props: ProductConfiguratorProps): React.JSX.
   }
 
   const addToCart = async (): Promise<void> => {
+    if (quantity === null) {
+      setMessage({ kind: 'error', text: 'Adjon meg érvényes mennyiséget.' })
+      return
+    }
     setAdding(true)
     setMessage(null)
-    const ok = await cart.addItem(selected.sku, quantity)
+    const result = await cart.addItem(selected.sku, quantity)
     setAdding(false)
-    if (!ok) setMessage(cart.error ?? 'A termék nem tehető a kosárba.')
+    setMessage(result.ok ? { kind: 'success', text: `${quantity} db kosárba téve (összesen ${result.quantityInCart} db).` } : { kind: 'error', text: result.message })
   }
 
   return (
@@ -84,27 +89,20 @@ export function ProductConfigurator(props: ProductConfiguratorProps): React.JSX.
 
         <div className="mt-6 flex flex-wrap items-end gap-3">
           <div>
-            <label htmlFor={quantityId} className="mb-1 block text-sm font-semibold">
+            <p id={quantityLabelId} className="mb-1 text-sm font-semibold">
               Mennyiség
-            </label>
-            <select id={quantityId} value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} className="h-10 rounded-md border border-input bg-white px-3">
-              {Array.from({ length: MAX_LINE_QUANTITY }, (_: unknown, index: number) => index + 1).map((value: number) => (
-                <option key={value} value={value}>
-                  {value} db
-                </option>
-              ))}
-            </select>
+            </p>
+            <QuantitySelector value={quantity} onChange={setQuantity} max={MAX_LINE_QUANTITY} label="Mennyiség" disabled={orderability !== 'preorderable'} />
           </div>
-          <Button size="lg" className="min-w-52" disabled={orderability !== 'preorderable' || adding || !cart.hydrated} onClick={() => void addToCart()}>
+          <Button size="lg" className="min-w-52" loading={adding} disabled={orderability !== 'preorderable' || !cart.hydrated} onClick={() => void addToCart()}>
             <ShoppingCartIcon aria-hidden="true" />
             {orderability !== 'preorderable' ? 'Nem rendelhető' : adding ? 'Hozzáadás…' : 'Kosárba – előrendelés'}
           </Button>
         </div>
-        {message ? (
-          <p className="mt-2 text-sm text-destructive" role="alert">
-            {message}
-          </p>
-        ) : null}
+        <p className={message?.kind === 'error' ? 'mt-2 text-sm text-destructive' : 'mt-2 inline-flex items-center gap-1 text-sm text-emerald-800'} role={message?.kind === 'error' ? 'alert' : 'status'}>
+          {message?.kind === 'success' ? <CheckIcon className="size-4" aria-hidden="true" /> : null}
+          {message?.text}
+        </p>
       </div>
     </div>
   )

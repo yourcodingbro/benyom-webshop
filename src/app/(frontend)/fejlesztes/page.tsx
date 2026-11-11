@@ -19,6 +19,7 @@ import { CsvImportForm } from '@/components/dev/CsvImportForm'
 import { Button } from '@/components/shadcn/button'
 import { FULFILLMENT_LABELS, PRICE_APPROVAL_LABELS, PROPOSAL_STATUS_LABELS } from '@/config/labels'
 import { FULFILLMENT_TRANSITIONS } from '@/config/order-rules'
+import { getEmailConfig } from '@/config/email'
 import { areDevToolsEnabled } from '@/config/runtime'
 import { getEmailLogEntries } from '@/dto/email-log'
 import { getOrders } from '@/dto/orders'
@@ -246,7 +247,7 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
                     ))}
                     {order.notifications.map((record) => (
                       <li key={record.id}>
-                        E-mail {record.templateId} ({record.recipientRole}): {record.status === 'failed' ? `SIKERTELEN – ${record.error}` : 'szimuláltan elküldve'}
+                        E-mail {record.templateId} ({record.recipientRole}): {record.status === 'failed' ? `SIKERTELEN – ${record.error}` : record.status === 'sent' ? 'Resend elfogadta' : 'szimuláltan elküldve'}
                       </li>
                     ))}
                   </ul>
@@ -257,7 +258,7 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
         </ul>
       </Section>
 
-      <Section title={`E-mail napló – szimulált (${emails.length})`}>
+      <Section title={`E-mail napló (${emails.length}) – mód: ${getEmailConfig().mode}`}>
         {emails.length === 0 ? (
           <p className="text-sm text-muted-foreground">Még nem készült e-mail.</p>
         ) : (
@@ -268,7 +269,7 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
                   {formatDateTime(entry.at)} · {entry.to} · {entry.subject}
                 </span>
                 <span>
-                  {entry.status === 'failed' ? <span className="text-destructive">sikertelen</span> : 'szimulált siker'} ·{' '}
+                  {entry.status === 'failed' ? <span className="text-destructive">sikertelen</span> : entry.status === 'sent' ? 'Resend elfogadta' : 'szimulált siker'} ·{' '}
                   {entry.preview ? (
                     <Link href={`/fejlesztes/email/${entry.id}`} className="font-semibold text-primary underline">
                       Előnézet

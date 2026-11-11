@@ -2,7 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import Link from 'next/link'
 import type React from 'react'
 
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/shadcn/button'
 import { listingQueryToParams } from '@/schemas/listing'
 import type { ProductQuery } from '@/types/catalog'
 
@@ -25,27 +25,28 @@ export function Pagination(props: PaginationProps): React.JSX.Element | null {
   return (
     <nav aria-label="Lapozás" className="mt-10 flex flex-wrap items-center justify-center gap-2">
       {props.page > 1 ? (
-        <Link href={href(props.page - 1)} className="inline-flex items-center gap-1 rounded-full border px-4 py-2 text-sm hover:bg-muted" rel="prev">
-          <ChevronLeftIcon aria-hidden="true" className="size-4" />
-          Előző
-        </Link>
+        <Button asChild variant="outline" size="sm">
+          <Link href={href(props.page - 1)} rel="prev">
+            <ChevronLeftIcon aria-hidden="true" />
+            Előző
+          </Link>
+        </Button>
       ) : null}
       {pages.map((page: number) => (
-        <Link
-          key={page}
-          href={href(page)}
-          aria-current={page === props.page ? 'page' : undefined}
-          className={cn('flex size-10 items-center justify-center rounded-full border text-sm', page === props.page ? 'border-ink bg-ink text-white' : 'hover:bg-muted')}
-        >
-          <span className="sr-only">Oldal </span>
-          {page}
-        </Link>
+        <Button key={page} asChild variant={page === props.page ? 'default' : 'outline'} size="icon-sm">
+          <Link href={href(page)} aria-current={page === props.page ? 'page' : undefined}>
+            <span className="sr-only">Oldal </span>
+            {page}
+          </Link>
+        </Button>
       ))}
       {props.page < props.totalPages ? (
-        <Link href={href(props.page + 1)} className="inline-flex items-center gap-1 rounded-full border px-4 py-2 text-sm hover:bg-muted" rel="next">
-          Következő
-          <ChevronRightIcon aria-hidden="true" className="size-4" />
-        </Link>
+        <Button asChild variant="outline" size="sm">
+          <Link href={href(props.page + 1)} rel="next">
+            Következő
+            <ChevronRightIcon aria-hidden="true" />
+          </Link>
+        </Button>
       ) : null}
     </nav>
   )

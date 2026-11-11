@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
   images: {
     localPatterns: [{ pathname: '/api/media/file/**' }, { pathname: '/sample-media/**' }],
   },
+  async redirects() {
+    // Delivery and contact moved from generic info pages to dedicated, settings-driven pages.
+    return [
+      { source: '/oldal/szallitas', destination: '/fizetes-es-szallitas', permanent: true },
+      { source: '/oldal/kapcsolat', destination: '/kapcsolat', permanent: true },
+    ]
+  },
   async headers() {
     return [
       { source: '/:path*', headers: securityHeaders },

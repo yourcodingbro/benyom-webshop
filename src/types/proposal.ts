@@ -6,6 +6,8 @@ export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'expired' | '
 /** Delivery state of one proposal-related email. A response period starts only at `sentAt`. */
 export type EmailDispatchState = {
   attempts: number
+  /** First claim time; anchors the deadline printed in the email so retries are identical. */
+  firstAttemptAt: IsoDateTime | null
   lastAttemptAt: IsoDateTime | null
   lastError: string | null
   /** Set while a sender holds the claim; prevents duplicate sends under concurrency. */

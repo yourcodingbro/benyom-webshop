@@ -1,6 +1,7 @@
 import { SearchIcon } from 'lucide-react'
 import type React from 'react'
 
+import { Button } from '@/components/shadcn/button'
 import { cn } from '@/lib/utils'
 
 type SearchFormProps = {
@@ -24,9 +25,9 @@ export function SearchForm(props: SearchFormProps): React.JSX.Element {
         placeholder="Keresés (pl. iPhone 17, SAM-S26U)"
         className="h-10 w-full rounded-full border border-white/20 bg-white/10 pr-11 pl-4 text-sm text-white placeholder:text-white/60 focus:bg-white/15"
       />
-      <button type="submit" className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full text-white hover:bg-white/15" aria-label="Keresés indítása">
-        <SearchIcon className="size-4" aria-hidden="true" />
-      </button>
+      <Button type="submit" variant="ghostInverse" size="icon-xs" className="absolute top-1.5 right-1.5" aria-label="Keresés indítása">
+        <SearchIcon aria-hidden="true" />
+      </Button>
     </form>
   )
 }

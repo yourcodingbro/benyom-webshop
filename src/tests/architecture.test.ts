@@ -27,11 +27,16 @@ describe('architecture boundaries', () => {
     expect(offenders.map(rel)).toEqual([])
   })
 
-  it('all notifications go through emailService.sendEmail and no email provider SDK is used', () => {
+  it('all notifications go through emailService.sendEmail; only emailService talks to Resend', () => {
     const pkg = readFileSync(path.join(ROOT, 'package.json'), 'utf8')
-    expect(pkg).not.toMatch(/"resend"|"nodemailer"|"@sendgrid/)
+    expect(pkg).not.toMatch(/"nodemailer"|"@sendgrid/)
+    const resendImporters = sources.filter((file: string) => /from 'resend'/.test(readFileSync(file, 'utf8')))
+    expect(resendImporters.map(rel)).toEqual(['services/emailService.ts'])
+    expect(readFileSync(path.join(SRC, 'services', 'emailService.ts'), 'utf8')).toMatch(/^import 'server-only'/)
+    const publicEmailVars = sources.filter((file: string) => /NEXT_PUBLIC_(RESEND|EMAIL_FROM|CONTACT_EMAIL)/.test(readFileSync(file, 'utf8')) && rel(file) !== 'config/email.ts')
+    expect(publicEmailVars.map(rel)).toEqual([])
     const callers = sources.filter((file: string) => readFileSync(file, 'utf8').includes('emailService.sendEmail('))
-    expect(callers.map(rel)).toEqual(['services/notificationService.ts'])
+    expect(callers.map(rel).sort()).toEqual(['services/contactService.ts', 'services/notificationService.ts'])
   })
 
   it('shadcn components live in src/components/shadcn and components/ui is not used', () => {

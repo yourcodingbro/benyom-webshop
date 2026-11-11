@@ -2,7 +2,8 @@ import 'server-only'
 
 import { updateOrder } from '@/dto/orders'
 import { randomToken } from '@/lib/crypto'
-import { emailService } from '@/services/emailService'
+import { getStoreRecipient } from '@/config/email'
+import { emailService, isDelivered } from '@/services/emailService'
 import type { AuthorizationContext } from '@/types/auth'
 import type { EmailTemplate, SendEmailResult } from '@/types/email'
 import type { NotificationRecord, Order } from '@/types/order'
@@ -29,22 +30,28 @@ const NOTIFIER_AUTH: AuthorizationContext = { kind: 'system', process: 'notifica
  */
 export const notificationService: NotificationService = {
   async notify(input: NotifyInput): Promise<SendEmailResult> {
-    const to = input.recipientRole === 'store' ? input.settings.storeNotificationEmail : input.order.submission.customer.email
+    const to = input.recipientRole === 'store' ? getStoreRecipient(input.settings, 'orders') : input.order.submission.customer.email
+    // One logical notification = one key, reused by retries (e.g. price-change-reminder/BNY-…/prop-…).
+    const idempotencyKey = [input.template.id, input.order.reference, input.proposalId, input.template.id === 'fulfillment-update' ? input.template.status : null]
+      .filter((part: string | null): part is string => part !== null)
+      .join('/')
     const result = await emailService.sendEmail({
       to,
+      replyTo: null,
       template: input.template,
       settings: input.settings,
       orderReference: input.order.reference,
       proposalId: input.proposalId,
+      idempotencyKey,
     })
     const record: NotificationRecord = {
       id: `ntf-${randomToken(6)}`,
       templateId: input.template.id,
       recipientRole: input.recipientRole,
       status: result.status,
-      attemptedAt: result.status === 'failed' ? result.attemptedAt : result.sentAt,
-      sentAt: result.status === 'sent_simulated' ? result.sentAt : null,
-      error: result.status === 'failed' ? result.error : null,
+      attemptedAt: isDelivered(result) ? result.sentAt : result.attemptedAt,
+      sentAt: isDelivered(result) ? result.sentAt : null,
+      error: isDelivered(result) ? null : result.error,
       proposalId: input.proposalId,
     }
     await updateOrder(input.order.reference, null, { appendNotifications: [record] }, NOTIFIER_AUTH)

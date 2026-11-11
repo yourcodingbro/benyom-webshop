@@ -28,6 +28,8 @@ export type StoreSettings = {
   isSampleContent: boolean
   contact: { email: string; phone: string; address: string }
   storeNotificationEmail: string
+  /** Server-only recipient of contact-form messages. */
+  contactRecipientEmail: string
   collection: { address: string; openingHours: string[]; note: string }
   deliveryMethods: DeliveryMethod[]
   legal: { termsVersion: string; privacyVersion: string }

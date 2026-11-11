@@ -1,4 +1,5 @@
 import type { IsoDateTime } from '@/types/common'
+import type { ContactMessage } from '@/types/contact'
 import type { FulfillmentStatus, Order } from '@/types/order'
 import type { PriceChangeProposal } from '@/types/proposal'
 import type { StoreSettings } from '@/types/settings'
@@ -14,18 +15,29 @@ export type EmailTemplate =
   | { id: 'cancelled-after-timeout'; order: Order }
   | { id: 'cancelled-by-store'; order: Order }
   | { id: 'fulfillment-update'; order: Order; status: FulfillmentStatus }
+  | { id: 'contact-message'; message: ContactMessage }
 
 export type EmailTemplateId = EmailTemplate['id']
 
 export type SendEmailInput = {
   to: string
+  /** Address replies should go to (e.g. a contact-form visitor). Never used as the sender. */
+  replyTo: string | null
   template: EmailTemplate
   settings: StoreSettings
   orderReference: string | null
   proposalId: string | null
+  /**
+   * Stable key for one logical notification (e.g. 'price-change-reminder/prop-123'). Retries reuse it,
+   * so the provider can deduplicate a request that was accepted but whose response was lost.
+   */
+  idempotencyKey: string
 }
 
 export type SendEmailResult =
+  /** Accepted by the provider (Resend); `messageId` is the provider's email id. */
+  | { status: 'sent'; messageId: string; sentAt: IsoDateTime }
+  /** EMAIL_MODE=log: rendered and logged, not sent. */
   | { status: 'sent_simulated'; messageId: string; sentAt: IsoDateTime }
   | { status: 'failed'; attemptedAt: IsoDateTime; error: string }
 

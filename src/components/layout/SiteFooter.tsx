@@ -19,6 +19,16 @@ export function SiteFooter(props: SiteFooterProps): React.JSX.Element {
         <div>
           <h2 className="text-sm font-semibold text-white uppercase">Információk</h2>
           <ul className="mt-3 space-y-1.5 text-sm">
+            <li>
+              <Link href="/fizetes-es-szallitas" className="hover:text-white hover:underline">
+                Fizetés és szállítás
+              </Link>
+            </li>
+            <li>
+              <Link href="/kapcsolat" className="hover:text-white hover:underline">
+                Kapcsolat
+              </Link>
+            </li>
             {settings.pages.map((page) => (
               <li key={page.slug}>
                 <Link href={`/oldal/${page.slug}`} className="hover:text-white hover:underline">

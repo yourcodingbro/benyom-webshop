@@ -47,7 +47,7 @@ Before going live: use Node 24 LTS, then upgrade all `@payloadcms/*` packages to
 
 ## Vercel
 
-- Env: `APP_ENV=production` (or rely on `VERCEL_ENV`), `APP_SIGNING_SECRET`, `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, `PAYLOAD_SECRET`, storage keys, `RESEND_API_KEY`, `EMAIL_FROM`, and `ALLOW_INDEXING=true` only for the real store.
+- Env: `APP_ENV=production` (or rely on `VERCEL_ENV`), `APP_SIGNING_SECRET`, `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, `PAYLOAD_SECRET`, storage keys, `EMAIL_MODE=resend`, `RESEND_API_KEY` (Sensitive), `EMAIL_FROM`, `CONTACT_EMAIL`, and `ALLOW_INDEXING=true` only for the real store.
 - Preview deployments keep `noindex` (the default).
 - Hosting access logs record request paths. Decision tokens are in the path, so restrict log access and retention, or move the token to the URL fragment and POST it from the page (see remaining requirements).
 
@@ -63,7 +63,7 @@ Proposal reminders and expiry need a durable, authenticated job:
 
 1. Real admin authentication (Payload users) replacing the dev panel. Admin UI actions for proposals must call `priceChangeService` (e.g. a custom endpoint or button), not raw collection edits.
 2. Payload-backed DTO implementations with transactions for the atomic contracts.
-3. Durable outbox + Resend + bounce webhooks ([email.md](email.md)).
+3. Durable outbox with automatic retries, and Resend bounce/complaint webhooks ([email.md](email.md)). Resend delivery itself is implemented (`EMAIL_MODE=resend`).
 4. Authenticated scheduler on a plan that supports it.
 5. Storage adapter, real images and bucket policy.
 6. Real legal texts (ÁSZF, privacy notice), real contact data and confirmed delivery fees. Methods with `unknown` fees stay unorderable.

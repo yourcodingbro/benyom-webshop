@@ -150,6 +150,7 @@ export async function claimProposalEmail(
   if (proposal.status !== 'pending' || state.sentAt !== null) return false
   if (state.claimedAt !== null && state.claimedAt > staleBefore) return false
   state.claimedAt = now
+  state.firstAttemptAt ??= now
   proposal.version += 1
   return true
 }

@@ -104,7 +104,7 @@ export type NotificationRecord = {
   id: string
   templateId: string
   recipientRole: 'customer' | 'store'
-  status: 'sent_simulated' | 'failed'
+  status: 'sent' | 'sent_simulated' | 'failed'
   attemptedAt: IsoDateTime
   sentAt: IsoDateTime | null
   error: string | null
