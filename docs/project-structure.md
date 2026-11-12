@@ -29,6 +29,7 @@ src/
 │   ├── checkout/            CheckoutForm (animated panels), CheckoutProgress, OrderSummary
 │   ├── home/                PopularSelector (homepage popular brands/categories)
 │   ├── contact/             ContactForm
+│   ├── info/                FaqAccordion (FAQ on the shared shadcn Accordion)
 │   ├── dev/                 CsvImportForm (development tools)
 │   ├── shadcn/              shadcn/ui primitives (alias "ui" → @/components/shadcn)
 │   ├── Logo.tsx, Breadcrumbs.tsx

@@ -29,7 +29,7 @@ Before going live: use Node 24 LTS, then upgrade all `@payloadcms/*` packages to
    ```
    Migrations live in `src/migrations/`. Run `migrate` in the deploy pipeline before switching traffic.
 4. Create the first admin user (role `admin`).
-5. Replace the DTO internals with Payload Local API calls ([data-access.md](data-access.md)). Map `StoreSettings` global fields (`deliveryMethods[].feeKind/feeAmount`, `pages[].body` paragraphs) to the `StoreSettings` type. Keep `getOrder` returning `null` for forbidden access.
+5. Replace the DTO internals with Payload Local API calls ([data-access.md](data-access.md)). Map `StoreSettings` global fields (`deliveryMethods[].feeKind/feeAmount`, `pages[].body` paragraphs, optional `pages[].faq` question–answer pairs) to the `StoreSettings` type. Keep `getOrder` returning `null` for forbidden access.
 6. Turn off sample-only code paths: the sample checkout guard, dev tools, preview storage, and the `isSample` flag on orders.
 7. Generate types after schema changes: `npm run generate:types`.
 

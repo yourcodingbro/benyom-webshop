@@ -488,10 +488,14 @@ const settings: StoreSettings = {
     {
       slug: 'gyik',
       title: 'Gyakori kérdések',
-      paragraphs: [
-        'Kell-e online fizetnem? Nem. A fizetés átvételkor vagy kiszállításkor történik.',
-        'Változhat-e a rendelésem ára? Csak akkor, ha Ön egy árváltozási ajánlatot kifejezetten elfogad.',
-        'Mi történik, ha nem válaszolok az árváltozási ajánlatra? 24 óra után emlékeztetőt küldünk; az emlékeztető elküldését követő újabb 24 óra elteltével a rendelés törlődik.',
+      paragraphs: [],
+      faq: [
+        { question: 'Kell-e online fizetnem?', answer: 'Nem. A fizetés átvételkor vagy kiszállításkor történik.' },
+        { question: 'Változhat-e a rendelésem ára?', answer: 'Csak akkor, ha Ön egy árváltozási ajánlatot kifejezetten elfogad.' },
+        {
+          question: 'Mi történik, ha nem válaszolok az árváltozási ajánlatra?',
+          answer: '24 óra után emlékeztetőt küldünk; az emlékeztető elküldését követő újabb 24 óra elteltével a rendelés törlődik.',
+        },
       ],
     },
   ],

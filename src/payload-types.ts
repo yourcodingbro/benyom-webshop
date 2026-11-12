@@ -532,6 +532,7 @@ export interface PriceChangeProposal {
   };
   proposalEmail?: {
     attempts?: number | null;
+    firstAttemptAt?: string | null;
     lastAttemptAt?: string | null;
     lastError?: string | null;
     claimedAt?: string | null;
@@ -542,6 +543,7 @@ export interface PriceChangeProposal {
   };
   reminderEmail?: {
     attempts?: number | null;
+    firstAttemptAt?: string | null;
     lastAttemptAt?: string | null;
     lastError?: string | null;
     claimedAt?: string | null;
@@ -980,6 +982,7 @@ export interface PriceChangeProposalsSelect<T extends boolean = true> {
     | T
     | {
         attempts?: T;
+        firstAttemptAt?: T;
         lastAttemptAt?: T;
         lastError?: T;
         claimedAt?: T;
@@ -989,6 +992,7 @@ export interface PriceChangeProposalsSelect<T extends boolean = true> {
     | T
     | {
         attempts?: T;
+        firstAttemptAt?: T;
         lastAttemptAt?: T;
         lastError?: T;
         claimedAt?: T;
@@ -1050,6 +1054,10 @@ export interface StoreSetting {
   id: number;
   storeName: string;
   storeNotificationEmail: string;
+  /**
+   * Ide érkeznek a kapcsolati űrlap üzenetei. A látogató címe csak válaszcím (Reply-To) lesz.
+   */
+  contactRecipientEmail: string;
   contact?: {
     email?: string | null;
     phone?: string | null;
@@ -1104,7 +1112,14 @@ export interface StoreSetting {
     | {
         slug: string;
         title: string;
-        body: string;
+        body?: string | null;
+        faq?:
+          | {
+              question: string;
+              answer: string;
+              id?: string | null;
+            }[]
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -1118,6 +1133,7 @@ export interface StoreSetting {
 export interface StoreSettingsSelect<T extends boolean = true> {
   storeName?: T;
   storeNotificationEmail?: T;
+  contactRecipientEmail?: T;
   contact?:
     | T
     | {
@@ -1181,6 +1197,13 @@ export interface StoreSettingsSelect<T extends boolean = true> {
         slug?: T;
         title?: T;
         body?: T;
+        faq?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              id?: T;
+            };
         id?: T;
       };
   updatedAt?: T;

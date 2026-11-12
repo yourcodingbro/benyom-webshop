@@ -17,10 +17,17 @@ export type DeliveryMethod = {
   fee: DeliveryFee
 }
 
+export type FaqItem = {
+  question: string
+  answer: string
+}
+
 export type InfoPage = {
   slug: string
   title: string
   paragraphs: string[]
+  /** Question–answer pairs shown as an accordion below the paragraphs (FAQ page). */
+  faq?: FaqItem[]
 }
 
 export type StoreSettings = {

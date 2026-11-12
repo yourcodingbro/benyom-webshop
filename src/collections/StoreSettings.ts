@@ -73,7 +73,16 @@ export const StoreSettings: GlobalConfig = {
       fields: [
         { name: 'slug', label: 'URL-azonosító', type: 'text', required: true },
         { name: 'title', label: 'Cím', type: 'text', required: true },
-        { name: 'body', label: 'Tartalom (bekezdések üres sorral elválasztva)', type: 'textarea', required: true },
+        { name: 'body', label: 'Tartalom (bekezdések üres sorral elválasztva)', type: 'textarea' },
+        {
+          name: 'faq',
+          label: 'Gyakori kérdések (lenyitható lista a tartalom alatt)',
+          type: 'array',
+          fields: [
+            { name: 'question', label: 'Kérdés', type: 'text', required: true },
+            { name: 'answer', label: 'Válasz', type: 'textarea', required: true },
+          ],
+        },
       ],
     },
   ],
