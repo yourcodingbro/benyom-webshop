@@ -451,7 +451,7 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
                 <Checkbox id="aszf" checked={terms} onCheckedChange={(value) => setTerms(value === true)} aria-invalid={errors.termsAccepted ? true : undefined} aria-describedby={errors.termsAccepted ? 'aszf-hiba' : undefined} className="mt-0.5" />
                 <Label htmlFor="aszf" className="block leading-snug font-normal">
                   Elolvastam és elfogadom az{' '}
-                  <Link href="/oldal/aszf" target="_blank" className="underline">
+                  <Link href="/info/aszf" target="_blank" className="underline">
                     Általános szerződési feltételeket
                   </Link>
                   , és tudomásul veszem, hogy a leadott előrendelés fizetési kötelezettséggel jár átvételkor.
@@ -466,7 +466,7 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
                 <Checkbox id="adatvedelem" checked={privacy} onCheckedChange={(value) => setPrivacy(value === true)} aria-invalid={errors.privacyAccepted ? true : undefined} aria-describedby={errors.privacyAccepted ? 'adatvedelem-hiba' : undefined} className="mt-0.5" />
                 <Label htmlFor="adatvedelem" className="block leading-snug font-normal">
                   Megismertem az{' '}
-                  <Link href="/oldal/adatvedelem" target="_blank" className="underline">
+                  <Link href="/info/adatvedelem" target="_blank" className="underline">
                     Adatkezelési tájékoztatót
                   </Link>
                   .

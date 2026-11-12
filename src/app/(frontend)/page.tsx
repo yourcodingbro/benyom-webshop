@@ -39,7 +39,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="secondary">
-                <Link href="/oldal/gyik">Hogyan működik?</Link>
+                <Link href="/gyik">Hogyan működik?</Link>
               </Button>
             </div>
           </Reveal>

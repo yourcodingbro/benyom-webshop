@@ -15,10 +15,9 @@ type SiteHeaderProps = {
 
 type DesktopLink = { label: string; href: string };
 
-/** Desktop-only primary links. Brand browsing lives on the homepage, /markak and the mobile menu. */
+/** Desktop-only primary links. Brand browsing lives on the homepage, /markak and the mobile menu; payment & delivery is linked from the footer. */
 const DESKTOP_LINKS: readonly DesktopLink[] = [
   { label: "Összes termék", href: "/termekek" },
-  { label: "Fizetés és szállítás", href: "/fizetes-es-szallitas" },
   { label: "Kapcsolat", href: "/kapcsolat" },
 ];
 

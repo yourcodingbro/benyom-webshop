@@ -173,7 +173,7 @@ export function ContactForm(props: ContactFormProps): React.JSX.Element {
           />
           <Label htmlFor="kapcsolat-adatvedelem" className="block leading-snug font-normal">
             Megismertem az{' '}
-            <Link href="/oldal/adatvedelem" target="_blank" className="underline">
+            <Link href="/info/adatvedelem" target="_blank" className="underline">
               Adatkezelési tájékoztatót
             </Link>
             , és hozzájárulok, hogy üzenetem megválaszolásához adataimat kezeljék.

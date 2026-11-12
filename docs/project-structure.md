@@ -6,7 +6,6 @@ src/
 │   ├── (frontend)/          storefront route group (own <html> layout)
 │   │   ├── page.tsx                     home (popular brands + categories, featured products)
 │   │   ├── markak/, kategoriak/         all brands, all categories
-│   │   ├── fizetes-es-szallitas/        payment & delivery (from store settings)
 │   │   ├── kapcsolat/                   contact page + submitContactAction
 │   │   ├── termekek/                    all products, search (?q=) and filters
 │   │   ├── marka/[brand]/[category]/    brand and brand+category pages
@@ -15,7 +14,9 @@ src/
 │   │   ├── kosar/, penztar/             cart, checkout (noindex)
 │   │   ├── rendeles/koszonjuk/          confirmation (cookie-gated, noindex)
 │   │   ├── arvaltozas/[token]/          price-change decision page + POST action
-│   │   ├── oldal/[slug]/                terms, privacy, delivery, warranty, FAQ, contact
+│   │   ├── info/[slug]/                 general information pages from settings (terms, privacy, warranty)
+│   │   ├── gyik/                        FAQ (settings page "gyik", shadcn Accordion)
+│   │   ├── fizetes-es-szallitas/        payment & delivery (built from store settings; footer link only)
 │   │   ├── fejlesztes/                  development tools + email previews (404 in production)
 │   │   └── actions.ts                   quoteCartAction, placeOrderAction
 │   ├── (payload)/           unmodified Payload admin/API route files (generated template)
@@ -29,7 +30,7 @@ src/
 │   ├── checkout/            CheckoutForm (animated panels), CheckoutProgress, OrderSummary
 │   ├── home/                PopularSelector (homepage popular brands/categories)
 │   ├── contact/             ContactForm
-│   ├── info/                FaqAccordion (FAQ on the shared shadcn Accordion)
+│   ├── info/                InfoPageLayout (shared frame for all information pages), InfoPageView (settings page: paragraphs + FAQ), FaqAccordion (shadcn Accordion)
 │   ├── dev/                 CsvImportForm (development tools)
 │   ├── shadcn/              shadcn/ui primitives (alias "ui" → @/components/shadcn)
 │   ├── Logo.tsx, Breadcrumbs.tsx

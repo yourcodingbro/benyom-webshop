@@ -3,6 +3,8 @@ import type { NextConfig } from 'next'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
+import { DEDICATED_INFO_PAGE_PATHS } from './src/lib/info-pages'
+
 const dirname: string = path.dirname(fileURLToPath(import.meta.url))
 
 const securityHeaders: { key: string; value: string }[] = [
@@ -18,10 +20,17 @@ const nextConfig: NextConfig = {
     localPatterns: [{ pathname: '/api/media/file/**' }, { pathname: '/sample-media/**' }],
   },
   async redirects() {
-    // Delivery and contact moved from generic info pages to dedicated, settings-driven pages.
+    // Next applies the first matching rule, so the specific ones come before the general /oldal/:slug
+    // rule. Every rule points straight at the final canonical URL (no chains), and no destination is
+    // itself a source (no loops).
+    const dedicated = Object.entries(DEDICATED_INFO_PAGE_PATHS).flatMap(([slug, destination]) =>
+      [`/oldal/${slug}`, `/info/${slug}`].map((source: string) => ({ source, destination, permanent: true })),
+    )
     return [
+      ...dedicated,
       { source: '/oldal/szallitas', destination: '/fizetes-es-szallitas', permanent: true },
       { source: '/oldal/kapcsolat', destination: '/kapcsolat', permanent: true },
+      { source: '/oldal/:slug', destination: '/info/:slug', permanent: true },
     ]
   },
   async headers() {

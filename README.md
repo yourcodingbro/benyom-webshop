@@ -61,7 +61,9 @@ npm start
 
 `/kapcsolat` validates on the client and on the server (Hungarian messages, length limits), blocks duplicate submissions (per-submission key, button lock), and has basic anti-spam (a hidden honeypot field plus a signed render time: submissions within 3 s or after 2 h are refused). Messages go to `CONTACT_EMAIL` (or, in log mode without it, the sample `contactRecipientEmail` setting), sent from `EMAIL_FROM` with the visitor only as Reply-To. In log mode the confirmation says plainly that no email was sent.
 
-The desktop header links to *Összes termék*, *Fizetés és szállítás* (`/fizetes-es-szallitas`, built from store settings) and *Kapcsolat*. Brand browsing stays on the homepage, `/markak` and the mobile menu.
+The desktop header links to *Összes termék* and *Kapcsolat*. *Fizetés és szállítás* (`/fizetes-es-szallitas`, built from store settings) is linked from the footer.
+
+Information pages: general settings pages live at `/info/<slug>` (terms, privacy, warranty), the FAQ at `/gyik` and payment & delivery at `/fizetes-es-szallitas`. `src/lib/info-pages.ts` maps slugs to these URLs; links, the sitemap and redirects all use it, and FAQ / payment & delivery are never served under `/info/`. Old URLs redirect permanently (308) in one step: `/oldal/gyik` and `/info/gyik` → `/gyik`; `/oldal/fizetes-es-szallitas`, `/info/fizetes-es-szallitas` and `/oldal/szallitas` → `/fizetes-es-szallitas`; `/oldal/kapcsolat` → `/kapcsolat`; any other `/oldal/<slug>` → `/info/<slug>`. Brand browsing stays on the homepage, `/markak` and the mobile menu.
 
 ## Email: logging or Resend
 
