@@ -19,7 +19,7 @@ const STYLES: Record<Orderability, string> = {
 /** Orderability only – never a stock quantity. */
 export function OrderabilityBadge(props: OrderabilityBadgeProps): React.JSX.Element {
   return (
-    <Badge variant="outline" className={cn(STYLES[props.orderability], props.className)}>
+    <Badge variant="outline" className={cn('h-auto max-w-full whitespace-normal text-left', STYLES[props.orderability], props.className)}>
       {ORDERABILITY_LABELS[props.orderability]}
     </Badge>
   )

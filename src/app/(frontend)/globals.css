@@ -2,6 +2,12 @@
 @import "tw-animate-css";
 
 /*
+ * The storefront has a single light theme. Bind `dark:` to an explicit .dark class (never set)
+ * so shadcn primitives don't switch to dark fills when the OS prefers a dark color scheme.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
  * Design tokens derived from benyom.hu (css/style.css):
  *   accent #ff0000 (logo bar, links, buttons), dark header #000/#111, white surfaces,
  *   text #666666 / headings #333 / #111, borders #dddddd, muted #f2f2f2,

@@ -11,10 +11,33 @@ Routes: `/marka/{brand}`, `/marka/{brand}/{category}`, `/kategoria/{category}`, 
 `getProducts(query)` supports:
 - search across name, model, brand and every variant SKU (case- and accent-insensitive, all tokens must match),
 - filters: brand, category, colors (HEX), storage, min/max price (a product matches if **any** variant matches all filters),
-- sorting: featured, price ↑/↓ (by lowest variant price), name (Hungarian collation), newest,
+- sorting: featured (**default, "Kiemelt"**: featured first), price ↑/↓ (by lowest variant price), name (Hungarian collation), newest. Every order ends with name and then id as tie-breakers, so pages never overlap or swap items. The default is applied in `getProducts` itself (`DEFAULT_PRODUCT_SORT` in `config/shop.ts`) as well as in the UI; an explicit `rendezes` from the URL always wins,
 - pagination (12 per page), plus facets computed before the color/storage/price filters.
 
-URL parameters (shareable, parsed leniently by `schemas/listing.ts`): `q`, `marka`, `kategoria`, `szin=1c1c1e,e8742a`, `tarhely=256,512`, `ar_min`, `ar_max`, `rendezes`, `oldal`. The filter form is a plain GET form, so it works without JavaScript.
+URL parameters (shareable, parsed leniently by `schemas/listing.ts`): `q`, `marka`, `kategoria`, `szin=1c1c1e,e8742a`, `tarhely=256,512`, `ar_min`, `ar_max`, `rendezes`, `oldal`.
+
+### Toolbar and live search
+
+`ListingToolbar` puts a full-width search field above the grid and sorting in its own row below, aligned right (shadcn `Select`, pill trigger, rounded panel).
+
+### Automatic sidebar filters
+
+The sidebar (`ListingFilters`, client) has no "Apply" button. Price comes first, then brand and category (shadcn `Select`), colors and storage. `useListingFilters` (`src/hooks/`):
+- applies checkboxes and dropdowns immediately (one history entry each, so Back steps through filter changes);
+- applies price inputs 300 ms after typing stops (`replace`, no history entries). The fields accept free typing (`150 000` and `1.000.000` are fine). `checkPriceRange` (`lib/price-filter.ts`) validates; an invalid range (non-integer, over 100 000 000, or max < min) shows an error after the debounce and is **not** applied, so the URL keeps the last valid range;
+- shows **Szűrők törlése** (pill `Button`, `FilterX` icon) above the filters whenever a sidebar filter is set. The button is always rendered so its space is reserved and toggling it never moves the sidebar; when inactive it is `invisible` (hidden from the tab order and assistive technology), `disabled` and `aria-hidden`. After clearing, focus moves to the minimum price field. It clears all of them, including price and excluding route-fixed brand/category, in one navigation, keeping search and sort;
+- re-syncs the controls when the URL changes from outside (Back/Forward, links); its own in-flight requests never overwrite newer local edits.
+
+All listing navigations (search, sort, filters) go through `useListingUrl`. It reads the live URL, always removes `oldal` (page 1), skips no-op URLs, and runs in one shared transition (`ListingTransitionProvider` wraps the sidebar and the results), so the newest navigation wins. The mobile filter panel (`<details>`) renders the same component with the same behavior.
+
+Without JavaScript, the toolbar and sidebar are GET forms with `<noscript>` submit buttons. The brand/category/sort dropdowns need JavaScript to open; price, colors and storage still work.
+
+- `useDebouncedSearchParam` (`src/hooks/`): the input updates immediately; the URL is replaced (`router.replace`, so no history entry per keystroke) 300 ms after the last keystroke (`SEARCH_DEBOUNCE_MS`). Clearing applies at once. The page (`oldal`) is reset, and sorting and all other filters are kept. Enter applies immediately; no button is needed.
+- The server re-renders the listing through the existing `getProducts` search. Navigations run in a shared React transition (`ListingTransitionProvider`), so the newest one wins and an older response cannot overwrite newer results. Only explicit applies write the URL (no effect does), and identical URLs are skipped, so there are no duplicate requests.
+- Back/forward (or links) that change `q` update the input. A response to our own earlier request never overwrites text typed after it.
+- Changing the sort is an explicit choice and uses `router.push` (one history entry), resetting the page.
+- While loading, the input shows a spinner, the results are dimmed with `aria-busy`, and screen readers hear "Keresés folyamatban…". The empty state names the search term and offers "Keresés törlése" (keeps other filters) and "Összes szűrő törlése".
+- Without JavaScript the toolbar is a plain GET form (Enter submits; a `<noscript>` *Alkalmaz* button applies the sort).
 
 Listings hide **draft** and **discontinued** products. Discontinued product pages stay reachable with a notice and cannot be ordered.
 

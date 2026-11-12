@@ -5,7 +5,7 @@ import { getAllProducts, getProductBySlug, getProducts } from '@/dto/products'
 import { effectiveOrderability, isVariantOrderable } from '@/lib/catalog'
 import { hexToPathSegment, normalizeHexColor } from '@/lib/hex'
 import { buildMediaObjectKey } from '@/lib/storage-path'
-import { parseListingParams } from '@/schemas/listing'
+import { listingQueryToParams, parseListingParams } from '@/schemas/listing'
 import { ADMIN, resetWorld } from '@/tests/helpers'
 
 beforeEach(resetWorld)
@@ -38,6 +38,44 @@ describe('HEX colors', () => {
         expect(Number.isSafeInteger(variant.price)).toBe(true)
         expect(variant.sku).not.toContain(variant.attributes.colorHex?.slice(1) ?? '###')
       }
+    }
+  })
+})
+
+describe('default sorting', () => {
+  it('defaults to featured first with a deterministic order across pages', async () => {
+    const all = (await getProducts({ pageSize: 48 })).items
+    const featuredCount = all.filter((product) => product.featured).length
+    expect(all.slice(0, featuredCount).every((product) => product.featured)).toBe(true)
+    expect(all.slice(featuredCount).some((product) => product.featured)).toBe(false)
+    expect((await getProducts({ sort: 'featured', pageSize: 48 })).items.map((p) => p.id)).toEqual(all.map((p) => p.id))
+
+    const page1 = await getProducts({ page: 1, pageSize: 12 })
+    const page2 = await getProducts({ page: 2, pageSize: 12 })
+    const pagedIds = [...page1.items, ...page2.items].map((p) => p.id)
+    expect(new Set(pagedIds).size).toBe(pagedIds.length)
+    expect(pagedIds).toEqual(all.slice(0, pagedIds.length).map((p) => p.id))
+    // Same request twice: identical order (no unstable ties).
+    expect((await getProducts({ page: 2 })).items.map((p) => p.id)).toEqual(page2.items.map((p) => p.id))
+  })
+
+  it('keeps an explicit sort from the URL and omits the default from generated URLs', () => {
+    expect(parseListingParams({ rendezes: 'price_desc', q: 'galaxy' })).toMatchObject({ sort: 'price_desc', search: 'galaxy' })
+    expect(parseListingParams({}).sort).toBeUndefined()
+    expect(listingQueryToParams({ sort: 'featured', search: 'x' }).toString()).toBe('q=x')
+    expect(listingQueryToParams({ sort: 'name_asc', page: 3 }).toString()).toBe('rendezes=name_asc&oldal=3')
+  })
+
+  it('ties on price are broken by name, then id', async () => {
+    const items = (await getProducts({ sort: 'price_asc', pageSize: 48 })).items
+    for (let index = 1; index < items.length; index += 1) {
+      const previous = items[index - 1]
+      const current = items[index]
+      if (!previous || !current) continue
+      const prevMin = Math.min(...previous.variants.map((v) => v.price))
+      const curMin = Math.min(...current.variants.map((v) => v.price))
+      expect(prevMin).toBeLessThanOrEqual(curMin)
+      if (prevMin === curMin) expect(new Intl.Collator('hu-HU').compare(previous.name, current.name)).toBeLessThanOrEqual(0)
     }
   })
 })

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { PRODUCT_PAGE_SIZE } from '@/config/shop'
+import { DEFAULT_PRODUCT_SORT, PRODUCT_PAGE_SIZE } from '@/config/shop'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import { priceRange, searchKey } from '@/lib/catalog'
 import { clock } from '@/lib/clock'
@@ -14,6 +14,7 @@ import type {
   ProductInput,
   ProductListResult,
   ProductQuery,
+  ProductSort,
   ProductUpdate,
   ProductVariant,
   VariantLookup,
@@ -68,21 +69,21 @@ function buildFacets(products: Product[]): ProductFacets {
 
 const collator: Intl.Collator = new Intl.Collator('hu-HU')
 
-function sortProducts(products: Product[], sort: ProductQuery['sort']): Product[] {
+/**
+ * Every order ends with name, then id, as tie-breakers, so equal keys never swap between
+ * requests and pagination stays stable.
+ */
+function sortProducts(products: Product[], sort: ProductSort): Product[] {
   const minPrice = (product: Product): number => priceRange(product)?.min ?? 0
-  const sorted = [...products]
-  switch (sort) {
-    case 'price_asc':
-      return sorted.sort((a: Product, b: Product) => minPrice(a) - minPrice(b))
-    case 'price_desc':
-      return sorted.sort((a: Product, b: Product) => minPrice(b) - minPrice(a))
-    case 'name_asc':
-      return sorted.sort((a: Product, b: Product) => collator.compare(a.name, b.name))
-    case 'newest':
-      return sorted.sort((a: Product, b: Product) => b.createdAt.localeCompare(a.createdAt))
-    default:
-      return sorted.sort((a: Product, b: Product) => Number(b.featured) - Number(a.featured) || collator.compare(a.name, b.name))
+  const tieBreak = (a: Product, b: Product): number => collator.compare(a.name, b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  const primary: Record<ProductSort, (a: Product, b: Product) => number> = {
+    featured: (a: Product, b: Product) => Number(b.featured) - Number(a.featured),
+    price_asc: (a: Product, b: Product) => minPrice(a) - minPrice(b),
+    price_desc: (a: Product, b: Product) => minPrice(b) - minPrice(a),
+    name_asc: () => 0,
+    newest: (a: Product, b: Product) => b.createdAt.localeCompare(a.createdAt),
   }
+  return [...products].sort((a: Product, b: Product) => primary[sort](a, b) || tieBreak(a, b))
 }
 
 /** Published, non-discontinued products matching the query, with facets for the filter UI. */
@@ -104,7 +105,8 @@ export async function getProducts(query: ProductQuery = {}): Promise<ProductList
       (!query.search || matchesSearch(product, brandsById.get(product.brandId), query.search)),
   )
   const filtered = base.filter((product: Product) => product.variants.some((variant: ProductVariant) => variantMatches(variant, query)))
-  const sorted = sortProducts(filtered, query.sort)
+  // The default ("Kiemelt") is applied here too, so every caller gets the same order, not only the UI.
+  const sorted = sortProducts(filtered, query.sort ?? DEFAULT_PRODUCT_SORT)
   const pageSize = Math.min(Math.max(query.pageSize ?? PRODUCT_PAGE_SIZE, 1), 48)
   const totalPages = Math.ceil(sorted.length / pageSize)
   const page = Math.min(Math.max(query.page ?? 1, 1), Math.max(totalPages, 1))

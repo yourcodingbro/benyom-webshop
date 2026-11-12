@@ -23,7 +23,7 @@ src/
 │   ├── sitemap.ts, robots.ts
 ├── components/              grouped by responsibility, not by the page that renders them
 │   ├── layout/              SiteHeader, SiteFooter, MobileNav, SearchForm, SampleModeBanner, MotionProvider
-│   ├── product/             ProductCard (preview + quick add), ProductConfigurator, VariantOptions, ProductPicture,
+│   ├── product/             ProductCard (preview + quick add), ProductConfigurator, VariantOptions, ProductPicture, ListingToolbar, ListingTransitionProvider,
 │   │                        ColorSwatch, OrderabilityBadge, CatalogListing, ListingFilters, Pagination
 │   ├── cart/                CartProvider, CartDrawer, CartLines, CartPageContent, QuantitySelector
 │   ├── checkout/            CheckoutForm (animated panels), CheckoutProgress, OrderSummary
@@ -33,7 +33,7 @@ src/
 │   ├── shadcn/              shadcn/ui primitives (alias "ui" → @/components/shadcn)
 │   ├── Logo.tsx, Breadcrumbs.tsx
 │   └── Reveal.tsx           framer-motion reveal
-├── hooks/                   useCart (cart context), useVariantSelection (shared variant selection)
+├── hooks/                   useCart, useVariantSelection, useDebouncedSearchParam (live search), useListingFilters, useListingUrl, useListingTransition
 ├── collections/             Payload collections, global, access helpers, shared fields
 ├── dto/                     data-access functions + sample runtime store
 ├── services/                business services (emailService.ts, orderService.ts, …)
@@ -58,6 +58,7 @@ Root-level exceptions: `package.json`, `next.config.ts`, `tsconfig.json`, `eslin
 
 - Components are PascalCase function declarations with a single typed `props` object and an explicit return type. Component-specific types stay in the component file.
 - Buttons and button-styled links always use `components/shadcn/button.tsx`: pill-shaped (`rounded-full`), variants `default` (primary), `secondary`, `outline`, `ghost`, `ghostInverse` (on the dark header), `destructive`, `link`; sizes `xs`/`sm`/`default`/`lg` and circular `icon-*`; `loading` shows a spinner and blocks repeat clicks. Links use `<Button asChild>`. Color swatches stay square; inputs keep their own geometry.
+- Single light theme: `globals.css` binds Tailwind's `dark:` variant to a `.dark` class that is never set, so shadcn primitives keep the light styling even when the OS prefers dark mode.
 - Icons come from `lucide-react`. Decorative icons get `aria-hidden`; icon-only buttons have an `aria-label`.
 - Hooks are `useName` with a params object when parameters exist. Result types live in the hook file (`UseCartResult`).
 - Services are `xxxService` objects typed by a local contract (`type OrderService = { … }`). There are no classes and no DI.

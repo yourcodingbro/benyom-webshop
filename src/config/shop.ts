@@ -1,3 +1,5 @@
+import type { ProductSort } from '@/types/catalog'
+
 /** Static storefront configuration shared by server and browser code. */
 export const LOCALE: string = 'hu-HU'
 export const TIME_ZONE: string = 'Europe/Budapest'
@@ -15,3 +17,7 @@ export const PROPOSAL_FINAL_WINDOW_HOURS: number = 24
 export const EMAIL_CLAIM_STALE_MINUTES: number = 10
 export const CART_STORAGE_KEY: string = 'benyom-kosar-v1'
 export const ORDER_ACCESS_COOKIE: string = 'benyom_rendeles'
+/** Listing order when none is chosen ("Kiemelt": featured first, then name, then id). */
+export const DEFAULT_PRODUCT_SORT: ProductSort = 'featured'
+/** Debounce for live product search. */
+export const SEARCH_DEBOUNCE_MS: number = 300
