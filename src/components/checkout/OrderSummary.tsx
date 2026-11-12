@@ -1,6 +1,6 @@
 import type React from 'react'
 
-import { ColorSwatch } from '@/components/product/ColorSwatch'
+import { ColorDot } from '@/components/product/ColorDot'
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from '@/config/labels'
 import { describeAttributes } from '@/lib/catalog'
 import { formatDateTime, formatHuf } from '@/lib/format'
@@ -40,7 +40,7 @@ export function OrderSummary(props: OrderSummaryProps): React.JSX.Element {
               <div>
                 <p className="font-semibold">{line.productName}</p>
                 <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  {line.attributes.colorHex ? <ColorSwatch hex={line.attributes.colorHex} size="xs" /> : null}
+                  {line.attributes.colorHex ? <ColorDot hex={line.attributes.colorHex} size="xs" /> : null}
                   {describeAttributes(line.attributes)} · {line.sku}
                 </p>
               </div>

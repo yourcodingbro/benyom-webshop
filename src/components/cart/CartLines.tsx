@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type React from 'react'
 
 import { QuantitySelector } from '@/components/cart/QuantitySelector'
-import { ColorSwatch } from '@/components/product/ColorSwatch'
+import { ColorDot } from '@/components/product/ColorDot'
 import { ProductPicture } from '@/components/product/ProductPicture'
 import { Button } from '@/components/shadcn/button'
 import { ORDERABILITY_LABELS } from '@/config/labels'
@@ -47,7 +47,7 @@ export function CartLines(props: CartLinesProps): React.JSX.Element {
             )}
             {line.attributes ? (
               <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                {line.attributes.colorHex ? <ColorSwatch hex={line.attributes.colorHex} size="xs" /> : null}
+                {line.attributes.colorHex ? <ColorDot hex={line.attributes.colorHex} size="xs" /> : null}
                 <span>{describeAttributes(line.attributes)}</span>
               </p>
             ) : null}

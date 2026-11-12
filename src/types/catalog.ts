@@ -98,6 +98,7 @@ export type ProductQuery = {
   maxPrice?: number
   sort?: ProductSort
   page?: number
+  /** Defaults to the desktop listing size. */
   pageSize?: number
   featuredOnly?: boolean
 }

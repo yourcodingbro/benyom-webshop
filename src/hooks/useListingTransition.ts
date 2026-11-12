@@ -10,7 +10,7 @@ export type UseListingTransitionResult = {
 
 export const ListingTransitionContext: React.Context<UseListingTransitionResult | null> = createContext<UseListingTransitionResult | null>(null)
 
-/** Shared pending state between the listing toolbar and the results. Must be used below <ListingTransitionProvider>. */
+/** Shared pending state between the listing controls (search, sort, filters) and the results. Must be used below <ListingTransitionProvider>. */
 export function useListingTransition(): UseListingTransitionResult {
   const context = useContext(ListingTransitionContext)
   if (!context) throw new Error('useListingTransition csak ListingTransitionProvider alatt használható.')

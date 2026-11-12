@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { getCategories } from '@/dto/categories'
-import { getAllProducts, getProductBySlug, getProducts } from '@/dto/products'
+import { getAllProducts, getProductBySlug, getProductFacets, getProducts } from '@/dto/products'
 import { effectiveOrderability, isVariantOrderable } from '@/lib/catalog'
 import { hexToPathSegment, normalizeHexColor } from '@/lib/hex'
 import { buildMediaObjectKey } from '@/lib/storage-path'
@@ -42,6 +42,22 @@ describe('HEX colors', () => {
   })
 })
 
+describe('page size', () => {
+  it('fetches exactly the active page size and counts pages with it', async () => {
+    const total = (await getProducts({ pageSize: 48 })).totalItems
+    for (const pageSize of [9]) {
+      const first = await getProducts({ pageSize })
+      expect(first.items).toHaveLength(Math.min(pageSize, total))
+      expect(first.totalPages).toBe(Math.ceil(total / pageSize))
+      const last = await getProducts({ pageSize, page: first.totalPages })
+      expect(last.items).toHaveLength(total - (first.totalPages - 1) * pageSize)
+    }
+    // Filter options do not depend on paging.
+    expect(await getProductFacets({ search: 'galaxy' })).toEqual((await getProducts({ search: 'galaxy', pageSize: 9, page: 2 })).facets)
+  })
+
+})
+
 describe('default sorting', () => {
   it('defaults to featured first with a deterministic order across pages', async () => {
     const all = (await getProducts({ pageSize: 48 })).items
@@ -56,7 +72,7 @@ describe('default sorting', () => {
     expect(new Set(pagedIds).size).toBe(pagedIds.length)
     expect(pagedIds).toEqual(all.slice(0, pagedIds.length).map((p) => p.id))
     // Same request twice: identical order (no unstable ties).
-    expect((await getProducts({ page: 2 })).items.map((p) => p.id)).toEqual(page2.items.map((p) => p.id))
+    expect((await getProducts({ page: 2, pageSize: 12 })).items.map((p) => p.id)).toEqual(page2.items.map((p) => p.id))
   })
 
   it('keeps an explicit sort from the URL and omits the default from generated URLs', () => {
@@ -92,7 +108,7 @@ describe('catalog queries', () => {
   })
 
   it('paginates, filters and searches by name, brand, model and SKU', async () => {
-    const first = await getProducts({ page: 1 })
+    const first = await getProducts({ page: 1, pageSize: 12 })
     expect(first.totalPages).toBeGreaterThan(1)
     expect((await getProducts({ brandSlug: 'samsung', categorySlug: 'okosora' })).items.every((p) => p.brandId === 'brand-samsung')).toBe(true)
     expect((await getProducts({ search: 'SAM-S26U-512' })).items.map((p) => p.slug)).toEqual(['galaxy-s26-ultra'])

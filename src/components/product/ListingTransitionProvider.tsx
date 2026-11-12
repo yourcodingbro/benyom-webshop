@@ -10,7 +10,7 @@ type ListingTransitionProviderProps = {
   children: React.ReactNode
 }
 
-/** Owns the transition used for listing navigations, so the toolbar and results share its pending state. */
+/** Owns the transition used for listing navigations, so search, sort, filters and results share its pending state. */
 export function ListingTransitionProvider(props: ListingTransitionProviderProps): React.JSX.Element {
   const [isPending, startTransition] = useTransition()
   const value = useMemo<UseListingTransitionResult>(() => ({ isPending, startTransition }), [isPending])

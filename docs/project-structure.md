@@ -23,8 +23,8 @@ src/
 │   ├── sitemap.ts, robots.ts
 ├── components/              grouped by responsibility, not by the page that renders them
 │   ├── layout/              SiteHeader, SiteFooter, MobileNav, SearchForm, SampleModeBanner, MotionProvider
-│   ├── product/             ProductCard (preview + quick add), ProductConfigurator, VariantOptions, ProductPicture, ListingToolbar, ListingTransitionProvider,
-│   │                        ColorSwatch, OrderabilityBadge, CatalogListing, ListingFilters, Pagination
+│   ├── product/             ProductCard (preview + quick add), ProductConfigurator, VariantOptions, ProductPicture, ProductSearch, ProductSort, ProductCatalog, ListingTransitionProvider,
+│   │                        ColorSwatch (variant), ColorDot (decorative), OrderabilityBadge, CatalogListing, ListingFilters, Pagination
 │   ├── cart/                CartProvider, CartDrawer, CartLines, CartPageContent, QuantitySelector
 │   ├── checkout/            CheckoutForm (animated panels), CheckoutProgress, OrderSummary
 │   ├── home/                PopularSelector (homepage popular brands/categories)

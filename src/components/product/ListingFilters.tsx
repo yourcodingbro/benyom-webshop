@@ -4,7 +4,7 @@ import { CheckIcon, FilterXIcon } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import type React from 'react'
 
-import { ColorSwatch } from '@/components/product/ColorSwatch'
+import { ColorDot } from '@/components/product/ColorDot'
 import { Button } from '@/components/shadcn/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/shadcn/select'
 import { useListingFilters } from '@/hooks/useListingFilters'
@@ -70,7 +70,7 @@ export function ListingFilters(props: ListingFiltersProps): React.JSX.Element {
       </Button>
 
       <form action={props.action} method="get" className="space-y-6" aria-label="Termékszűrők" onSubmit={(event) => event.preventDefault()}>
-        {/* Search and sorting live in the toolbar; keep them for the no-JS submission. */}
+        {/* Search and sorting live above the catalog (ProductSearch, ProductSort); keep them for the no-JS submission. */}
         {search ? <input type="hidden" name="q" value={search} /> : null}
         {sort ? <input type="hidden" name="rendezes" value={sort} /> : null}
 
@@ -180,7 +180,7 @@ export function ListingFilters(props: ListingFiltersProps): React.JSX.Element {
                       aria-label={label}
                       className="peer sr-only"
                     />
-                    <ColorSwatch hex={color.hex} size="md" className="peer-checked:ring-2 peer-checked:ring-ink peer-checked:ring-offset-2 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring" />
+                    <ColorDot hex={color.hex} size="md" className="peer-checked:ring-2 peer-checked:ring-ink peer-checked:ring-offset-2 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring" />
                     <CheckIcon aria-hidden="true" strokeWidth={3} className="pointer-events-none absolute inset-0 m-auto hidden size-4 text-white mix-blend-difference peer-checked:block" />
                   </label>
                 )

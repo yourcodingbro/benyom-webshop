@@ -4,7 +4,6 @@ import type { ProductSort } from '@/types/catalog'
 export const LOCALE: string = 'hu-HU'
 export const TIME_ZONE: string = 'Europe/Budapest'
 export const CURRENCY = 'HUF' as const
-export const PRODUCT_PAGE_SIZE: number = 12
 export const MAX_LINE_QUANTITY: number = 5
 export const MAX_CART_LINES: number = 20
 /** How long a server-issued cart price quote stays valid. */

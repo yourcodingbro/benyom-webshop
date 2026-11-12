@@ -4,9 +4,9 @@ import { CheckIcon } from "lucide-react";
 import type React from "react";
 import { useId } from "react";
 
+import { ColorSwatch } from "@/components/product/ColorSwatch";
 import { VARIANT_DIMENSION_LABELS } from "@/config/labels";
 import type { UseVariantSelectionResult } from "@/hooks/useVariantSelection";
-import { isLightColor } from "@/lib/hex";
 import { cn } from "@/lib/utils";
 import {
   optionLabel,
@@ -23,13 +23,10 @@ type VariantOptionsProps = {
   compact?: boolean;
 };
 
-const STRIKE: string =
-  "bg-[linear-gradient(to_top_right,transparent_calc(50%-1.5px),#b42318_calc(50%-1.5px),#b42318_calc(50%+1.5px),transparent_calc(50%+1.5px))]";
-
 /**
- * Native radio groups per variant dimension (keyboard arrows, one tab stop each).
- * Colors are square HEX swatches; selection is shown with a ring and a check icon, unavailable
- * combinations with a strike-through, and every state is also in the accessible name.
+ * One group per variant dimension. Colors use ColorSwatch toggle buttons (an unorderable
+ * combination is a disabled swatch); other dimensions are native radio pills (arrow keys, one tab
+ * stop). Combination logic stays here; every state is also in the accessible name.
  */
 export function VariantOptions(props: VariantOptionsProps): React.JSX.Element {
   const groupId = useId();
@@ -43,7 +40,7 @@ export function VariantOptions(props: VariantOptionsProps): React.JSX.Element {
             <legend
               className={cn(
                 "font-semibold",
-                compact ? "mb-1 text-xs" : "mb-2 text-sm"
+                compact ? "mb-1 text-xs" : "mb-2 text-sm",
               )}
             >
               {VARIANT_DIMENSION_LABELS[dimension]}:{" "}
@@ -54,7 +51,10 @@ export function VariantOptions(props: VariantOptionsProps): React.JSX.Element {
               </span>
             </legend>
             <div
-              className={cn("flex flex-wrap", compact ? "gap-1.5" : "gap-2")}
+              className={cn(
+                "flex flex-wrap",
+                compact ? "gap-1.5 [--swatch-size:2rem]" : "gap-2",
+              )}
             >
               {selection
                 .options(dimension)
@@ -67,6 +67,31 @@ export function VariantOptions(props: VariantOptionsProps): React.JSX.Element {
                     : unavailable
                       ? " – nem rendelhető"
                       : "";
+                  if (
+                    dimension === "colorHex" &&
+                    typeof option.value === "string"
+                  ) {
+                    // Not combinable with the other choices: still selectable (it resets them), so only dimmed.
+                    return (
+                      <span
+                        key={option.value}
+                        className={cn(
+                          "flex",
+                          !option.combinable && "opacity-50",
+                        )}
+                      >
+                        <ColorSwatch
+                          name={`${label}${note}`}
+                          code={option.value}
+                          selected={checked}
+                          disabled={unavailable}
+                          onSelect={(code: string) =>
+                            props.onChoose(dimension, code)
+                          }
+                        />
+                      </span>
+                    );
+                  }
                   const inputId = `${groupId}-${dimension}-${String(option.value).replace("#", "")}`;
                   const focus =
                     "peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring";
@@ -87,62 +112,29 @@ export function VariantOptions(props: VariantOptionsProps): React.JSX.Element {
                         aria-label={`${label}${note}`}
                         className="peer sr-only"
                       />
-                      {dimension === "colorHex" &&
-                      typeof option.value === "string" ? (
-                        <span
-                          aria-hidden="true"
-                          className={cn(
-                            "relative flex items-center justify-center rounded border transition-transform duration-150 hover:scale-105",
-                            compact ? "size-8" : "size-11",
-                            focus,
-                            isLightColor(option.value)
-                              ? "border-neutral-500"
-                              : "border-black/25",
-                            checked && "ring-2 ring-ink ring-offset-2",
-                            !option.combinable && "opacity-50"
-                          )}
-                          style={{ backgroundColor: option.value }}
-                        >
-                          {checked ? (
-                            <CheckIcon
-                              className={cn(
-                                compact ? "size-4" : "size-5",
-                                isLightColor(option.value)
-                                  ? "text-ink"
-                                  : "text-white"
-                              )}
-                              strokeWidth={3}
-                            />
-                          ) : null}
-                          {unavailable ? (
-                            <span className={cn("absolute inset-0", STRIKE)} />
-                          ) : null}
-                        </span>
-                      ) : (
-                        <span
-                          aria-hidden="true"
-                          className={cn(
-                            "inline-flex items-center justify-center gap-1 rounded-full border-2 transition-colors hover:border-ink",
-                            compact
-                              ? "min-h-8 px-2.5 text-xs"
-                              : "min-w-16 px-4 py-2 text-sm",
-                            focus,
-                            checked
-                              ? "border-ink bg-ink text-white"
-                              : "border-border",
-                            !option.combinable &&
-                              "border-dashed text-muted-foreground",
-                            unavailable && "line-through"
-                          )}
-                        >
-                          {checked ? (
-                            <CheckIcon
-                              className={compact ? "size-3" : "size-4"}
-                            />
-                          ) : null}
-                          {label}
-                        </span>
-                      )}
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "inline-flex items-center justify-center gap-1 rounded-full border-2 transition-colors hover:border-ink",
+                          compact
+                            ? "min-h-8 px-2.5 text-xs"
+                            : "min-w-16 px-4 py-2 text-sm",
+                          focus,
+                          checked
+                            ? "border-ink bg-ink text-white"
+                            : "border-border",
+                          !option.combinable &&
+                            "border-dashed text-muted-foreground",
+                          unavailable && "line-through",
+                        )}
+                      >
+                        {checked ? (
+                          <CheckIcon
+                            className={compact ? "size-3" : "size-4"}
+                          />
+                        ) : null}
+                        {label}
+                      </span>
                     </label>
                   );
                 })}

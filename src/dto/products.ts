@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { DEFAULT_PRODUCT_SORT, PRODUCT_PAGE_SIZE } from '@/config/shop'
+import { DEFAULT_PRODUCT_SORT } from '@/config/shop'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import { priceRange, searchKey } from '@/lib/catalog'
 import { clock } from '@/lib/clock'
@@ -86,17 +86,20 @@ function sortProducts(products: Product[], sort: ProductSort): Product[] {
   return [...products].sort((a: Product, b: Product) => primary[sort](a, b) || tieBreak(a, b))
 }
 
-/** Published, non-discontinued products matching the query, with facets for the filter UI. */
-export async function getProducts(query: ProductQuery = {}): Promise<ProductListResult> {
+/** Upper bound for one page; also used when a caller passes no pageSize. Page sizes are chosen by callers. */
+const MAX_PRODUCT_PAGE_SIZE: number = 48
+
+/**
+ * Listable products matching the route and search part of the query (before the color, storage
+ * and price filters), or null when the brand/category slug does not exist.
+ */
+function baseProducts(query: ProductQuery): Product[] | null {
   const store = sampleStore()
   const brandsById = new Map(store.brands.map((brand: Brand) => [brand.id, brand]))
   const brand = query.brandSlug ? store.brands.find((item: Brand) => item.slug === query.brandSlug) : undefined
   const category = query.categorySlug ? store.categories.find((item) => item.slug === query.categorySlug) : undefined
-  if ((query.brandSlug && !brand) || (query.categorySlug && !category)) {
-    return { items: [], page: 1, pageSize: query.pageSize ?? PRODUCT_PAGE_SIZE, totalItems: 0, totalPages: 0, facets: buildFacets([]) }
-  }
-
-  const base = store.products.filter(
+  if ((query.brandSlug && !brand) || (query.categorySlug && !category)) return null
+  return store.products.filter(
     (product: Product) =>
       isListable(product) &&
       (!brand || product.brandId === brand.id) &&
@@ -104,10 +107,17 @@ export async function getProducts(query: ProductQuery = {}): Promise<ProductList
       (!query.featuredOnly || product.featured) &&
       (!query.search || matchesSearch(product, brandsById.get(product.brandId), query.search)),
   )
+}
+
+/** Published, non-discontinued products matching the query, one page of them, with facets for the filter UI. */
+export async function getProducts(query: ProductQuery = {}): Promise<ProductListResult> {
+  const pageSize = Math.min(Math.max(query.pageSize ?? MAX_PRODUCT_PAGE_SIZE, 1), MAX_PRODUCT_PAGE_SIZE)
+  const base = baseProducts(query)
+  if (!base) return { items: [], page: 1, pageSize, totalItems: 0, totalPages: 0, facets: buildFacets([]) }
+
   const filtered = base.filter((product: Product) => product.variants.some((variant: ProductVariant) => variantMatches(variant, query)))
   // The default ("Kiemelt") is applied here too, so every caller gets the same order, not only the UI.
   const sorted = sortProducts(filtered, query.sort ?? DEFAULT_PRODUCT_SORT)
-  const pageSize = Math.min(Math.max(query.pageSize ?? PRODUCT_PAGE_SIZE, 1), 48)
   const totalPages = Math.ceil(sorted.length / pageSize)
   const page = Math.min(Math.max(query.page ?? 1, 1), Math.max(totalPages, 1))
 
@@ -119,6 +129,11 @@ export async function getProducts(query: ProductQuery = {}): Promise<ProductList
     totalPages,
     facets: buildFacets(base),
   }
+}
+
+/** Filter options for a listing (same as getProducts(query).facets, without paging or sorting). */
+export async function getProductFacets(query: ProductQuery): Promise<ProductFacets> {
+  return buildFacets(baseProducts(query) ?? [])
 }
 
 /** Published product by slug (discontinued products stay reachable for old links). */
