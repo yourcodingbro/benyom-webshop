@@ -4,7 +4,7 @@ import type { HufAmount } from '@/types/common'
 export type DeliveryFee =
   | { kind: 'unknown' }
   | { kind: 'free' }
-  | { kind: 'fixed'; amount: HufAmount; isSampleValue: boolean }
+  | { kind: 'fixed'; amount: HufAmount }
 
 export type DeliveryMethodKind = 'collection' | 'delivery'
 
@@ -17,22 +17,14 @@ export type DeliveryMethod = {
   fee: DeliveryFee
 }
 
-export type FaqItem = {
-  question: string
-  answer: string
-}
-
 export type InfoPage = {
   slug: string
   title: string
   paragraphs: string[]
-  /** Question–answer pairs shown as an accordion below the paragraphs (FAQ page). */
-  faq?: FaqItem[]
 }
 
 export type StoreSettings = {
   storeName: string
-  isSampleContent: boolean
   contact: { email: string; phone: string; address: string }
   storeNotificationEmail: string
   /** Server-only recipient of contact-form messages. */

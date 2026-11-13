@@ -1,6 +1,6 @@
 # CSV import
 
-Admin-only. Demonstrated in sample mode at `/fejlesztes` → *CSV termékimport*, with a **dry-run preview** and an **apply** button. Entry points: `importService.previewImport(csv, auth)` and `importService.applyImport(csv, auth)`.
+Admin-only, in the Payload admin at **Termékimport (CSV)** (`/admin/termekimport`): template download, upload, server-side **dry run** with row-level errors, then an explicit **apply**. Entry points: `importService.createJob` / `runJob` (persisted jobs), plus `previewImport` / `applyImport` for scripts and tests.
 
 Example file: [`public/minta/termekimport-minta.csv`](../public/minta/termekimport-minta.csv).
 
@@ -21,7 +21,7 @@ Example file: [`public/minta/termekimport-minta.csv`](../public/minta/termekimpo
 | `featured` | product | `igen`/`nem` (also `true`/`false`/`1`/`0`). |
 | `product_orderability`, `variant_orderability` | | `preorderable`, `temporarily_unavailable`, `discontinued` (Hungarian aliases `elorendelheto`, `nem_rendelheto`, `megszunt`). |
 | `sku` | variant | `[A-Z0-9-]`, unique across all products. |
-| `color_hex` | variant | `#RRGGBB` only (normalized to uppercase), same rule as Payload and sample data. |
+| `color_hex` | variant | `#RRGGBB` only (normalized to uppercase), same rule as the admin form (Payload). |
 | `color_label`, `storage_gb`, `ram_gb`, `case_size_mm` | variant | |
 | `price_huf` | variant | Integer forints, required for new variants. |
 | `procurement_min_days`, `procurement_max_days` | variant | Integers; min ≤ max. |
@@ -38,9 +38,11 @@ Product-level values may appear on any row of the group. Conflicting non-empty v
 - **SKU conflicts**: a SKU owned by another product, or repeated in the file, is a row error.
 - **Errors are row-level** (row number, column, Hungarian message). A product group with any error is skipped entirely. Other groups still apply.
 - Counts are reported for products and variants: created / updated / skipped / failed, plus created brands and categories.
-- Sample mode: new variants without `image_keys` get a generated placeholder at `brand/category/product/color/elolnezet.svg`.
+- Products are written through Payload, so the same validation applies as in the admin form (SKU format and uniqueness, HEX, slug, prices).
 
-## Future persistent imports
+## Persisted jobs, limits and resumption
 
-- Upload the file to storage, then process it in an authenticated background job in batches (Vercel function time limits). Persist progress per row group so an interrupted import can resume. Each product group gets its own transaction.
-- Real images: upload through the Payload media collection (validated MIME and size), then reference the resulting object keys. If remote URLs are ever allowed, fetch server-side with an allowlist of hosts, block private and link-local IP ranges (after DNS resolution), cap size and timeout, and disallow redirects to other hosts.
+- Each upload becomes an `import-jobs` record with the CSV, the dry-run report, status, per-group results and the final report.
+- Applying processes product groups in batches of at most ~20 seconds per request (Vercel function limits); the admin page calls the next batch until the job is `completed`. Every finished product group is recorded immediately, so an interrupted run resumes without redoing or losing work (a job whose heartbeat is older than 2 minutes can be taken over).
+- A failed group is recorded with its error and the rest continues. Re-running a completed job changes nothing; importing the same file again reports everything as unchanged.
+- Images: `image_keys` must reference media already uploaded for that product (Médiatár). Remote URLs are rejected, so there is no server-side download (no SSRF surface).

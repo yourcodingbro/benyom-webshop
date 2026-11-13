@@ -1,5 +1,3 @@
-import "server-only";
-
 import { normalizeHexColor } from "@/lib/hex";
 import { buildMediaObjectKey } from "@/lib/storage-path";
 import type {
@@ -11,21 +9,28 @@ import type {
   ProductVariant,
   SpecificationGroup,
 } from "@/types/catalog";
-import type { Order } from "@/types/order";
+import type { Order, OrderEventType } from "@/types/order";
 import type { PriceChangeProposal } from "@/types/proposal";
 import type { StoreSettings } from "@/types/settings";
 
 /**
- * Immutable initial sample data. Only `src/dto/` may import this module.
+ * Original sample dataset, kept only as input for the initial import (`npm run import:initial`).
+ * The application never reads it at runtime. Orders are fictional and imported as historical demo data.
  * All business details, customers, fees and texts are fictional. Product names refer to
  * real device families for realism; prices and specifications are illustrative only.
  */
+
+/** Historical demo order as authored in the dataset (events become audit entries on import). */
+export type SeedOrder = Omit<Order, "events" | "notifications" | "isDemo"> & {
+  events: { id: string; at: string; type: OrderEventType; actor: "customer" | "admin" | "system"; message: string }[];
+  notifications: never[];
+};
 
 export type SampleData = {
   brands: Brand[];
   categories: Category[];
   products: Product[];
-  orders: Order[];
+  orders: SeedOrder[];
   proposals: PriceChangeProposal[];
   settings: StoreSettings;
 };
@@ -963,7 +968,6 @@ const products: Product[] = [...productSeeds, ...extraSeeds].map(buildProduct);
 
 const settings: StoreSettings = {
   storeName: "Benyom Webshop",
-  isSampleContent: true,
   contact: {
     email: "info@minta-webshop.example",
     phone: "+36 1 000 0000 (fiktív)",
@@ -996,7 +1000,7 @@ const settings: StoreSettings = {
       description:
         "Kiszállítás a megadott címre, fizetés a futárnál. A díj fiktív mintaérték.",
       enabled: true,
-      fee: { kind: "fixed", amount: 2990, isSampleValue: true },
+      fee: { kind: "fixed", amount: 2990 },
     },
     {
       id: "csomagautomata",
@@ -1066,7 +1070,7 @@ const settings: StoreSettings = {
   ],
 };
 
-const orders: Order[] = [
+const orders: SeedOrder[] = [
   {
     id: "order-sample-1",
     reference: "BNY-MNTA-0001",
@@ -1172,7 +1176,6 @@ const orders: Order[] = [
     version: 3,
     createdAt: daysAfterBase(10),
     updatedAt: daysAfterBase(14),
-    isSample: true,
   },
   {
     // Price-change scenario: a still-valid quote was below the catalog price at submission.
@@ -1281,7 +1284,6 @@ const orders: Order[] = [
     version: 2,
     createdAt: daysAfterBase(30),
     updatedAt: daysAfterBase(30),
-    isSample: true,
   },
 ];
 

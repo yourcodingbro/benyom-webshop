@@ -40,11 +40,6 @@ export function EmailLayout(props: EmailLayoutProps): React.JSX.Element {
             </Text>
           </Section>
           <Section style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: '0 0 10px 10px' }}>
-            {settings.isSampleContent ? (
-              <Text style={{ margin: '0 0 16px', padding: '8px 12px', backgroundColor: '#fff4e5', borderRadius: '6px', fontSize: '13px' }}>
-                Mintaüzenet – fejlesztői előnézet, nem valódi rendelés.
-              </Text>
-            ) : null}
             <Heading as="h1" style={{ fontFamily: HEADING_FONT, fontSize: '21px', margin: '0 0 16px', color: COLORS.ink }}>
               {props.heading}
             </Heading>

@@ -15,46 +15,61 @@ function files(dir: string): string[] {
 
 const sources = files(SRC).filter((file: string) => !file.includes(`${path.sep}tests${path.sep}`))
 const rel = (file: string): string => path.relative(SRC, file).split(path.sep).join('/')
+const read = (file: string): string => readFileSync(file, 'utf8')
+const isClient = (file: string): boolean => /^['"]use client['"]/.test(read(file).trimStart())
 
 describe('architecture boundaries', () => {
-  it('sample data enters the app only through src/dto', () => {
-    const offenders = sources.filter((file: string) => /from '@\/sample'|from '\.\.?\/sample'/.test(readFileSync(file, 'utf8')) && !rel(file).startsWith('dto/'))
-    expect(offenders.map(rel)).toEqual([])
+  it('the original dataset is migration input only: never read at runtime, no sample fallback', () => {
+    const seedImporters = sources.filter((file: string) => read(file).includes("from '@/seed/") && !rel(file).startsWith('seed/') && !rel(file).startsWith('scripts/'))
+    expect(seedImporters.map(rel)).toEqual([])
+    const fallbacks = sources.filter((file: string) => /sample-store|sampleStore\(|isSampleContent|isSampleCheckoutEnabled|ENABLE_SAMPLE_DEV_TOOLS/.test(read(file)))
+    expect(fallbacks.map(rel)).toEqual([])
+    expect(existsSync(path.join(SRC, 'sample.ts'))).toBe(false)
   })
 
-  it('only DTO modules touch the sample runtime store', () => {
-    const offenders = sources.filter((file: string) => readFileSync(file, 'utf8').includes("@/dto/sample-store") && !rel(file).startsWith('dto/') && rel(file) !== 'services/simulationService.ts')
-    expect(offenders.map(rel)).toEqual([])
+  it('only the DTO layer reaches the database (Payload Local API); no parallel database client', () => {
+    const payloadClientUsers = sources.filter((file: string) => read(file).includes("from '@/dto/payload'") && !rel(file).startsWith('dto/'))
+    expect(payloadClientUsers.map(rel)).toEqual([])
+    const getPayloadCallers = sources.filter((file: string) => read(file).includes('getPayload('))
+    expect(getPayloadCallers.map(rel).sort()).toEqual(['dto/payload.ts', 'scripts/import-initial-data.ts'])
+    const pkg = read(path.join(ROOT, 'package.json'))
+    expect(pkg).not.toMatch(/"@supabase\/supabase-js"|"postgres"|"pg-promise"/)
+    const storefront = sources.filter((file: string) => (rel(file).startsWith('app/(frontend)/') || rel(file).startsWith('components/')) && !rel(file).startsWith('components/admin/'))
+    expect(storefront.filter((file: string) => /from 'payload'|@payloadcms\/db-postgres/.test(read(file))).map(rel)).toEqual([])
   })
 
-  it('all notifications go through emailService.sendEmail; only emailService talks to Resend', () => {
-    const pkg = readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+  it('privileged configuration is server-only (no NEXT_PUBLIC_ secrets)', () => {
+    const offenders = sources.filter((file: string) => /NEXT_PUBLIC_(DATABASE|PAYLOAD|APP_SIGNING|SUPABASE_S3|CRON|RESEND)/.test(read(file)) && rel(file) !== 'config/env.ts' && rel(file) !== 'config/email.ts')
+    expect(offenders.map(rel)).toEqual([])
+    const clientConfigImporters = sources.filter((file: string) => isClient(file) && /from '@\/config\/(env|email|runtime)'/.test(read(file)))
+    expect(clientConfigImporters.map(rel)).toEqual([])
+  })
+
+  it('all notifications go through emailService.sendEmail or persisted jobs; only emailService talks to Resend', () => {
+    const pkg = read(path.join(ROOT, 'package.json'))
     expect(pkg).not.toMatch(/"nodemailer"|"@sendgrid/)
-    const resendImporters = sources.filter((file: string) => /from 'resend'/.test(readFileSync(file, 'utf8')))
+    const resendImporters = sources.filter((file: string) => /from 'resend'/.test(read(file)))
     expect(resendImporters.map(rel)).toEqual(['services/emailService.ts'])
-    expect(readFileSync(path.join(SRC, 'services', 'emailService.ts'), 'utf8')).toMatch(/^import 'server-only'/)
-    const publicEmailVars = sources.filter((file: string) => /NEXT_PUBLIC_(RESEND|EMAIL_FROM|CONTACT_EMAIL)/.test(readFileSync(file, 'utf8')) && rel(file) !== 'config/email.ts')
-    expect(publicEmailVars.map(rel)).toEqual([])
-    const callers = sources.filter((file: string) => readFileSync(file, 'utf8').includes('emailService.sendEmail('))
+    expect(read(path.join(SRC, 'services', 'emailService.ts'))).toMatch(/^import 'server-only'/)
+    const callers = sources.filter((file: string) => read(file).includes('emailService.sendEmail('))
     expect(callers.map(rel).sort()).toEqual(['services/contactService.ts', 'services/notificationService.ts'])
   })
 
   it('shadcn components live in src/components/shadcn and components/ui is not used', () => {
     expect(existsSync(path.join(SRC, 'components', 'ui'))).toBe(false)
-    const config = JSON.parse(readFileSync(path.join(ROOT, 'components.json'), 'utf8')) as { aliases: { ui: string } }
+    const config = JSON.parse(read(path.join(ROOT, 'components.json'))) as { aliases: { ui: string } }
     expect(config.aliases.ui).toBe('@/components/shadcn')
-    expect(sources.some((file: string) => readFileSync(file, 'utf8').includes('@/components/ui'))).toBe(false)
+    expect(sources.some((file: string) => read(file).includes('@/components/ui'))).toBe(false)
   })
 
   it('client components never import server-only modules', () => {
-    const clientFiles = sources.filter((file: string) => /^['"]use client['"]/.test(readFileSync(file, 'utf8').trimStart()))
-    const offenders = clientFiles.filter((file: string) => /from '@\/(dto|services)\//.test(readFileSync(file, 'utf8')))
+    const offenders = sources.filter((file: string) => isClient(file) && /from '@\/(dto|services)\//.test(read(file)))
     expect(offenders.map(rel)).toEqual([])
   })
 
   it('authored code avoids any and non-null assertions', () => {
-    const authored = sources.filter((file: string) => !rel(file).startsWith('components/shadcn/') && !rel(file).startsWith('app/(payload)/') && rel(file) !== 'payload-types.ts')
-    const offenders = authored.filter((file: string) => /:\s*any\b|as any\b|\w!\./.test(readFileSync(file, 'utf8')))
+    const authored = sources.filter((file: string) => !rel(file).startsWith('components/shadcn/') && !rel(file).startsWith('app/(payload)/') && !rel(file).startsWith('migrations/') && rel(file) !== 'payload-types.ts')
+    const offenders = authored.filter((file: string) => /:\s*any\b|as any\b|\w!\./.test(read(file)))
     expect(offenders.map(rel)).toEqual([])
   })
 })

@@ -10,14 +10,13 @@ import type React from 'react'
 
 import { CartProvider } from '@/components/cart/CartProvider'
 import { MotionProvider } from '@/components/layout/MotionProvider'
-import { SampleModeBanner } from '@/components/layout/SampleModeBanner'
 import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteHeader } from '@/components/layout/SiteHeader'
 import { getSiteUrl, isIndexingAllowed } from '@/config/runtime'
 import { getStoreSettings } from '@/dto/settings'
 import { catalogService } from '@/services/catalogService'
 
-// The sample runtime store changes at runtime (orders, imports, price demos), so render on request.
+// Catalog, settings and orders live in the database and change at runtime, so render on request.
 export const dynamic = 'force-dynamic'
 
 type FrontendLayoutProps = {
@@ -55,7 +54,6 @@ export default async function FrontendLayout(props: FrontendLayoutProps): Promis
       <body className="flex min-h-screen flex-col">
         <MotionProvider>
           <CartProvider>
-            <SampleModeBanner />
             <SiteHeader storeName={settings.storeName} navigation={navigation} />
             <main id="tartalom" className="flex-1">
               {props.children}

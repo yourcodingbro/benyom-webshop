@@ -1,13 +1,12 @@
-import { APIError, type CollectionBeforeChangeHook, type CollectionConfig, type Field } from 'payload'
+import type { CollectionConfig, Field } from 'payload'
 
-import { adminOnly, isAdminRequest } from '@/collections/access'
-import { hexColorField, hufField, totalsGroup } from '@/collections/fields'
-import { FULFILLMENT_LABELS, isFulfillmentStatus, PAYMENT_LABELS, PRICE_APPROVAL_LABELS } from '@/config/labels'
-import { FULFILLMENT_TRANSITIONS } from '@/config/order-rules'
+import { adminOnly, serverOnly } from '@/collections/access'
+import { hexColorField, hufField, options, totalsGroup } from '@/collections/fields'
+import { orderEndpoints } from '@/collections/endpoints'
+import { auditOrderChange, protectOrder } from '@/collections/hooks/orderHooks'
+import { FULFILLMENT_LABELS, PAYMENT_LABELS, PRICE_APPROVAL_LABELS } from '@/config/labels'
 
-const options = (labels: Record<string, string>): { label: string; value: string }[] => Object.entries(labels).map(([value, label]) => ({ value, label }))
-
-/** Snapshot fields are read-only in the admin UI; the beforeChange hook enforces it for every API. */
+/** Snapshot fields are read-only in the admin UI; protectOrder enforces it for every API. */
 function readOnly<T extends Field>(field: T): T {
   return { ...field, admin: { ...field.admin, readOnly: true } }
 }
@@ -19,30 +18,10 @@ const addressFields: Field[] = [
   { name: 'country', label: 'Ország', type: 'text', defaultValue: 'HU' },
 ]
 
-/** Fields that form the immutable submission snapshot. */
-const SNAPSHOT_FIELDS: readonly string[] = ['reference', 'idempotencyKey', 'submissionHash', 'submittedAt', 'items', 'customer', 'billingAddress', 'shippingAddress', 'delivery', 'submittedTotals', 'terms', 'note', 'submissionSnapshot']
-
-/** Enforces the immutable snapshot, the transition table and the price-approval hold for every API. */
-const protectSnapshotAndTransitions: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
-  if (operation !== 'update' || !originalDoc) return data
-  if (req.user && !isAdminRequest(req)) throw new APIError('Nincs jogosultság.', 403)
-  for (const field of SNAPSHOT_FIELDS) {
-    if (field in data && JSON.stringify(data[field]) !== JSON.stringify(originalDoc[field])) {
-      throw new APIError('A beküldési pillanatkép nem módosítható.', 400)
-    }
-  }
-  const from = String(originalDoc.fulfillmentStatus)
-  const to = typeof data.fulfillmentStatus === 'string' ? data.fulfillmentStatus : from
-  if (to !== from && to !== 'cancelled') {
-    if (originalDoc.priceApprovalStatus === 'pending') throw new APIError('A teljesítés szünetel, amíg az ügyfél nem dönt az árváltozásról.', 409)
-    if (!isFulfillmentStatus(from) || !isFulfillmentStatus(to) || !FULFILLMENT_TRANSITIONS[from].includes(to)) throw new APIError('Nem engedélyezett állapotváltás.', 400)
-  }
-  return { ...data, version: (Number(originalDoc.version) || 1) + 1 }
-}
-
 /**
- * Orders: admin-only for every operation and every API (REST, GraphQL, Local API with
- * overrideAccess: false). The storefront creates orders only through server-side DTO code.
+ * Orders: admin-only for every operation and every API. Orders are created only by the storefront
+ * checkout (orderService) or the initial import; they are never deleted. Price, proposal and
+ * cancellation fields change only through services (see OrderActions); every change is audited.
  */
 export const Orders: CollectionConfig = {
   slug: 'orders',
@@ -50,44 +29,61 @@ export const Orders: CollectionConfig = {
   admin: {
     useAsTitle: 'reference',
     group: 'Rendelések',
-    defaultColumns: ['reference', 'customer.name', 'fulfillmentStatus', 'priceApprovalStatus', 'createdAt'],
-    listSearchableFields: ['reference', 'customer.name', 'customer.email'],
+    defaultColumns: ['reference', 'customer.name', 'fulfillmentStatus', 'priceApprovalStatus', 'agreedTotals.grandTotal', 'isDemo', 'createdAt'],
+    listSearchableFields: ['reference', 'customer.name', 'customer.email', 'customer.phone'],
+    description: 'Keresés azonosító, név, e-mail vagy telefon alapján; szűrés állapotra, dátumra, demó jelölésre.',
   },
-  access: { read: adminOnly, create: adminOnly, update: adminOnly, delete: () => false },
+  access: { read: adminOnly, create: serverOnly, update: adminOnly, delete: serverOnly },
+  defaultSort: '-createdAt',
+  endpoints: orderEndpoints,
   fields: [
     readOnly({ name: 'reference', label: 'Rendelésazonosító', type: 'text', required: true, unique: true, index: true }),
-    readOnly({ name: 'idempotencyKey', label: 'Idempotencia-kulcs', type: 'text', required: true, unique: true, index: true }),
-    readOnly({ name: 'submissionHash', label: 'Beküldési lenyomat', type: 'text' }),
-    readOnly({ name: 'submittedAt', label: 'Leadva', type: 'date', admin: { date: { pickerAppearance: 'dayAndTime' } } }),
+    readOnly({
+      name: 'isDemo',
+      label: 'DEMÓ (történeti mintaadat)',
+      type: 'checkbox',
+      defaultValue: false,
+      index: true,
+      admin: { position: 'sidebar', description: 'Kezdeti importból származó, kitalált rendelés. Nem kap e-mailt, nem kerül ütemezett feldolgozásba.' },
+    }),
+    readOnly({ name: 'idempotencyKey', label: 'Idempotencia-kulcs', type: 'text', required: true, unique: true, index: true, admin: { position: 'sidebar' } }),
+    readOnly({ name: 'submissionHash', label: 'Beküldési lenyomat', type: 'text', admin: { position: 'sidebar' } }),
+    readOnly({ name: 'submittedAt', label: 'Leadva', type: 'date', index: true, admin: { position: 'sidebar', date: { pickerAppearance: 'dayAndTime' } } }),
+    { name: 'version', label: 'Verzió', type: 'number', defaultValue: 1, admin: { readOnly: true, position: 'sidebar', description: 'Egyidejű módosítások elleni védelem.' } },
     {
       type: 'tabs',
       tabs: [
         {
-          label: 'Állapot',
+          label: 'Állapot és műveletek',
           fields: [
-            { name: 'fulfillmentStatus', label: 'Teljesítési állapot', type: 'select', required: true, defaultValue: 'received', options: options(FULFILLMENT_LABELS), index: true },
+            { name: 'fulfillmentStatus', label: 'Teljesítési állapot', type: 'select', required: true, defaultValue: 'received', options: options(FULFILLMENT_LABELS), index: true, admin: { description: 'Csak engedélyezett lépés választható; törléshez használja a lenti műveletet.' } },
             { name: 'paymentStatus', label: 'Fizetés', type: 'select', required: true, defaultValue: 'unpaid', options: options(PAYMENT_LABELS), admin: { description: 'Fizetés kizárólag átvételkor vagy kiszállításkor.' } },
-            { name: 'priceApprovalStatus', label: 'Árjóváhagyás', type: 'select', required: true, defaultValue: 'not_required', options: options(PRICE_APPROVAL_LABELS) },
+            readOnly({ name: 'priceApprovalStatus', label: 'Árjóváhagyás', type: 'select', required: true, defaultValue: 'not_required', options: options(PRICE_APPROVAL_LABELS), index: true }),
             { name: 'needsPriceReview', label: 'Árellenőrzés javasolt', type: 'checkbox' },
             {
+              name: 'orderActions',
+              type: 'ui',
+              admin: { components: { Field: '@/components/admin/OrderActions#OrderActions' } },
+            },
+            readOnly({
               name: 'cancellation',
               label: 'Törlés',
               type: 'group',
               fields: [
                 { name: 'reason', label: 'Ok', type: 'select', options: [{ label: 'Árváltozás elutasítva', value: 'price_change_rejected' }, { label: 'Árváltozás határideje lejárt', value: 'price_change_timeout' }, { label: 'Bolti törlés', value: 'admin' }] },
-                { name: 'note', label: 'Megjegyzés', type: 'textarea' },
+                { name: 'note', label: 'Indoklás', type: 'textarea' },
                 { name: 'at', label: 'Időpont', type: 'date', admin: { date: { pickerAppearance: 'dayAndTime' } } },
               ],
-            },
+            }),
             { name: 'adminNotes', label: 'Belső megjegyzések', type: 'array', fields: [{ name: 'text', label: 'Szöveg', type: 'textarea', required: true }, { name: 'at', label: 'Időpont', type: 'date' }] },
           ],
         },
         {
-          label: 'Tételek (pillanatkép)',
+          label: 'Tételek és árak',
           fields: [
             readOnly({
               name: 'items',
-              label: 'Tételek a leadáskor',
+              label: 'Tételek a leadáskor (pillanatkép)',
               type: 'array',
               fields: [
                 { name: 'lineId', type: 'text' },
@@ -101,14 +97,27 @@ export const Orders: CollectionConfig = {
                 hufField('catalogUnitPrice', 'Katalógusár leadáskor'),
               ],
             }),
-            readOnly(totalsGroup('submittedTotals', 'Leadáskori összesítő')),
-            readOnly({ name: 'submissionSnapshot', label: 'Teljes beküldési pillanatkép (JSON)', type: 'json' }),
+            readOnly(totalsGroup('submittedTotals', 'Leadáskori összesítő (eredeti)')),
+            readOnly(totalsGroup('agreedTotals', 'Érvényes (elfogadott) összesítő')),
+            readOnly({ name: 'agreed', label: 'Érvényes egységárak (JSON)', type: 'json' }),
+            readOnly({ name: 'submission', label: 'Teljes beküldési pillanatkép (JSON)', type: 'json' }),
           ],
         },
         {
           label: 'Ügyfél és szállítás',
           fields: [
-            readOnly({ name: 'customer', label: 'Ügyfél', type: 'group', fields: [{ name: 'name', label: 'Név', type: 'text', index: true }, { name: 'email', label: 'E-mail', type: 'email', index: true }, { name: 'phone', label: 'Telefon', type: 'text' }, { name: 'companyName', label: 'Cégnév', type: 'text' }, { name: 'taxNumber', label: 'Adószám', type: 'text' }] }),
+            readOnly({
+              name: 'customer',
+              label: 'Ügyfél',
+              type: 'group',
+              fields: [
+                { name: 'name', label: 'Név', type: 'text', index: true },
+                { name: 'email', label: 'E-mail', type: 'email', index: true },
+                { name: 'phone', label: 'Telefon', type: 'text' },
+                { name: 'companyName', label: 'Cégnév', type: 'text' },
+                { name: 'taxNumber', label: 'Adószám', type: 'text' },
+              ],
+            }),
             readOnly({ name: 'billingAddress', label: 'Számlázási cím', type: 'group', fields: addressFields }),
             readOnly({ name: 'shippingAddress', label: 'Szállítási cím', type: 'group', fields: addressFields }),
             readOnly({ name: 'delivery', label: 'Átvétel módja', type: 'group', fields: [{ name: 'methodId', type: 'text' }, { name: 'kind', type: 'text' }, { name: 'name', label: 'Név', type: 'text' }, hufField('fee', 'Díj')] }),
@@ -117,17 +126,15 @@ export const Orders: CollectionConfig = {
           ],
         },
         {
-          label: 'Ár és előzmények',
+          label: 'Előzmények',
           fields: [
-            readOnly(totalsGroup('agreedTotals', 'Érvényes (elfogadott) összesítő')),
-            readOnly({ name: 'agreedLines', label: 'Érvényes egységárak', type: 'json' }),
-            readOnly({ name: 'events', label: 'Állapot- és ajánlatelőzmények', type: 'array', fields: [{ name: 'at', label: 'Időpont', type: 'date' }, { name: 'type', label: 'Típus', type: 'text' }, { name: 'actor', label: 'Szereplő', type: 'text' }, { name: 'message', label: 'Esemény', type: 'text' }] }),
-            readOnly({ name: 'notifications', label: 'Értesítések', type: 'array', fields: [{ name: 'templateId', label: 'Sablon', type: 'text' }, { name: 'recipientRole', label: 'Címzett', type: 'text' }, { name: 'status', label: 'Állapot', type: 'text' }, { name: 'attemptedAt', label: 'Kísérlet', type: 'date' }, { name: 'sentAt', label: 'Elküldve', type: 'date' }, { name: 'error', label: 'Hiba', type: 'text' }] }),
+            { name: 'history', label: 'Műveleti napló (időrendben)', type: 'join', collection: 'order-events', on: 'order', defaultSort: 'at', defaultLimit: 200, admin: { defaultColumns: ['at', 'type', 'actorLabel', 'message', 'reason'], allowCreate: false } },
+            { name: 'proposals', label: 'Árváltozási ajánlatok', type: 'join', collection: 'price-change-proposals', on: 'order', defaultSort: '-createdAt', admin: { allowCreate: false } },
+            { name: 'emails', label: 'E-mailek', type: 'join', collection: 'email-messages', on: 'order', defaultSort: '-queuedAt', admin: { defaultColumns: ['queuedAt', 'templateId', 'to', 'status'], allowCreate: false } },
           ],
         },
       ],
     },
-    { name: 'version', label: 'Verzió', type: 'number', defaultValue: 1, admin: { readOnly: true, position: 'sidebar' } },
   ],
-  hooks: { beforeChange: [protectSnapshotAndTransitions] },
+  hooks: { beforeChange: [protectOrder], afterChange: [auditOrderChange] },
 }

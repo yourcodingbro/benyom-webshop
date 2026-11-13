@@ -1,5 +1,3 @@
-import 'server-only'
-
 type ClockState = {
   /** Fixed time for tests; when null the real time plus offset is used. */
   fixed: number | null

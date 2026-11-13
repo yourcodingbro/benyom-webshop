@@ -15,5 +15,11 @@ export const publicRead: Access = () => true
 /** Public visitors see published documents only; admins see drafts too. */
 export const publishedOrAdmin: Access = ({ req }): boolean | Where => (isAdminRequest(req) ? true : { _status: { equals: 'published' } })
 
+/**
+ * Server-only writes: no REST/GraphQL/admin request can create, change or delete these records.
+ * Application code writes them through the Local API with `overrideAccess: true`.
+ */
+export const serverOnly: Access = () => false
+
 /** For secrets such as token hashes: nobody reads them through any API, including admins. */
 export const nobody: FieldAccess = () => false

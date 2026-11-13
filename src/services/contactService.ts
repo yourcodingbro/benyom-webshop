@@ -66,7 +66,7 @@ export const contactService: ContactService = {
     })
     await updateContactMessageStatus(message.id, result.status, CONTACT_AUTH)
     if (result.status === 'failed') {
-      return { ok: false, message: 'Üzenetét rögzítettük, de a továbbítása nem sikerült. Kérjük, próbálja újra – nem fog kétszer megérkezni.', fieldErrors: {} }
+      return { ok: false, message: 'Üzenetét rögzítettük, de a továbbítása most nem sikerült. Automatikusan újrapróbáljuk – nem kell újra elküldenie, és nem fog kétszer megérkezni.', fieldErrors: {} }
     }
     return { ok: true, delivery: result.status === 'sent' ? 'sent' : 'simulated' }
   },

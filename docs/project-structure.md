@@ -15,46 +15,49 @@ src/
 │   │   ├── rendeles/koszonjuk/          confirmation (cookie-gated, noindex)
 │   │   ├── arvaltozas/[token]/          price-change decision page + POST action
 │   │   ├── info/[slug]/                 general information pages from settings (terms, privacy, warranty)
-│   │   ├── gyik/                        FAQ (settings page "gyik", shadcn Accordion)
+│   │   ├── gyik/                        FAQ (content in FaqAccordion, shadcn Accordion; no settings)
 │   │   ├── fizetes-es-szallitas/        payment & delivery (built from store settings; footer link only)
-│   │   ├── fejlesztes/                  development tools + email previews (404 in production)
+│   │   ├── fejlesztes/                  dev tools: manual scheduler run (APP_ENV ≠ production, admin login)
 │   │   └── actions.ts                   quoteCartAction, placeOrderAction
-│   ├── (payload)/           unmodified Payload admin/API route files (generated template)
-│   ├── sample-media/[...path]/route.ts  generated SVG placeholders at storage-style keys
+│   ├── (payload)/           Payload admin/API route files (generated template) + admin import map
+│   ├── cron/process/        scheduler endpoint (Vercel cron, CRON_SECRET)
+│   ├── webhooks/resend/     verified Resend delivery webhooks
 │   ├── sitemap.ts, robots.ts
 ├── components/              grouped by responsibility, not by the page that renders them
-│   ├── layout/              SiteHeader, SiteFooter, MobileNav, SearchForm, SampleModeBanner, MotionProvider
+│   ├── layout/              SiteHeader, SiteFooter, MobileNav, SearchForm, MotionProvider
 │   ├── product/             ProductCard (preview + quick add), ProductConfigurator, VariantOptions, ProductPicture, ProductSearch, ProductSort, ProductCatalog, ListingTransitionProvider,
 │   │                        ColorSwatch (variant), ColorDot (decorative), OrderabilityBadge, CatalogListing, ListingFilters, Pagination
 │   ├── cart/                CartProvider, CartDrawer, CartLines, CartPageContent, QuantitySelector
 │   ├── checkout/            CheckoutForm (animated panels), CheckoutProgress, OrderSummary
 │   ├── home/                PopularSelector (homepage popular brands/categories)
 │   ├── contact/             ContactForm
-│   ├── info/                InfoPageLayout (shared frame for all information pages), InfoPageView (settings page: paragraphs + FAQ), FaqAccordion (shadcn Accordion)
-│   ├── dev/                 CsvImportForm (development tools)
+│   ├── info/                InfoPageLayout (shared frame for all information pages), InfoPageView (settings page paragraphs), FaqAccordion (standalone FAQ content + shadcn Accordion)
+│   ├── admin/               Payload admin components: OrderActions, EmailPreview, CsvImportView/Client, AdminNavLinks
 │   ├── shadcn/              shadcn/ui primitives (alias "ui" → @/components/shadcn)
 │   ├── Logo.tsx, Breadcrumbs.tsx
 │   └── Reveal.tsx           framer-motion reveal
 ├── hooks/                   useCart, useVariantSelection, useDebouncedSearchParam (live search), useListingFilters, useListingUrl, useListingTransition
-├── collections/             Payload collections, global, access helpers, shared fields
-├── dto/                     data-access functions + sample runtime store
-├── services/                business services (emailService.ts, orderService.ts, …)
+├── collections/             Payload collections and globals, access helpers, shared fields, admin endpoints
+│   └── hooks/               order edit rules + audit + per-status email policy, email job enqueue, row locks
+├── dto/                     data access on the Payload Local API (the only database path), transactions
+├── services/                business services (order, priceChange, email, notification, import, scheduler, contact, …)
 ├── types/                   shared, browser-safe application types
 ├── schemas/                 zod schemas (checkout, proposal, listing URL parsing)
 ├── emails/                  Hungarian React Email templates (.tsx), rendered to HTML + text
-├── config/                  shop constants, labels, order rules, runtime flags
+├── config/                  validated env (env.ts), shop constants, labels, order rules, runtime flags
 ├── lib/                     technical utilities (money, hex, clock, crypto, csv, …)
-├── tests/                   Vitest tests
-├── migrations/              (empty) future Payload migrations
-├── proxy.ts                 503 for Payload routes without a database
-├── sample.ts                immutable sample data (imported only by src/dto)
+├── tests/                   Vitest integration tests (real PostgreSQL; global setup migrates, seeds, snapshots)
+├── migrations/              version-controlled Payload migrations
+├── seed/                    original dataset + placeholders, initial import (migration input only)
+├── scripts/                 import-initial-data.ts (npm run import:initial)
+├── proxy.ts                 404 for development routes unless APP_ENV allows them
 ├── payload.config.ts
 └── payload-types.ts         generated by `npm run generate:types`
 docs/                        this documentation
 public/minta/termekimport-minta.csv
 ```
 
-Root-level exceptions: `package.json`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `postcss.config.mjs`, `vitest.config.ts`, `components.json`, `.env.example`, `public/`.
+Root-level exceptions: `package.json`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `postcss.config.mjs`, `vitest.config.ts`, `vercel.json` (cron), `components.json`, `.env.example`, `public/`.
 
 ## Conventions
 

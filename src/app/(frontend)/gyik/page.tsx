@@ -1,25 +1,20 @@
 import type { Metadata } from "next";
 import type React from "react";
 
-import { getInfoPage } from "@/dto/settings";
-import { infoPagePath } from "@/lib/info-pages";
-import { InfoPageLayout } from "@/components/info/InfoPageLayout";
 import { FaqAccordion } from "@/components/info/FaqAccordion";
+import { InfoPageLayout } from "@/components/info/InfoPageLayout";
 
-const FAQ_SLUG: string = "gyik";
+const TITLE: string = "Gyakori kérdések";
 
-// TODO: fix metadata
-export async function generateMetadata(): Promise<Metadata> {
-  const page = await getInfoPage(FAQ_SLUG);
-  return page
-    ? { title: page.title, alternates: { canonical: infoPagePath(FAQ_SLUG) } }
-    : {};
-}
+export const metadata: Metadata = {
+  title: TITLE,
+  alternates: { canonical: "/gyik" },
+};
 
-/** FAQ: the "gyik" information page from the store settings, with its questions as an accordion. */
-export default async function FaqPage(): Promise<React.JSX.Element> {
+/** FAQ page: the standalone accordion in the shared information-page layout (no settings fetch). */
+export default function FaqPage(): React.JSX.Element {
   return (
-    <InfoPageLayout title="Gyakori kérdések">
+    <InfoPageLayout title={TITLE}>
       <FaqAccordion />
     </InfoPageLayout>
   );

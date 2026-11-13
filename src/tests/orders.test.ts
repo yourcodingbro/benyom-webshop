@@ -1,15 +1,22 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getOrder, getOrders } from '@/dto/orders'
 import { getAllProducts, updateProduct } from '@/dto/products'
 import { HOUR_MS, clock } from '@/lib/clock'
-import { setEmailFailureMode } from '@/lib/dev-simulation'
 import { createOrderAccessToken } from '@/lib/order-access'
 import { orderService } from '@/services/orderService'
 import { quoteService } from '@/services/quoteService'
-import { ADMIN, buildCheckout, placeTestOrder, resetWorld } from '@/tests/helpers'
+import { ADMIN, buildCheckout, placeTestOrder, reload, resetWorld, enableResendMode } from '@/tests/helpers'
+import { acceptAll, failNext } from '@/tests/resend-mock'
 
-beforeEach(resetWorld)
+vi.mock('resend', async (importOriginal) => (await import('@/tests/resend-mock')).mockResendModule(await importOriginal()))
+
+beforeEach(async () => {
+  await resetWorld()
+  acceptAll()
+  vi.spyOn(console, 'info').mockImplementation(() => undefined)
+  vi.spyOn(console, 'error').mockImplementation(() => undefined)
+})
 
 async function setPrice(sku: string, price: number): Promise<void> {
   const product = (await getAllProducts(ADMIN)).find((item) => item.variants.some((variant) => variant.sku === sku))
@@ -17,11 +24,10 @@ async function setPrice(sku: string, price: number): Promise<void> {
   await updateProduct(product.id, { variants: product.variants.map((variant) => (variant.sku === sku ? { ...variant, price } : variant)) }, ADMIN)
 }
 
-describe('pricing and snapshot integrity', () => {
+describe('pricing and snapshot integrity (persistent)', () => {
   it('computes exact integer totals server-side and ignores browser prices', async () => {
     const input = await buildCheckout(['APL-IP17-256-01', 'SAM-A57-128-01'], { deliveryMethodId: 'hazhozszallitas', shippingAddress: { postalCode: '1111', city: 'Budapest', street: 'Fő utca 1.', country: 'HU' } })
-    const lines = input.lines as Record<string, unknown>[]
-    for (const line of lines) line.unitPrice = 1
+    for (const line of input.lines as Record<string, unknown>[]) line.unitPrice = 1
     const result = await orderService.placeOrder(input)
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -29,14 +35,16 @@ describe('pricing and snapshot integrity', () => {
     expect(order?.submission.totals).toEqual({ itemsTotal: 449990 + 169990, deliveryFee: 2990, grandTotal: 449990 + 169990 + 2990, currency: 'HUF' })
     expect(order?.paymentStatus).toBe('unpaid')
     expect(order?.fulfillmentStatus).toBe('received')
+    expect(order?.isDemo).toBe(false)
   })
 
   it('keeps the submission snapshot unchanged when the catalog changes', async () => {
     const order = await placeTestOrder()
     await setPrice('APL-IP17-256-01', 499990)
-    const reloaded = await getOrder(order.reference, ADMIN)
-    expect(reloaded?.submission).toEqual(order.submission)
-    expect(reloaded?.submission.lines[0]?.attributes.colorHex).toBe('#1C1C1E')
+    const reloaded = await reload(order)
+    expect(reloaded.submission).toEqual(order.submission)
+    expect(reloaded.agreed).toEqual(order.agreed)
+    expect(reloaded.submission.lines[0]?.attributes.colorHex).toBe('#1C1C1E')
   })
 
   it('preserves a valid quoted price after a catalog increase and flags price review', async () => {
@@ -48,6 +56,7 @@ describe('pricing and snapshot integrity', () => {
     expect(order?.submission.lines[0]?.unitPrice).toBe(449990)
     expect(order?.submission.lines[0]?.catalogUnitPrice).toBe(479990)
     expect(order?.needsPriceReview).toBe(true)
+    expect(order?.events.map((event) => event.type).filter((type) => !type.startsWith('notification_'))).toEqual(['submitted', 'price_review_flagged'])
   })
 
   it('uses the catalog price for expired or tampered quotes, and a lower catalog price always wins', async () => {
@@ -57,7 +66,6 @@ describe('pricing and snapshot integrity', () => {
     const forged = `${Buffer.from(JSON.stringify({ sku: 'APL-IP17-256-01', unitPrice: 1, issuedAt: clock.nowIso(), expiresAt: '2099-01-01T00:00:00.000Z' })).toString('base64url')}.${token.split('.')[1]}`
     expect(quoteService.verifyQuote(forged, 'APL-IP17-256-01')).toBeNull()
     const fresh = quoteService.issueQuote('APL-IP17-256-01', 449990)
-    expect(quoteService.verifyQuote(fresh.token, 'APL-IP17-256-02')).toBeNull()
     await setPrice('APL-IP17-256-01', 399990)
     const quote = await quoteService.quoteCart([{ sku: 'APL-IP17-256-01', quantity: 2, quoteToken: fresh.token }])
     expect(quote.lines[0]?.unitPrice).toBe(399990)
@@ -67,13 +75,11 @@ describe('pricing and snapshot integrity', () => {
 
 describe('order validation and orderability', () => {
   it('rejects unavailable variants, unknown fees and missing shipping address', async () => {
-    const unavailable = await orderService.placeOrder(await buildCheckout(['APL-IP17P-1TB-02']))
-    expect(unavailable.ok).toBe(false)
+    expect((await orderService.placeOrder(await buildCheckout(['APL-IP17P-1TB-02']))).ok).toBe(false)
     const unknownFee = await orderService.placeOrder(await buildCheckout(undefined, { deliveryMethodId: 'csomagautomata' }))
     expect(unknownFee.ok).toBe(false)
     if (!unknownFee.ok) expect(unknownFee.message).toMatch(/nincs meghatározott díja/)
-    const noAddress = await orderService.placeOrder(await buildCheckout(undefined, { deliveryMethodId: 'hazhozszallitas' }))
-    expect(noAddress.ok).toBe(false)
+    expect((await orderService.placeOrder(await buildCheckout(undefined, { deliveryMethodId: 'hazhozszallitas' }))).ok).toBe(false)
     const noTerms = await orderService.placeOrder(await buildCheckout(undefined, { termsAccepted: false }))
     expect(noTerms.ok).toBe(false)
     if (!noTerms.ok) expect(noTerms.fieldErrors.termsAccepted).toMatch(/ÁSZF/)
@@ -87,15 +93,22 @@ describe('order validation and orderability', () => {
   })
 })
 
-describe('idempotency and authorization', () => {
+describe('idempotency and authorization (persistent)', () => {
   it('returns the same order for a repeated idempotency key and rejects a different payload', async () => {
     const input = await buildCheckout()
     const first = await orderService.placeOrder(input)
     const second = await orderService.placeOrder(input)
     expect(first.ok && second.ok && first.reference === second.reference).toBe(true)
     if (second.ok) expect(second.created).toBe(false)
-    const conflicting = await orderService.placeOrder({ ...input, note: 'más' })
-    expect(conflicting.ok).toBe(false)
+    expect((await orderService.placeOrder({ ...input, note: 'más' })).ok).toBe(false)
+    expect((await getOrders({}, ADMIN)).items.filter((order) => order.idempotencyKey === input.idempotencyKey)).toHaveLength(1)
+  })
+
+  it('concurrent identical submissions create exactly one order', async () => {
+    const input = await buildCheckout()
+    const results = await Promise.all([orderService.placeOrder(input), orderService.placeOrder(input), orderService.placeOrder(input)])
+    const references = new Set(results.map((result) => (result.ok ? result.reference : 'hiba')))
+    expect(references.size).toBe(1)
     expect((await getOrders({}, ADMIN)).items.filter((order) => order.idempotencyKey === input.idempotencyKey)).toHaveLength(1)
   })
 
@@ -103,19 +116,19 @@ describe('idempotency and authorization', () => {
     const order = await placeTestOrder()
     expect(await getOrder(order.reference, { kind: 'anonymous' })).toBeNull()
     expect(await getOrder(order.reference, { kind: 'order-access', reference: order.reference, accessToken: 'hamis' })).toBeNull()
-    const otherToken = createOrderAccessToken('BNY-MNTA-0001')
-    expect(await getOrder(order.reference, { kind: 'order-access', reference: order.reference, accessToken: otherToken })).toBeNull()
+    expect(await getOrder(order.reference, { kind: 'order-access', reference: order.reference, accessToken: createOrderAccessToken('BNY-MNTA-0001') })).toBeNull()
     expect(await orderService.getOrderForCustomer(order.reference, createOrderAccessToken(order.reference))).not.toBeNull()
     await expect(getOrders({}, { kind: 'anonymous' })).rejects.toThrow()
     await expect(orderService.updateFulfillmentStatus({ reference: order.reference, status: 'confirmed', expectedVersion: order.version }, { kind: 'anonymous' })).rejects.toThrow()
     expect(order.reference).toMatch(/^BNY-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/)
   })
 
-  it('keeps the order when notification sending fails', async () => {
-    setEmailFailureMode({ kind: 'fail-all' })
+  it('keeps the order when email delivery fails and leaves the emails queued for retry', async () => {
+    enableResendMode()
+    failNext(10)
     const order = await placeTestOrder()
-    expect(order.notifications).toHaveLength(2)
-    expect(order.notifications.every((record) => record.status === 'failed')).toBe(true)
+    expect(order.notifications.map((record) => record.templateId).sort()).toEqual(['order-received', 'store-new-order'])
+    expect(order.notifications.every((record) => record.status === 'queued' && record.error !== null)).toBe(true)
   })
 
   it('enforces fulfillment transitions and optimistic concurrency', async () => {

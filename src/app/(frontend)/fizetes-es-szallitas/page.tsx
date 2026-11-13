@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import type React from 'react'
 
 import { InfoPageLayout } from '@/components/info/InfoPageLayout'
-import { Alert, AlertDescription, AlertTitle } from '@/components/shadcn/alert'
 import { getStoreSettings } from '@/dto/settings'
 import { describeDeliveryFee } from '@/lib/delivery'
 import type { DeliveryMethod } from '@/types/settings'
@@ -15,7 +14,6 @@ export const metadata: Metadata = {
 
 function feeNote(method: DeliveryMethod): string | null {
   if (method.fee.kind === 'unknown') return 'Ehhez a módhoz még nincs beállított díj, ezért rendeléskor nem választható.'
-  if (method.fee.kind === 'fixed' && method.fee.isSampleValue) return 'A díj fiktív mintaérték, nem a végleges ár.'
   return null
 }
 
@@ -28,12 +26,6 @@ export default async function PaymentAndDeliveryPage(): Promise<React.JSX.Elemen
     <InfoPageLayout title="Fizetés és szállítás">
       <p>Előrendelés esetén online fizetés nincs: a vételárat személyes átvételkor vagy kiszállításkor kell kiegyenlíteni.</p>
 
-      {settings.isSampleContent ? (
-        <Alert>
-          <AlertTitle>Mintaadatok</AlertTitle>
-          <AlertDescription>Az alábbi díjak, címek és nyitvatartás fiktív mintaértékek. A végleges adatokat az áruház beállításaiban kell megadni.</AlertDescription>
-        </Alert>
-      ) : null}
 
       <h2>Fizetés</h2>
       <ul>

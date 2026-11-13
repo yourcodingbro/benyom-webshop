@@ -17,13 +17,18 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
-    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap"
+    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "migrate": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_DB_TARGET=migration payload migrate",
+    "migrate:create": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_DB_TARGET=migration payload migrate:create",
+    "migrate:status": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_DB_TARGET=migration payload migrate:status",
+    "import:initial": "cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_DB_TARGET=migration payload run src/scripts/import-initial-data.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "5.3.0",
     "@fontsource/open-sans": "5.3.0",
     "@payloadcms/db-postgres": "3.91.0",
     "@payloadcms/next": "3.91.0",
+    "@payloadcms/storage-s3": "3.91.0",
     "@payloadcms/translations": "3.91.0",
     "@payloadcms/ui": "3.91.0",
     "@react-email/components": "1.0.12",

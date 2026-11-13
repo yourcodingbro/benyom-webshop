@@ -1,25 +1,34 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { APP_ENVS } from '@/config/env'
+
 /**
- * Payload's admin (/admin) and APIs (/api/*) need a database. In sample mode there is none,
- * so these routes answer an explicit 503 instead of initializing Payload. Nothing here
- * imitates the Payload admin UI.
+ * Development tools are served only when APP_ENV is valid and not `production`. Every spelling of the
+ * route is covered (`/fejlesztes`, `/fejlesztés`, percent-encoded and any case), including server
+ * action POSTs to them. A missing or invalid APP_ENV fails closed. The page and its actions check
+ * again on their own (defense in depth).
  */
-const UNAVAILABLE_HTML: string = `<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Admin nem elérhető</title></head>
-<body style="font-family:system-ui,sans-serif;max-width:640px;margin:10vh auto;padding:0 16px;color:#333">
-<h1 style="font-size:1.4rem">A Payload admin felület minta módban nem elérhető</h1>
-<p>Az adminisztrációhoz adatbázis szükséges (DATABASE_URL és PAYLOAD_SECRET). Minta módban nincs adatbázis-kapcsolat, ezért a natív Payload admin és API szándékosan ki van kapcsolva.</p>
-<p>A mintafolyamatok (rendelések, árváltozási ajánlatok, e-mail előnézetek, CSV-import) fejlesztői módban a <a href="/fejlesztes">/fejlesztes</a> oldalon próbálhatók ki.</p>
-<p>Részletek: docs/sample-mode.md és docs/deployment.md.</p></body></html>`
+const DEV_PATH: RegExp = /^\/fejleszt(e|é)s(\/|$)/i
+
+function devToolsAllowed(): boolean {
+  const appEnv = process.env.APP_ENV
+  return appEnv !== undefined && (APP_ENVS as readonly string[]).includes(appEnv) && appEnv !== 'production'
+}
 
 export function proxy(request: NextRequest): NextResponse {
-  if (process.env.DATABASE_URL && process.env.PAYLOAD_SECRET) return NextResponse.next()
-  if (request.nextUrl.pathname.startsWith('/api')) {
-    return NextResponse.json({ error: 'A Payload API minta módban nem elérhető (nincs adatbázis).' }, { status: 503 })
+  let path = request.nextUrl.pathname
+  try {
+    path = decodeURIComponent(path).normalize('NFC')
+  } catch {
+    return new NextResponse('Nem található', { status: 404 })
   }
-  return new NextResponse(UNAVAILABLE_HTML, { status: 503, headers: { 'content-type': 'text/html; charset=utf-8', 'x-robots-tag': 'noindex' } })
+  if (DEV_PATH.test(path) && !devToolsAllowed()) {
+    return new NextResponse('Nem található', { status: 404, headers: { 'x-robots-tag': 'noindex' } })
+  }
+  return NextResponse.next()
 }
 
 export const config: { matcher: string[] } = {
-  matcher: ['/admin', '/admin/:path*', '/api/:path*'],
+  // The app has one dev route (/fejlesztes); other spellings are matched too, so no alias is ever served.
+  matcher: ['/fejlesztes', '/fejlesztes/:path*', '/fejleszt%C3%A9s', '/fejleszt%C3%A9s/:path*', '/fejlesztés', '/fejlesztés/:path*'],
 }

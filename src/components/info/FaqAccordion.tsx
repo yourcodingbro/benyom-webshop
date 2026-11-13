@@ -6,9 +6,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/shadcn/accordion";
-import type { FaqItem } from "@/types/settings";
+type FaqItem = {
+  question: string;
+  answer: string;
+};
 
-const items = [
+/** The FAQ content lives here, not in the store settings: the page needs no data fetching. */
+const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Kell-e online fizetnem?",
     answer: "Nem. A fizetés átvételkor vagy kiszállításkor történik.",
@@ -32,7 +36,7 @@ const items = [
 export function FaqAccordion(): React.JSX.Element {
   return (
     <Accordion type="single" collapsible className="rounded-xl border px-5">
-      {items.map((item: FaqItem, index: number) => (
+      {FAQ_ITEMS.map((item: FaqItem, index: number) => (
         <AccordionItem key={item.question} value={`kerdes-${index}`}>
           <AccordionTrigger>{item.question}</AccordionTrigger>
           <AccordionContent>{item.answer}</AccordionContent>

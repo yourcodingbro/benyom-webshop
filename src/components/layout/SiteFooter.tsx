@@ -2,7 +2,7 @@ import Link from "next/link";
 import type React from "react";
 
 import type { StoreSettings } from "@/types/settings";
-import { infoPagePath } from "@/lib/info-pages";
+import { hasDedicatedRoute, infoPagePath } from "@/lib/info-pages";
 
 type SiteFooterProps = {
   settings: StoreSettings;
@@ -27,9 +27,9 @@ export function SiteFooter(props: SiteFooterProps): React.JSX.Element {
             Információk
           </h2>
           <ul className="mt-3 space-y-1.5 text-sm">
-            {/* Settings pages, each at its canonical URL (FAQ → /gyik, others → /info/<slug>); payment & delivery is linked above. */}
+            {/* Settings pages at /info/<slug>; FAQ and payment & delivery are standalone pages linked below. */}
             {settings.pages
-              .filter((page) => page.slug !== "fizetes-es-szallitas")
+              .filter((page) => !hasDedicatedRoute(page.slug))
               .map((page) => (
                 <li key={page.slug}>
                   <Link
@@ -46,6 +46,11 @@ export function SiteFooter(props: SiteFooterProps): React.JSX.Element {
                 className="hover:text-white hover:underline"
               >
                 Fizetés és szállítás
+              </Link>
+            </li>
+            <li>
+              <Link href="/gyik" className="hover:text-white hover:underline">
+                Gyakori kérdések
               </Link>
             </li>
             <li>
@@ -70,9 +75,7 @@ export function SiteFooter(props: SiteFooterProps): React.JSX.Element {
         </div>
       </div>
       <p className="border-t border-white/10 py-4 text-center text-xs">
-        {settings.isSampleContent
-          ? "Mintaáruház – minden adat fiktív, a rendelések nem valódiak."
-          : `© ${settings.storeName}`}
+        {`© ${settings.storeName}`}
       </p>
     </footer>
   );

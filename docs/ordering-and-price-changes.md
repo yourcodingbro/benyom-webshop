@@ -14,17 +14,16 @@ Preorder only: cart → contact/billing → collection or delivery → review �
 ## Checkout validation (server)
 
 `orderService.placeOrder(input: unknown)`:
-1. Refuses when `APP_ENV`/`VERCEL_ENV` is `production` (sample checkout disabled).
-2. Validates with `checkoutSchema` (Hungarian messages). Prices are not part of the payload; any extra browser fields are stripped.
-3. Delivery method: must exist and be enabled. Fee `unknown` → rejected ("nincs meghatározott díja"). `free` → 0. `fixed` → amount. Unknown is never treated as zero.
-4. Delivery requires a shipping address. Collection ignores and does not store one.
-5. Re-quotes every line on the server. Any line that is not orderable rejects the order.
-6. Builds the immutable snapshot and inserts it with `addOrder` (idempotent).
-7. Sends `order-received` (customer) and `store-new-order` (store). Failures are recorded on the order and never undo it.
+1. Validates with `checkoutSchema` (Hungarian messages). Prices are not part of the payload; any extra browser fields are stripped.
+2. Delivery method: must exist and be enabled. Fee `unknown` → rejected ("nincs meghatározott díja"). `free` → 0. `fixed` → amount. Unknown is never treated as zero.
+3. Delivery requires a shipping address. Collection ignores and does not store one.
+4. Re-quotes every line on the server. Any line that is not orderable rejects the order.
+5. Builds the immutable snapshot and inserts it with `addOrder` (idempotent). The order, its *submitted* audit entry and the `order-received` (customer) and `store-new-order` (store) email jobs commit in **one transaction**.
+6. Attempts delivery after commit. A failed email stays queued for the scheduler and never undoes the order.
 
 ## Submission snapshot
 
-`order.submission` holds product/variant names, SKU, attributes including HEX, unit price, quantity, line totals, catalog price at submission, price source, delivery method and fee, currency and totals, customer, billing/shipping addresses, note, terms and privacy versions with acceptance time. Nothing ever rewrites it. The Payload `Orders` hook rejects changes to snapshot fields.
+`order.submission` holds product/variant names, SKU, attributes including HEX, unit price, quantity, line totals, catalog price at submission, price source, delivery method and fee, currency and totals, customer, billing/shipping addresses, note, terms and privacy versions with acceptance time. Nothing ever rewrites it: the Payload `Orders` hook (`protectOrder`) rejects changes to snapshot, price, proposal and cancellation fields from every API.
 
 `order.agreed` holds the currently agreed prices. It starts equal to the submission and changes only when the customer accepts a proposal (`source: 'price_change'`, `proposalId`).
 
@@ -40,7 +39,11 @@ The checkout form creates a UUID idempotency key (kept in sessionStorage until s
 
 ## Fulfillment
 
-States: Beérkezett → Ellenőrzés alatt → Visszaigazolva → Beszerzés folyamatban → Átvehető (collection) / Kiszállítás alatt (delivery) → Teljesítve, plus Törölve. Transitions are listed in `config/order-rules.ts` and enforced in `orderService` and the Payload hook. Updates use optimistic concurrency (`version`). Customer emails go out for confirmed, ready for collection, dispatched and completed.
+States: Beérkezett → Ellenőrzés alatt → Visszaigazolva → Beszerzés folyamatban → Átvehető (collection) / Kiszállítás alatt (delivery) → Teljesítve, plus Törölve. Transitions are listed in `config/order-rules.ts` and enforced in `orderService` and the Payload hook. Updates use optimistic concurrency (`version`, checked under a row lock). Customer emails per status transition are governed by the switches in *Értesítési beállítások* (see [admin-operations.md](admin-operations.md#notification-settings-értesítési-beállítások)), applied centrally in the Orders hook. Cancellation by the store requires a reason.
+
+## Audit trail
+
+Every order change writes append-only `order-events` entries in the same transaction (actor from the server-side context, previous/new values, reason, related proposal/email). See [admin-operations.md](admin-operations.md#audit-history).
 
 ## Price-change proposals
 
@@ -52,7 +55,7 @@ States: Beérkezett → Ellenőrzés alatt → Visszaigazolva → Beszerzés fol
 
 ### Decision links
 
-- Each sent email gets a fresh random 256-bit token. Only `sha256(token)` is stored, and only after the send succeeded.
+- The token for each proposal email is derived as `HMAC(APP_SIGNING_SECRET, proposalId + kind)`, so a retry renders exactly the same email and the raw token is never stored. Only `sha256(token)` is stored, and only after Resend accepted the email. A superseded proposal's links stop working because its status is no longer pending.
 - `GET /arvaltozas/{token}` is read-only (`getDecisionView`). It shows old/new prices, consequences and the deadline. Pages are `noindex` and `no-referrer`.
 - Decisions are explicit POST server actions. Accept, or reject, which requires a confirmation checkbox. Then a redirect (PRG).
 - **Accept** → `agreed` = proposed prices, `priceApprovalStatus = accepted`, history entry, confirmation email.
@@ -70,8 +73,13 @@ proposal email successfully sent  (T0 = proposalEmail.sentAt)
 ```
 
 - A failed attempt does not start a period. The scheduler retries the proposal email until it succeeds, and only then does T0 start. A delayed or failed reminder still gives the customer the **full** 24 h after it is actually sent.
-- Each email is sent under a **claim** (`claimProposalEmail`), so concurrent or retried scheduler runs cannot send twice. A claim older than 10 minutes counts as interrupted and may be retried.
-- In sample mode, "successfully sent" means `emailService` returned `sent_simulated`. With Resend, it will mean the provider accepted the API request.
+- Each proposal/reminder is one persisted email job (stable key); delivery attempts run under a **claim** (row lock), so concurrent or retried scheduler runs cannot send twice. A claim older than 10 minutes counts as interrupted and may be retried.
+- "Successfully sent" means **Resend accepted the request**. In logging mode (`EMAIL_MODE=log`) or with a broken configuration nothing starts: the proposal stays pending with an explanatory `lastError`, and no reminder or expiry is ever scheduled for it.
+- Demo (historical) proposals are never loaded by the scheduler.
+
+## Scheduler
+
+`GET /cron/process` (Vercel cron, every minute, `Authorization: Bearer CRON_SECRET`) runs `schedulerService.runOnce()`: due email jobs (with backoff), then proposals (unsent proposal emails, due reminders, expiry). Everything is stored in the database; there are no in-memory timers and no fire-and-forget work. Timing tolerance is one cron interval: a reminder may be sent up to ~1 minute (Pro plan) late, but the final 24 h are counted from its actual acceptance, so the customer never loses time; expiry may also run up to one interval late, and a decision arriving after the deadline loses anyway (see Races). Vercel may skip or duplicate a run; both are harmless. In development, *Ütemező futtatása* on `/fejlesztes` runs the same tick.
 
 ### Races
 
@@ -79,4 +87,4 @@ Acceptance, rejection, expiry and withdrawal all go through `resolveProposal`, a
 
 ### Tests
 
-`src/tests/price-change.test.ts` uses the controllable clock (`clock.set/advance`) to cover: hold and accept, whole-order rejection, ineligible orders, reminder at 24 h and expiry 24 h after the reminder (boundary to the millisecond), failed sends and retries without consuming periods, an accept-vs-expire race, deadline enforcement at decision time, replayed/superseded/invalid tokens, GET non-mutation, and log redaction.
+`src/tests/price-change.test.ts` (real PostgreSQL, Resend SDK mocked, controllable clock) covers: hold and accept with the original snapshot kept, whole-order rejection, ineligible and demo orders, reminder at 24 h and expiry 24 h after the reminder (to the millisecond), failed sends and a delayed reminder still giving the full final window, logging mode starting no deadline, a three-way accept/reject/expire race, replayed/superseded/invalid tokens, GET non-mutation, and token/link redaction in storage and logs.

@@ -2,22 +2,11 @@ import 'server-only'
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
-import { isProductionDeployment } from '@/config/runtime'
+import { getServerEnv } from '@/config/env'
 
-const SECRET_KEY: unique symbol = Symbol.for('benyom.devSigningSecret')
-type SecretGlobal = typeof globalThis & { [SECRET_KEY]?: string }
-
-/**
- * HMAC secret for quotes and order-access tokens. In sample mode a random
- * per-process secret is used when none is configured (tokens die on restart).
- */
+/** HMAC secret for quotes, order-access and decision tokens (validated: at least 32 characters). */
 function signingSecret(): string {
-  const configured = process.env.APP_SIGNING_SECRET
-  if (configured && configured.length >= 32) return configured
-  if (isProductionDeployment()) throw new Error('APP_SIGNING_SECRET hiányzik vagy túl rövid (min. 32 karakter).')
-  const holder = globalThis as SecretGlobal
-  holder[SECRET_KEY] ??= randomBytes(32).toString('hex')
-  return holder[SECRET_KEY]
+  return getServerEnv().APP_SIGNING_SECRET
 }
 
 export function randomToken(bytes: number = 32): string {

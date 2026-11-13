@@ -7,7 +7,7 @@ type InfoPageViewProps = {
   page: InfoPage;
 };
 
-/** A store-settings information page: paragraphs, then its FAQ (if any) as an accordion. Used by /info/[slug] and /gyik. */
+/** A store-settings information page (its paragraphs). Used by /info/[slug]. */
 export function InfoPageView(props: InfoPageViewProps): React.JSX.Element {
   const { page } = props;
   return (

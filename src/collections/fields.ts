@@ -1,4 +1,4 @@
-import type { Field, TextFieldSingleValidation } from 'payload'
+import type { CollectionBeforeValidateHook, Field, TextFieldSingleValidation } from 'payload'
 
 import { normalizeHexColor } from '@/lib/hex'
 
@@ -20,6 +20,12 @@ export function hexColorField(name: string, label: string, required: boolean = f
   }
 }
 
+export const SLUG_PATTERN: RegExp = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+/** Same rule as the CSV import (product_id). */
+export const STABLE_ID_PATTERN: RegExp = /^[a-z0-9][a-z0-9-]{1,79}$/
+/** Same rule as the CSV import (sku). */
+export const SKU_PATTERN: RegExp = /^[A-Z0-9][A-Z0-9-]{1,63}$/
+
 export function slugField(): Field {
   return {
     name: 'slug',
@@ -28,7 +34,32 @@ export function slugField(): Field {
     required: true,
     unique: true,
     index: true,
-    validate: (value: string | null | undefined) => (value && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? true : 'Csak kisbetű, szám és kötőjel használható.'),
+    validate: (value: string | null | undefined) => (value && SLUG_PATTERN.test(value) ? true : 'Csak kisbetű, szám és kötőjel használható.'),
+  }
+}
+
+/**
+ * Stable, human-readable text primary key (e.g. `prod-iphone-17`). Keeps sample and CSV identifiers
+ * valid across environments and makes re-imports idempotent. Filled from the slug when left empty.
+ */
+export function stableIdField(): Field {
+  return {
+    name: 'id',
+    label: 'Stabil azonosító',
+    type: 'text',
+    required: true,
+    validate: (value: string | null | undefined) => (value && STABLE_ID_PATTERN.test(value) ? true : 'Kisbetű, szám és kötőjel (2–80 karakter).'),
+    admin: { description: 'Üresen hagyva a slugból képezzük. Létrehozás után nem módosítható; a CSV-import ezzel azonosít.' },
+    access: { update: () => false },
+  }
+}
+
+export function defaultIdFromSlug(prefix: string): CollectionBeforeValidateHook {
+  return ({ data, operation }) => {
+    if (operation === 'create' && data && !data.id && typeof data.slug === 'string' && data.slug) {
+      return { ...data, id: `${prefix}-${data.slug}` }
+    }
+    return data
   }
 }
 
@@ -51,6 +82,28 @@ export const ORDERABILITY_OPTIONS: { label: string; value: string }[] = [
   { label: 'Megszűnt / archivált', value: 'discontinued' },
 ]
 
+export function procurementGroup(): Field {
+  return {
+    name: 'procurementEstimate',
+    label: 'Becsült beszerzési idő (munkanap)',
+    type: 'group',
+    fields: [
+      { name: 'minDays', label: 'Minimum', type: 'number', min: 0, max: 365 },
+      {
+        name: 'maxDays',
+        label: 'Maximum',
+        type: 'number',
+        min: 0,
+        max: 365,
+        validate: (value: number | null | undefined, { siblingData }: { siblingData: { minDays?: number | null } }) =>
+          value === null || value === undefined || siblingData.minDays === null || siblingData.minDays === undefined || value >= siblingData.minDays
+            ? true
+            : 'A maximum nem lehet kisebb a minimumnál.',
+      },
+    ],
+  }
+}
+
 export function totalsGroup(name: string, label: string, readOnly: boolean = false): Field {
   return {
     name,
@@ -60,3 +113,5 @@ export function totalsGroup(name: string, label: string, readOnly: boolean = fal
     fields: [hufField('itemsTotal', 'Termékek összesen'), hufField('deliveryFee', 'Szállítási díj'), hufField('grandTotal', 'Végösszeg'), { name: 'currency', label: 'Pénznem', type: 'text', defaultValue: 'HUF' }],
   }
 }
+
+export const options = (labels: Record<string, string>): { label: string; value: string }[] => Object.entries(labels).map(([value, label]) => ({ value, label }))

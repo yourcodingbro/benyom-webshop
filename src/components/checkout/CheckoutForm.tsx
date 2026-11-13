@@ -28,7 +28,6 @@ import type { DeliveryMethod } from '@/types/settings'
 type CheckoutFormProps = {
   deliveryMethods: DeliveryMethod[]
   collection: { address: string; openingHours: string[]; note: string }
-  checkoutEnabled: boolean
 }
 
 type AddressState = { postalCode: string; city: string; street: string }
@@ -243,14 +242,6 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
     router.push('/rendeles/koszonjuk')
   }
 
-  if (!props.checkoutEnabled) {
-    return (
-      <Alert>
-        <AlertTitle>A pénztár nem elérhető</AlertTitle>
-        <AlertDescription>Ez egy minta-üzlet; éles környezetben a minta-pénztár le van tiltva.</AlertDescription>
-      </Alert>
-    )
-  }
   if (cart.hydrated && cart.lines.length === 0) {
     return (
       <p>

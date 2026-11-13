@@ -1,6 +1,7 @@
 import type { VariantAttributes } from '@/types/catalog'
 import type { Currency, HufAmount, IsoDateTime } from '@/types/common'
 import type { DeliveryMethodKind } from '@/types/settings'
+import type { AuditEventInput, EmailJobStatus } from '@/types/workflow'
 
 export type FulfillmentStatus =
   | 'received'
@@ -81,7 +82,10 @@ export type AgreedPricing = {
 
 export type OrderEventType =
   | 'submitted'
+  | 'imported'
   | 'status_changed'
+  | 'payment_changed'
+  | 'admin_edit'
   | 'price_review_flagged'
   | 'proposal_created'
   | 'proposal_superseded'
@@ -91,21 +95,36 @@ export type OrderEventType =
   | 'proposal_withdrawn'
   | 'cancelled'
   | 'note_added'
+  | 'notification_queued'
+  | 'notification_skipped'
+  | 'notification_submitted'
+  | 'notification_failed'
+  | 'notification_delivered'
+  | 'notification_bounced'
 
+/** One entry of the append-only order audit trail (collection `order-events`). */
 export type OrderEvent = {
   id: string
   at: IsoDateTime
   type: OrderEventType
   actor: 'customer' | 'admin' | 'system'
+  /** Admin email or process name; never a client-supplied identity. */
+  actorLabel: string
   message: string
+  previousValue: unknown
+  newValue: unknown
+  reason: string | null
+  proposalId: string | null
+  emailMessageId: string | null
 }
 
+/** Email history entry related to the order (collection `email-messages`). */
 export type NotificationRecord = {
   id: string
   templateId: string
   recipientRole: 'customer' | 'store'
-  status: 'sent' | 'sent_simulated' | 'failed'
-  attemptedAt: IsoDateTime
+  status: EmailJobStatus
+  attemptedAt: IsoDateTime | null
   sentAt: IsoDateTime | null
   error: string | null
   proposalId: string | null
@@ -132,8 +151,8 @@ export type Order = {
   version: number
   createdAt: IsoDateTime
   updatedAt: IsoDateTime
-  /** Sample-runtime order: never a real customer order. */
-  isSample: true
+  /** Historical demo data from the initial import: excluded from emails, jobs and scheduling. */
+  isDemo: boolean
 }
 
 export type OrderQuery = {
@@ -152,7 +171,9 @@ export type OrderPatch = {
   needsPriceReview?: boolean
   agreed?: AgreedPricing
   cancellation?: Order['cancellation']
-  appendEvents?: OrderEvent[]
-  appendNotifications?: NotificationRecord[]
+  /** Audit entries written in the same transaction as the change. */
+  appendEvents?: AuditEventInput[]
   appendAdminNotes?: { at: IsoDateTime; text: string }[]
+  /** Proposal-driven cancellations send their own required emails instead of the per-status one. */
+  skipStatusNotification?: boolean
 }

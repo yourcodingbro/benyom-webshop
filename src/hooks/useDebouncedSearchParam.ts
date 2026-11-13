@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import { useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useListingUrl } from '@/hooks/useListingUrl'
+import { useListingUrl } from "@/hooks/useListingUrl";
 
 type UseDebouncedSearchParamParams = {
   /** URL parameter holding the applied query, e.g. "q". */
-  param: string
-  delayMs: number
-}
+  param: string;
+  delayMs: number;
+};
 
 type UseDebouncedSearchParamResult = {
   /** Input value; updates immediately on every keystroke. */
-  value: string
-  setValue: (value: string) => void
+  value: string;
+  setValue: (value: string) => void;
   /** Applies the current value now (e.g. on Enter). */
-  flush: () => void
+  flush: () => void;
   /** A keystroke is waiting for the debounce delay. */
-  debouncing: boolean
-}
+  debouncing: boolean;
+};
 
 /**
  * Live search synchronised with the URL:
@@ -30,77 +30,87 @@ type UseDebouncedSearchParamResult = {
  * - back/forward (or links) that change the parameter update the input, without clobbering
  *   text typed after our own request was sent.
  */
-export function useDebouncedSearchParam(params: UseDebouncedSearchParamParams): UseDebouncedSearchParamResult {
-  const searchParams = useSearchParams()
-  const { update } = useListingUrl()
-  const urlValue = searchParams.get(params.param) ?? ''
+export function useDebouncedSearchParam(
+  params: UseDebouncedSearchParamParams
+): UseDebouncedSearchParamResult {
+  const searchParams = useSearchParams();
+  const { update } = useListingUrl();
+  const urlSearchTerm = searchParams.get(params.param) ?? "";
 
-  const [value, setValueState] = useState<string>(urlValue)
-  const [seenUrlValue, setSeenUrlValue] = useState<string>(urlValue)
-  const [requested, setRequested] = useState<string>(urlValue)
-  const [debouncing, setDebouncing] = useState<boolean>(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const requestedRef = useRef<string>(urlValue)
+  const [inputValue, setInputValue] = useState<string>(urlSearchTerm);
+  const [lastSeenSearchTerm, setLastSeenSearchTerm] =
+    useState<string>(urlSearchTerm);
+  const [lastRequestedSearchTerm, setLastRequestedSearchTerm] =
+    useState<string>(urlSearchTerm);
+  const [isDebouncing, setIsDebouncing] = useState<boolean>(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRequestedSearchTermRef = useRef<string>(urlSearchTerm);
 
   // Adjust state while rendering when the URL changed (React's recommended alternative to an effect).
-  if (urlValue !== seenUrlValue) {
-    setSeenUrlValue(urlValue)
+  if (urlSearchTerm !== lastSeenSearchTerm) {
+    setLastSeenSearchTerm(urlSearchTerm);
     // Our own request coming back must not overwrite newer typing; external changes (back/forward) must.
-    if (urlValue !== requested) {
-      setValueState(urlValue)
-      setRequested(urlValue)
+    if (urlSearchTerm !== lastRequestedSearchTerm) {
+      setInputValue(urlSearchTerm);
+      setLastRequestedSearchTerm(urlSearchTerm);
     }
   }
 
   // External URL change: a pending debounce belongs to the old query, drop it.
   useEffect(() => {
-    if (urlValue === requestedRef.current) return
-    requestedRef.current = urlValue
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = null
-  }, [urlValue])
+    if (urlSearchTerm === lastRequestedSearchTermRef.current) return;
+    lastRequestedSearchTermRef.current = urlSearchTerm;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = null;
+  }, [urlSearchTerm]);
 
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current)
-  }, [])
-
-  const apply = useCallback(
-    (raw: string): void => {
-      timer.current = null
-      setDebouncing(false)
-      const term = raw.trim()
-      const navigated = update({
-        history: 'replace',
-        mutate: (query: URLSearchParams) => {
-          if (term) query.set(params.param, term)
-          else query.delete(params.param)
-        },
-      })
-      if (!navigated) return
-      requestedRef.current = term
-      setRequested(term)
+  useEffect(
+    () => () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     },
-    [params.param, update],
-  )
+    []
+  );
+
+  const applySearchTerm = useCallback(
+    (raw: string): void => {
+      debounceTimerRef.current = null;
+      setIsDebouncing(false);
+      const searchTerm = raw.trim();
+      const navigated = update({
+        history: "replace",
+        mutate: (query: URLSearchParams) => {
+          if (searchTerm) query.set(params.param, searchTerm);
+          else query.delete(params.param);
+        },
+      });
+      if (!navigated) return;
+      lastRequestedSearchTermRef.current = searchTerm;
+      setLastRequestedSearchTerm(searchTerm);
+    },
+    [params.param, update]
+  );
 
   const setValue = useCallback(
     (next: string): void => {
-      setValueState(next)
-      if (timer.current) clearTimeout(timer.current)
-      if (next.trim() === '') {
-        apply('')
-        return
+      setInputValue(next);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (next.trim() === "") {
+        applySearchTerm("");
+        return;
       }
-      setDebouncing(true)
-      timer.current = setTimeout(() => apply(next), params.delayMs)
+      setIsDebouncing(true);
+      debounceTimerRef.current = setTimeout(
+        () => applySearchTerm(next),
+        params.delayMs
+      );
     },
-    [apply, params.delayMs],
-  )
+    [applySearchTerm, params.delayMs]
+  );
 
   const flush = useCallback((): void => {
-    if (timer.current) clearTimeout(timer.current)
-    apply(value)
-  }, [apply, value])
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    applySearchTerm(inputValue);
+  }, [applySearchTerm, inputValue]);
 
-  return { value, setValue, flush, debouncing }
+  return { value: inputValue, setValue, flush, debouncing: isDebouncing };
 }

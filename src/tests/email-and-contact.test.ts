@@ -4,16 +4,20 @@ import { getContactMessages } from '@/dto/contact-messages'
 import { getStoreSettings } from '@/dto/settings'
 import { renderEmail } from '@/emails'
 import { clock } from '@/lib/clock'
-import { setEmailFailureMode } from '@/lib/dev-simulation'
 import { createFormToken } from '@/lib/form-token'
 import { CONTACT_FORM_PURPOSE, contactService } from '@/services/contactService'
 import { emailService } from '@/services/emailService'
-import { ADMIN, placeTestOrder, resetWorld } from '@/tests/helpers'
+import { ADMIN, placeTestOrder, resetWorld, enableResendMode } from '@/tests/helpers'
+import { acceptAll, failNext } from '@/tests/resend-mock'
 import type { EmailTemplate } from '@/types/email'
 
-beforeEach(() => {
-  resetWorld()
+vi.mock('resend', async (importOriginal) => (await import('@/tests/resend-mock')).mockResendModule(await importOriginal()))
+
+beforeEach(async () => {
+  await resetWorld()
+  acceptAll()
   vi.spyOn(console, 'info').mockImplementation(() => undefined)
+  vi.spyOn(console, 'error').mockImplementation(() => undefined)
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -26,7 +30,7 @@ describe('React Email templates', () => {
       lines: [{ lineId: 'line-1', sku: 'APL-IP17-256-01', productName: 'Apple iPhone 17', quantity: 1, originalUnitPrice: 449990, proposedUnitPrice: 469990 }],
       originalTotals: order.agreed.totals, proposedTotals: { ...order.agreed.totals, itemsTotal: 469990, grandTotal: 469990 },
       proposalEmail: { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null }, reminderEmail: { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null },
-      resolvedAt: null, supersedesId: null, supersededById: null, version: 1,
+      resolvedAt: null, supersedesId: null, supersededById: null, version: 1, isDemo: false,
     }
     const message = { id: 'msg-1', submissionKey: 'k', name: 'Teszt Elek', email: 'teszt@example.com', subject: 'Kérdés', message: 'Mikor érkezik a termék?', privacyVersion: 'v1', receivedAt: clock.nowIso(), notificationStatus: 'pending' as const }
     const templates: EmailTemplate[] = [
@@ -46,7 +50,6 @@ describe('React Email templates', () => {
       expect(rendered.html).toMatch(/^<!DOCTYPE html/i)
       expect(rendered.html).toContain('lang="hu"')
       expect(rendered.text).not.toMatch(/<\w+/)
-      expect(rendered.text).toContain('Mintaüzenet')
       expect(rendered.subject.length).toBeGreaterThan(5)
     }
     const proposalEmail = await renderEmail(templates[2] as EmailTemplate, settings)
@@ -100,11 +103,16 @@ describe('contact form service', () => {
     expect(await contactService.submitContactMessage(spam)).toEqual({ ok: true, delivery: 'simulated' })
     expect(await getContactMessages(ADMIN)).toHaveLength(0)
 
-    setEmailFailureMode({ kind: 'fail-next', remaining: 1 })
+    enableResendMode()
+    failNext(1)
+    const failed = await contactService.submitContactMessage(input)
+    expect(failed).toMatchObject({ ok: false, message: expect.stringMatching(/Automatikusan újrapróbáljuk/) })
+    // Resubmitting does not duplicate the message or the email; the queued job is retried by the scheduler.
     expect((await contactService.submitContactMessage(input)).ok).toBe(false)
-    expect(await contactService.submitContactMessage(input)).toEqual({ ok: true, delivery: 'simulated' })
+    clock.advance(60_000)
+    expect((await emailService.processDue(10)).submitted).toBe(1)
     const stored = await getContactMessages(ADMIN)
     expect(stored).toHaveLength(1)
-    expect(stored[0]?.notificationStatus).toBe('sent_simulated')
+    expect(stored[0]?.notificationStatus).toBe('sent')
   })
 })

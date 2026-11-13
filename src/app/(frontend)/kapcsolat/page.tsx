@@ -32,7 +32,6 @@ export default async function ContactPage(): Promise<React.JSX.Element> {
             <h2 id="elerhetosegek" className="text-base font-bold">
               Elérhetőségek
             </h2>
-            {settings.isSampleContent ? <p className="text-xs text-muted-foreground">Minden alábbi adat fiktív mintaadat.</p> : null}
             <p className="flex items-start gap-2">
               <MailIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>

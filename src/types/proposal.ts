@@ -42,6 +42,8 @@ export type PriceChangeProposal = {
   supersedesId: string | null
   supersededById: string | null
   version: number
+  /** Historical demo data from the initial import: never processed by the scheduler. */
+  isDemo: boolean
 }
 
 export type ProposalOutcome = 'accepted' | 'rejected' | 'expired' | 'withdrawn'

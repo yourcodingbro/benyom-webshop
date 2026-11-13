@@ -11,7 +11,7 @@ type ProductPictureProps = {
   className?: string
 }
 
-/** Square product image. Sample SVG placeholders skip optimization; real raster media is optimized by next/image. */
+/** Square product image (Supabase Storage media, optimized by next/image); a placeholder when there is none. */
 export function ProductPicture(props: ProductPictureProps): React.JSX.Element {
   return (
     <div className={cn('relative aspect-square overflow-hidden rounded-lg bg-muted', props.className)}>
@@ -22,7 +22,6 @@ export function ProductPicture(props: ProductPictureProps): React.JSX.Element {
           fill
           sizes={props.sizes}
           priority={props.priority}
-          unoptimized={props.src.endsWith('.svg')}
           className="object-contain p-4"
         />
       ) : (

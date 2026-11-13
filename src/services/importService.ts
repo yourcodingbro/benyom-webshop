@@ -8,10 +8,14 @@ import { canonicalJson } from '@/lib/crypto'
 import { parseCsv } from '@/lib/csv'
 import { normalizeHexColor } from '@/lib/hex'
 import { isValidSlug } from '@/lib/slug'
-import { buildMediaObjectKey } from '@/lib/storage-path'
 import type { AuthorizationContext } from '@/types/auth'
 import type { Brand, Category, Orderability, Product, ProductImage, ProductVariant, PublicationStatus } from '@/types/catalog'
-import type { ImportAction, ImportCounts, ImportReport, ImportRowError } from '@/types/import'
+import { claimImportJob, createImportJob, finishImportJob, getImportJob, recordImportGroup } from '@/dto/import-jobs'
+import { clock } from '@/lib/clock'
+import { AppError } from '@/lib/errors'
+import type { ImportAction, ImportCounts, ImportGroupResult, ImportJob, ImportJobView, ImportReport, ImportRowError } from '@/types/import'
+
+export type { ImportJobView }
 
 export const CSV_DELIMITER: string = ';'
 export const MAX_CSV_BYTES: number = 1_000_000
@@ -22,11 +26,16 @@ export const CSV_COLUMNS: readonly string[] = [
   'case_size_mm', 'price_huf', 'variant_orderability', 'procurement_min_days', 'procurement_max_days', 'image_keys',
 ]
 
+
 type ImportService = {
   /** Validates and plans the import without changing anything. */
   previewImport: (csv: string, auth: AuthorizationContext) => Promise<ImportReport>
-  /** Applies valid product groups; groups with any row error are skipped entirely. */
+  /** Applies valid product groups in one call (scripts/tests); groups with any row error are skipped entirely. */
   applyImport: (csv: string, auth: AuthorizationContext) => Promise<ImportReport>
+  /** Admin upload: stores the CSV with its dry-run report as a persisted job. */
+  createJob: (fileName: string, csv: string, auth: AuthorizationContext) => Promise<ImportJobView>
+  /** Applies the job in time-boxed batches; call again until `completed`. Resumes after interruptions. */
+  runJob: (id: number, auth: AuthorizationContext) => Promise<ImportJobView>
 }
 
 type RowFields = {
@@ -158,7 +167,17 @@ function groupValue<K extends keyof RowFields>(rows: ImportRow[], key: K, errors
   return found
 }
 
-async function runImport(csv: string, dryRun: boolean, auth: AuthorizationContext): Promise<ImportReport> {
+type ImportPlanEntry = { existing: Product | null; next: Product; rows: ImportRow[] }
+
+type ImportPlan = {
+  report: ImportReport
+  plans: ImportPlanEntry[]
+  newBrands: Brand[]
+  newCategories: Category[]
+}
+
+/** Validates the CSV against current data and plans every product group; changes nothing. */
+async function planImport(csv: string, dryRun: boolean, auth: AuthorizationContext): Promise<ImportPlan | ImportReport> {
   assertAdminOrSystem(auth)
   const report: ImportReport = {
     dryRun, delimiter: CSV_DELIMITER, rowCount: 0, products: emptyCounts(), variants: emptyCounts(),
@@ -207,7 +226,7 @@ async function runImport(csv: string, dryRun: boolean, auth: AuthorizationContex
 
   const newBrands = new Map<string, Brand>()
   const newCategories = new Map<string, Category>()
-  const plans: { existing: Product | null; next: Product; rows: ImportRow[] }[] = []
+  const plans: ImportPlanEntry[] = []
 
   for (const [productId, groupRows] of groups) {
     const groupErrors: ImportRowError[] = rowErrors.filter((error: ImportRowError) => groupRows.some((row: ImportRow) => row.row === error.row))
@@ -274,18 +293,6 @@ async function runImport(csv: string, dryRun: boolean, auth: AuthorizationContex
           groupErrors.push({ row: row.row, column: 'image_keys', message: 'Ismeretlen médiakulcs ennél a terméknél.' })
         }
         imageIds = matched.filter((image: ProductImage | undefined): image is ProductImage => Boolean(image)).map((image: ProductImage) => image.id)
-      } else if (!current && slug && brandSlug !== undefined) {
-        // Sample mode: generated placeholder per color for new variants without media keys.
-        const category = categorySlugs?.[0]
-        if (category && isValidSlug(slug)) {
-          const objectKey = buildMediaObjectKey({ brandSlug, categorySlug: category, productSlug: slug, colorHex, fileName: 'elolnezet.svg', uniqueSuffix: null })
-          let image = images.find((item: ProductImage) => item.objectKey === objectKey)
-          if (!image) {
-            image = { id: `${productId}-img-${images.length + 1}`, objectKey, url: `/sample-media/${objectKey}`, alt: `${name ?? productId} (mintakép)`, colorHex }
-            images.push(image)
-          }
-          imageIds = [image.id]
-        }
       }
       const minDays = fields.procurementMin ?? current?.procurementEstimate?.minDays
       const maxDays = fields.procurementMax ?? current?.procurementEstimate?.maxDays
@@ -363,23 +370,138 @@ async function runImport(csv: string, dryRun: boolean, auth: AuthorizationContex
   report.brandsCreated = [...newBrands.values()].filter((brand: Brand) => usedBrandIds.has(brand.id)).map((brand: Brand) => brand.slug)
   report.categoriesCreated = [...newCategories.values()].filter((category: Category) => usedCategoryIds.has(category.id)).map((category: Category) => category.slug)
 
-  if (!dryRun) {
-    for (const brand of newBrands.values()) if (usedBrandIds.has(brand.id)) await addBrand(brand, auth)
-    for (const category of newCategories.values()) if (usedCategoryIds.has(category.id)) await addCategory(category, auth)
-    for (const { existing, next } of plans) {
-      const { id, createdAt: _createdAt, updatedAt: _updatedAt, ...fields } = next
-      if (!existing) await addProduct({ ...fields, id }, auth)
-      else if (canonicalJson(existing) !== canonicalJson(next)) await updateProduct(id, fields, auth)
-    }
+  return {
+    report,
+    plans,
+    newBrands: [...newBrands.values()].filter((brand: Brand) => usedBrandIds.has(brand.id)),
+    newCategories: [...newCategories.values()].filter((category: Category) => usedCategoryIds.has(category.id)),
+  }
+}
+
+/** Early-exit paths above return a bare report; normalize them to a plan with no groups. */
+async function plan(csv: string, dryRun: boolean, auth: AuthorizationContext): Promise<ImportPlan> {
+  const result = await planImport(csv, dryRun, auth)
+  return 'plans' in result ? result : { report: result, plans: [], newBrands: [], newCategories: [] }
+}
+
+/**
+ * Applies one product group. Brands/categories it needs are created first (idempotently); the product
+ * is created or updated through Payload, so the same validation applies as in the admin form.
+ * Omitted CSV fields keep their stored values (the plan merges with the existing product).
+ */
+async function applyGroup(entry: ImportPlanEntry, importPlan: ImportPlan, auth: AuthorizationContext): Promise<ImportGroupResult> {
+  const { existing, next } = entry
+  const counts = emptyCounts()
+  for (const row of entry.rows) {
+    const action = importPlan.report.actions.find((item: ImportAction) => item.row === row.row)?.action ?? 'skip'
+    counts[action === 'create' ? 'created' : action === 'update' ? 'updated' : action === 'fail' ? 'failed' : 'skipped'] += 1
+  }
+  const known = { brands: new Set((await getBrands()).map((brand: Brand) => brand.id)), categories: new Set((await getCategories()).map((category: Category) => category.id)) }
+  for (const brand of importPlan.newBrands) {
+    if (brand.id === next.brandId && !known.brands.has(brand.id)) await addBrand(brand, auth)
+  }
+  for (const category of importPlan.newCategories) {
+    if (next.categoryIds.includes(category.id) && !known.categories.has(category.id)) await addCategory(category, auth)
+  }
+  const { id, createdAt: _createdAt, updatedAt: _updatedAt, ...fields } = next
+  const rows = entry.rows.map((row: ImportRow) => row.row)
+  if (!existing) {
+    await addProduct({ ...fields, id }, auth)
+    return { product: 'create', variants: counts, rows, error: null }
+  }
+  if (canonicalJson(existing) !== canonicalJson(next)) {
+    await updateProduct(id, fields, auth)
+    return { product: 'update', variants: counts, rows, error: null }
+  }
+  return { product: 'skip', variants: counts, rows, error: null }
+}
+
+/** Builds the final report from the per-group results recorded on the job. */
+function reportFromResults(base: ImportReport, results: Record<string, ImportGroupResult>): ImportReport {
+  const report: ImportReport = { ...base, dryRun: false, products: emptyCounts(), variants: emptyCounts() }
+  report.products.failed = base.products.failed
+  report.variants.failed = base.variants.failed
+  for (const result of Object.values(results)) {
+    const key = result.product === 'create' ? 'created' : result.product === 'update' ? 'updated' : result.product === 'fail' ? 'failed' : 'skipped'
+    report.products[key] += 1
+    for (const counter of ['created', 'updated', 'skipped', 'failed'] as const) report.variants[counter] += result.variants[counter]
+    if (result.error) report.errors.push({ row: result.rows[0] ?? 0, column: null, message: result.error })
   }
   return report
 }
 
+/** Wall-clock budget for one apply batch, well under the serverless function limit. */
+const BATCH_BUDGET_MS: number = 20_000
+const STALE_JOB_MINUTES: number = 2
+
 export const importService: ImportService = {
   async previewImport(csv: string, auth: AuthorizationContext): Promise<ImportReport> {
-    return runImport(csv, true, auth)
+    return (await plan(csv, true, auth)).report
   },
+
   async applyImport(csv: string, auth: AuthorizationContext): Promise<ImportReport> {
-    return runImport(csv, false, auth)
+    const importPlan = await plan(csv, false, auth)
+    const results: Record<string, ImportGroupResult> = {}
+    for (const entry of importPlan.plans) results[entry.next.id] = await applyGroup(entry, importPlan, auth)
+    return importPlan.plans.length > 0 ? reportFromResults(importPlan.report, results) : importPlan.report
   },
+
+  async createJob(fileName: string, csv: string, auth: AuthorizationContext): Promise<ImportJobView> {
+    const preview = (await plan(csv, true, auth)).report
+    const job = await createImportJob({ fileName, csv, previewReport: preview }, auth)
+    return toView(job, new Set(preview.actions.map((action: ImportAction) => action.productId)).size)
+  },
+
+  async runJob(id: number, auth: AuthorizationContext): Promise<ImportJobView> {
+    const startedAt = Date.now()
+    const now = clock.nowIso()
+    const staleBefore = new Date(clock.now().getTime() - STALE_JOB_MINUTES * 60_000).toISOString()
+    const claimed = await claimImportJob(id, now, staleBefore, auth)
+    if (!claimed) {
+      const current = await getImportJob(id, auth)
+      if (!current) throw new AppError('NOT_FOUND', 'Az importfeladat nem található.')
+      return toView(current, null)
+    }
+    if (claimed.status === 'completed' || claimed.status === 'failed') return toView(claimed, null)
+    try {
+      // Re-planned against current data: groups finished earlier are skipped via the recorded results.
+      const importPlan = await plan(claimed.csv, false, auth)
+      const results = { ...claimed.results }
+      for (const entry of importPlan.plans) {
+        if (results[entry.next.id]) continue
+        if (Date.now() - startedAt > BATCH_BUDGET_MS) {
+          const job = await finishImportJob(id, { status: 'running', finalReport: null, error: null }, clock.nowIso())
+          return toView(job, importPlan.plans.length)
+        }
+        let result: ImportGroupResult
+        try {
+          result = await applyGroup(entry, importPlan, auth)
+        } catch (error: unknown) {
+          const message = error instanceof AppError ? error.message : 'Váratlan hiba a termékcsoport mentésekor.'
+          result = { product: 'fail', variants: { ...emptyCounts(), failed: entry.rows.length }, rows: entry.rows.map((row: ImportRow) => row.row), error: `${entry.next.id}: ${message}` }
+        }
+        results[entry.next.id] = result
+        await recordImportGroup(id, entry.next.id, result, clock.nowIso())
+      }
+      const job = await finishImportJob(id, { status: 'completed', finalReport: reportFromResults(importPlan.report, results), error: null }, clock.nowIso())
+      return toView(job, importPlan.plans.length)
+    } catch (error: unknown) {
+      const message = error instanceof AppError ? error.message : 'Váratlan hiba; a már feldolgozott termékek mentve maradtak. Próbálja újra.'
+      const job = await finishImportJob(id, { status: 'failed', finalReport: null, error: message }, clock.nowIso())
+      return toView(job, null)
+    }
+  },
+}
+
+function toView(job: ImportJob, totalGroups: number | null): ImportJobView {
+  return {
+    id: job.id,
+    status: job.status,
+    fileName: job.fileName,
+    previewReport: job.previewReport,
+    finalReport: job.finalReport,
+    processedGroups: Object.keys(job.results).length,
+    totalGroups,
+    error: job.error,
+  }
 }

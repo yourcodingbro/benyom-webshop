@@ -65,7 +65,7 @@ SKUs are never derived from colors (e.g. `APL-IP17P-512-02`).
 ## HEX colors
 
 - Stored form: uppercase `#RRGGBB`. `normalizeHexColor()` (`lib/hex.ts`) accepts only `#` plus 6 hex digits (surrounding whitespace trimmed). Anything else is rejected.
-- The same rule is used by sample data (a startup check in `sample.ts`, plus a test), Payload (`hexColorField` validate + normalizing `beforeChange` hook) and CSV import.
+- The same rule is used by Payload (`hexColorField` validate + normalizing `beforeChange` hook, so the admin form, the API and imports all agree), the CSV import and the initial dataset.
 - No color name is required. `colorLabel` is optional; without it the HEX value is the accessible label.
 - Media path segment: lowercase without `#` (`000000`), via `hexToPathSegment()`.
 
@@ -79,11 +79,11 @@ SKUs are never derived from colors (e.g. `APL-IP17P-512-02`).
 
 ## Images
 
-Sample images are generated SVG placeholders served by `/sample-media/{brand}/{category}/{product}/{hex}/{file}.svg`. Only validated slugs and HEX values are used. Each image record stores an explicit `objectKey` (`buildMediaObjectKey()`), and variants reference images by id, so images can be shared across storage sizes. See [deployment.md](deployment.md#supabase-storage) for real media.
+Product images are Payload media stored in Supabase Storage at `brand/category/product/[color]/filename` (explicit `objectKey`, never parsed back into relations) and served from the public bucket. Variants reference images by id, so images can be shared across storage sizes. The initial import uploads WebP renderings of the original placeholders. See [deployment.md](deployment.md#supabase-storage).
 
 ## Popular brands and categories
 
-`Brand.popularityRank` and `Category.popularityRank` are an **explicit editorial ranking** (1 = most popular). In sample mode they are set in `src/sample.ts`; in Payload they are admin-edited number fields. They are **not** sales statistics. `getPopularBrands(3)` / `getPopularCategories(3)` feed the homepage blocks; *Összes márka* (`/markak`) and *Összes kategória* (`/kategoriak`) list everything with links to the brand, brand+category and category listings.
+`Brand.popularityRank` and `Category.popularityRank` are an **explicit editorial ranking** (1 = most popular). They are admin-edited number fields (initial values come from the initial import). They are **not** sales statistics. `getPopularBrands(3)` / `getPopularCategories(3)` feed the homepage blocks; *Összes márka* (`/markak`) and *Összes kategória* (`/kategoriak`) list everything with links to the brand, brand+category and category listings.
 
 ## Product card quick add
 

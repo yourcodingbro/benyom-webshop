@@ -12,14 +12,15 @@ Services  (src/services/*Service.ts)      business rules & workflows
 DTO functions (src/dto/*.ts)               data access, authorization context, atomic contracts
    │
    ▼
-Sample runtime store (src/dto/sample-store.ts)  ← src/sample.ts (immutable seed)
-   ⋯ future: Payload Local API → @payloadcms/db-postgres → Supabase PostgreSQL
+Payload Local API (src/dto/payload.ts) → @payloadcms/db-postgres → Supabase PostgreSQL
+   collection hooks (src/collections/hooks/): audit trail, per-status email policy, edit rules
 ```
 
 - **Pages** are server components. They read through DTO functions or services. Client components (`'use client'`) are kept small: Reveal, cart provider/drawer, product card (compact preview with quick add), variant configurator and options, checkout form, mobile nav, CSV form. Variant-selection rules live once in `src/lib/variant-selection.ts` and are used through `useVariantSelection` by both the product page and the product card.
 - **Client components never import `src/dto` or `src/services`.** They call server actions (`quoteCartAction`, `placeOrderAction`, dev actions). An architecture test enforces this.
 - **Services** are plain objects (`orderService.placeOrder(input)`) with an explicit contract type. They contain no persistence code.
-- **DTO functions** are the only code that touches stored data. They return copies, normalize types, and check the `AuthorizationContext`.
+- **DTO functions** are the only code that touches stored data (an architecture test enforces it). They map Payload documents to application types, run multi-step changes in transactions, and check the `AuthorizationContext`.
+- **Payload admin** custom views/components (`src/components/admin/`) only collect input and call admin endpoints (`src/collections/endpoints.ts`), which delegate to services.
 
 ## Main entry points
 
@@ -29,11 +30,12 @@ Sample runtime store (src/dto/sample-store.ts)  ← src/sample.ts (immutable see
 | Checkout | `orderService.placeOrder(input: unknown)` |
 | Fulfillment | `orderService.updateFulfillmentStatus`, `orderService.cancelOrder` |
 | Price changes | `priceChangeService.createProposal`, `.getDecisionView`, `.decide`, `.processDueProposals` |
-| Email | `emailService.sendEmail(input)` (called only by `notificationService.notify`) |
-| CSV | `importService.previewImport`, `importService.applyImport` |
+| Email | `emailService.sendEmail(input)`, persisted jobs, `processDue`, `retry`, `handleWebhook` |
+| Scheduler | `schedulerService.runOnce()` via `/cron/process` |
+| CSV | `importService.createJob`, `importService.runJob` (admin), `previewImport`/`applyImport` |
 | Navigation | `catalogService.getNavigation()` (mobile menu, /markak). The desktop header has fixed links: Összes termék, Kapcsolat (Fizetés és szállítás is in the footer) |
 | Contact form | `contactService.submitContactMessage(input)` → `addContactMessage` (idempotent) → `emailService.sendEmail` |
-| Dev controls | `simulationService.*` |
+| Dev tools | `/fejlesztes` (non-production only): manual scheduler run |
 
 ## Data flow example: checkout
 
@@ -45,10 +47,10 @@ Sample runtime store (src/dto/sample-store.ts)  ← src/sample.ts (immutable see
 ## Security boundaries
 
 - **Authorization context** is passed to every protected DTO call: `admin`, `system`, `order-access` (signed token), or `anonymous`. `getOrder` returns `null` for both "missing" and "forbidden", so references cannot be probed. References are random (`BNY-XXXX-XXXX`, no sequence).
-- **Dev admin**: `/fejlesztes` acts as a sample admin through `getDevAdminAuthorization()`. This is *not* authentication. It throws whenever dev tools are disabled, and they are always disabled when `APP_ENV`/`VERCEL_ENV` is `production`.
-- **Payload routes** (`/admin`, `/api/*`) are answered by `src/proxy.ts` with an explicit 503 unless `DATABASE_URL` and `PAYLOAD_SECRET` are set. Payload is never initialized in sample mode.
-- **Payload access control** is prepared: orders, proposals and users are admin-only for every operation. Token hashes are unreadable through any API (`access.read: () => false`). Payload's Local API defaults to `overrideAccess: true`. Future DTO code must pass `overrideAccess: false` plus `user` for user-scoped calls (see [data-access.md](data-access.md)).
-- **Secrets**: quotes and order-access cookies are HMAC-signed with `APP_SIGNING_SECRET`. In production it is required (≥ 32 chars). In sample mode a random per-process secret is used. Decision tokens are random 256-bit values, and only their SHA-256 hashes are stored.
+- **Admin identity** comes only from Payload's authenticated session (`req.user` with the `admin` role). Audit actors are derived server-side.
+- **Payload access control**: orders, proposals, audit entries, emails, webhook events, contact messages and import jobs are admin-read-only; audit entries, emails, proposals and jobs cannot be created, changed or deleted through any API. Token hashes are unreadable through any API. Server workflows use the Local API with `overrideAccess: true` only after their own checks; public catalog reads use `overrideAccess: false`.
+- **Development tools** exist only when `APP_ENV` is valid and not `production` (proxy 404 for every alias, plus page and server-action checks) and require an admin session.
+- **Secrets**: all from validated server-side env (`src/config/env.ts`); none may use `NEXT_PUBLIC_`. Quotes, order-access cookies and decision tokens are HMAC-signed with `APP_SIGNING_SECRET`; only SHA-256 hashes of decision tokens are stored. Cron and webhook endpoints verify `CRON_SECRET` and Svix signatures.
 - **Headers**: `nosniff`, `SAMEORIGIN`, `strict-origin-when-cross-origin`; `no-referrer` on decision pages. The dev request log ignores `/arvaltozas/` paths.
 - **Indexing**: `robots.txt` disallows everything and pages carry `noindex` unless `APP_ENV=production` **and** `ALLOW_INDEXING=true`.
 
@@ -62,4 +64,4 @@ Only patterns were adopted. No copy, business details or photos were reused.
 
 ## Known limitations
 
-See [sample-mode.md](sample-mode.md#limitations) and [deployment.md](deployment.md#remaining-production-requirements).
+See [deployment.md](deployment.md#verification-status) for what could not be verified without real Supabase, Resend and Vercel credentials.

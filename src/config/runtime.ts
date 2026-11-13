@@ -1,30 +1,26 @@
 import 'server-only'
 
-/**
- * Runtime flags. Read lazily so tests and dev tooling see the current environment.
- * Everything in this project currently runs in sample mode (no database).
- */
+import { getAppEnv } from '@/config/env'
+
+/** Runtime flags derived from the validated, server-side APP_ENV (never NODE_ENV). */
 export function isProductionDeployment(): boolean {
-  return process.env.APP_ENV === 'production' || process.env.VERCEL_ENV === 'production'
+  return getAppEnv() === 'production'
 }
 
-/** Sample checkout writes only to process memory; it must never accept real customers. */
-export function isSampleCheckoutEnabled(): boolean {
-  return !isProductionDeployment()
-}
-
-/** Clock, scheduler, email-failure, CSV and reset tools. */
+/**
+ * Development tools (/fejlesztes) exist only when APP_ENV is valid and not `production`. A missing or
+ * invalid APP_ENV fails closed: the tools stay hidden and the problem is logged.
+ */
 export function areDevToolsEnabled(): boolean {
-  if (isProductionDeployment()) return false
-  return process.env.NODE_ENV === 'development' || process.env.ENABLE_SAMPLE_DEV_TOOLS === 'true'
+  try {
+    return getAppEnv() !== 'production'
+  } catch (error: unknown) {
+    console.error('[KONFIGURÁCIÓ] A fejlesztői eszközök letiltva:', error instanceof Error ? error.message.split('\n')[0] : 'érvénytelen APP_ENV')
+    return false
+  }
 }
 
-/** Payload admin/API need a database; without it those routes answer 503. */
-export function isPayloadConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL && process.env.PAYLOAD_SECRET)
-}
-
-/** Sample deployments must never be indexed. */
+/** Only a live production deployment with ALLOW_INDEXING=true may be indexed. */
 export function isIndexingAllowed(): boolean {
   return isProductionDeployment() && process.env.ALLOW_INDEXING === 'true'
 }

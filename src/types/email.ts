@@ -3,6 +3,7 @@ import type { ContactMessage } from '@/types/contact'
 import type { FulfillmentStatus, Order } from '@/types/order'
 import type { PriceChangeProposal } from '@/types/proposal'
 import type { StoreSettings } from '@/types/settings'
+import type { EmailCategory, EmailJobStatus, EmailTemplateRef } from '@/types/workflow'
 
 /** Provider-independent email contract. Only emailService's implementation changes for Resend. */
 export type EmailTemplate =
@@ -35,7 +36,7 @@ export type SendEmailInput = {
 }
 
 export type SendEmailResult =
-  /** Accepted by the provider (Resend); `messageId` is the provider's email id. */
+  /** Accepted by the provider (Resend), not yet confirmed delivered; `messageId` is the provider's email id. */
   | { status: 'sent'; messageId: string; sentAt: IsoDateTime }
   /** EMAIL_MODE=log: rendered and logged, not sent. */
   | { status: 'sent_simulated'; messageId: string; sentAt: IsoDateTime }
@@ -47,6 +48,31 @@ export type RenderedEmail = {
   text: string
 }
 
+/** One persisted email (history entry and durable job). */
+export type EmailJob = {
+  id: number
+  idempotencyKey: string
+  category: EmailCategory
+  to: string
+  replyTo: string | null
+  subject: string
+  template: EmailTemplateRef
+  status: EmailJobStatus
+  attempts: number
+  orderId: number | null
+  orderReference: string | null
+  proposalId: string | null
+  isDemo: boolean
+  queuedAt: IsoDateTime
+  nextAttemptAt: IsoDateTime | null
+  firstAttemptAt: IsoDateTime | null
+  submittedAt: IsoDateTime | null
+  providerMessageId: string | null
+  lastError: string | null
+  skipReason: string | null
+}
+
+/** Admin-facing summary of an email (history list / dev tools). */
 export type EmailLogEntry = {
   id: string
   messageId: string | null
@@ -56,8 +82,8 @@ export type EmailLogEntry = {
   templateId: EmailTemplateId
   orderReference: string | null
   proposalId: string | null
-  status: SendEmailResult['status']
+  status: EmailJobStatus
   error: string | null
-  /** Development-only preview; null when previews are disabled. */
+  /** Rendered snapshot with token-bearing links removed. */
   preview: { html: string; text: string } | null
 }

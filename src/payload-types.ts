@@ -73,13 +73,24 @@ export interface Config {
     categories: Category;
     products: Product;
     orders: Order;
+    'order-events': OrderEvent;
     'price-change-proposals': PriceChangeProposal;
+    'email-messages': EmailMessage;
+    'email-events': EmailEvent;
+    'contact-messages': ContactMessage;
+    'import-jobs': ImportJob;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    orders: {
+      history: 'order-events';
+      proposals: 'price-change-proposals';
+      emails: 'email-messages';
+    };
+  };
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -87,7 +98,12 @@ export interface Config {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
+    'order-events': OrderEventsSelect<false> | OrderEventsSelect<true>;
     'price-change-proposals': PriceChangeProposalsSelect<false> | PriceChangeProposalsSelect<true>;
+    'email-messages': EmailMessagesSelect<false> | EmailMessagesSelect<true>;
+    'email-events': EmailEventsSelect<false> | EmailEventsSelect<true>;
+    'contact-messages': ContactMessagesSelect<false> | ContactMessagesSelect<true>;
+    'import-jobs': ImportJobsSelect<false> | ImportJobsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -99,9 +115,11 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     'store-settings': StoreSetting;
+    'notification-settings': NotificationSetting;
   };
   globalsSelect: {
     'store-settings': StoreSettingsSelect<false> | StoreSettingsSelect<true>;
+    'notification-settings': NotificationSettingsSelect<false> | NotificationSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -165,14 +183,19 @@ export interface User {
 export interface Media {
   id: number;
   alt: string;
-  /**
-   * Pl. apple/mobiltelefon/iphone-17/000000/elolnezet-a1b2.webp
-   */
-  objectKey?: string | null;
+  brandSlug: string;
+  categorySlug: string;
+  productSlug: string;
   /**
    * Hat számjegyű HEX kód, pl. #1C1C1E. Mentéskor nagybetűsre normalizáljuk.
    */
   colorHex?: string | null;
+  /**
+   * márka/kategória/termék/[szín]/fájlnév
+   */
+  objectKey?: string | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -208,7 +231,10 @@ export interface Media {
  * via the `definition` "brands".
  */
 export interface Brand {
-  id: number;
+  /**
+   * Üresen hagyva a slugból képezzük. Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
+   */
+  id: string;
   name: string;
   slug: string;
   description?: string | null;
@@ -225,7 +251,10 @@ export interface Brand {
  * via the `definition` "categories".
  */
 export interface Category {
-  id: number;
+  /**
+   * Üresen hagyva a slugból képezzük. Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
+   */
+  id: string;
   name: string;
   slug: string;
   description?: string | null;
@@ -238,16 +267,21 @@ export interface Category {
   createdAt: string;
 }
 /**
+ * Kézi termékkezelés. Tömeges felvitelhez használja a Termékimport (CSV) oldalt.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "products".
  */
 export interface Product {
-  id: number;
+  /**
+   * Üresen hagyva a slugból képezzük. Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
+   */
+  id: string;
   name: string;
   slug: string;
   model: string;
-  brand: number | Brand;
-  categories: (number | Category)[];
+  brand: string | Brand;
+  categories: (string | Category)[];
   description?: string | null;
   featured?: boolean | null;
   /**
@@ -273,32 +307,30 @@ export interface Product {
       }[]
     | null;
   /**
-   * Minden változat saját cikkszámmal, árral és rendelhetőséggel rendelkezik.
+   * Minden változat saját cikkszámmal, árral és rendelhetőséggel rendelkezik. A katalógusár módosítása nem változtatja meg a már leadott rendeléseket.
    */
-  variants?:
-    | {
-        sku: string;
-        /**
-         * Hat számjegyű HEX kód, pl. #1C1C1E. Mentéskor nagybetűsre normalizáljuk.
-         */
-        colorHex?: string | null;
-        colorLabel?: string | null;
-        storageGb?: number | null;
-        ramGb?: number | null;
-        caseSizeMm?: number | null;
-        /**
-         * Bruttó ár egész forintban (HUF).
-         */
-        price: number;
-        orderability: 'preorderable' | 'temporarily_unavailable' | 'discontinued';
-        procurementEstimate?: {
-          minDays?: number | null;
-          maxDays?: number | null;
-        };
-        images?: (number | Media)[] | null;
-        id?: string | null;
-      }[]
-    | null;
+  variants: {
+    sku: string;
+    /**
+     * Hat számjegyű HEX kód, pl. #1C1C1E. Mentéskor nagybetűsre normalizáljuk.
+     */
+    colorHex?: string | null;
+    colorLabel?: string | null;
+    storageGb?: number | null;
+    ramGb?: number | null;
+    caseSizeMm?: number | null;
+    /**
+     * Bruttó ár egész forintban (HUF).
+     */
+    price: number;
+    orderability: 'preorderable' | 'temporarily_unavailable' | 'discontinued';
+    procurementEstimate?: {
+      minDays?: number | null;
+      maxDays?: number | null;
+    };
+    images?: (number | Media)[] | null;
+    id?: string | null;
+  }[];
   seo?: {
     title?: string | null;
     description?: string | null;
@@ -308,15 +340,28 @@ export interface Product {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Keresés azonosító, név, e-mail vagy telefon alapján; szűrés állapotra, dátumra, demó jelölésre.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "orders".
  */
 export interface Order {
   id: number;
   reference: string;
+  /**
+   * Kezdeti importból származó, kitalált rendelés. Nem kap e-mailt, nem kerül ütemezett feldolgozásba.
+   */
+  isDemo?: boolean | null;
   idempotencyKey: string;
   submissionHash?: string | null;
   submittedAt?: string | null;
+  /**
+   * Egyidejű módosítások elleni védelem.
+   */
+  version?: number | null;
+  /**
+   * Csak engedélyezett lépés választható; törléshez használja a lenti műveletet.
+   */
   fulfillmentStatus:
     | 'received'
     | 'under_review'
@@ -385,7 +430,31 @@ export interface Order {
     grandTotal: number;
     currency?: string | null;
   };
-  submissionSnapshot?:
+  agreedTotals: {
+    /**
+     * Bruttó ár egész forintban (HUF).
+     */
+    itemsTotal: number;
+    /**
+     * Bruttó ár egész forintban (HUF).
+     */
+    deliveryFee: number;
+    /**
+     * Bruttó ár egész forintban (HUF).
+     */
+    grandTotal: number;
+    currency?: string | null;
+  };
+  agreed?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  submission?:
     | {
         [k: string]: unknown;
       }
@@ -428,22 +497,60 @@ export interface Order {
     privacyVersion?: string | null;
     acceptedAt?: string | null;
   };
-  agreedTotals: {
-    /**
-     * Bruttó ár egész forintban (HUF).
-     */
-    itemsTotal: number;
-    /**
-     * Bruttó ár egész forintban (HUF).
-     */
-    deliveryFee: number;
-    /**
-     * Bruttó ár egész forintban (HUF).
-     */
-    grandTotal: number;
-    currency?: string | null;
+  history?: {
+    docs?: (number | OrderEvent)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
   };
-  agreedLines?:
+  proposals?: {
+    docs?: (string | PriceChangeProposal)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  emails?: {
+    docs?: (number | EmailMessage)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "order-events".
+ */
+export interface OrderEvent {
+  id: number;
+  order: number | Order;
+  orderReference: string;
+  at: string;
+  type:
+    | 'submitted'
+    | 'imported'
+    | 'status_changed'
+    | 'payment_changed'
+    | 'admin_edit'
+    | 'note_added'
+    | 'price_review_flagged'
+    | 'proposal_created'
+    | 'proposal_superseded'
+    | 'proposal_accepted'
+    | 'proposal_rejected'
+    | 'proposal_expired'
+    | 'proposal_withdrawn'
+    | 'cancelled'
+    | 'notification_queued'
+    | 'notification_skipped'
+    | 'notification_submitted'
+    | 'notification_failed'
+    | 'notification_delivered'
+    | 'notification_bounced';
+  actorType: 'admin' | 'customer' | 'system';
+  actorUser?: (number | null) | User;
+  actorLabel: string;
+  message: string;
+  reason?: string | null;
+  previousValue?:
     | {
         [k: string]: unknown;
       }
@@ -452,38 +559,33 @@ export interface Order {
     | number
     | boolean
     | null;
-  events?:
+  newValue?:
     | {
-        at?: string | null;
-        type?: string | null;
-        actor?: string | null;
-        message?: string | null;
-        id?: string | null;
-      }[]
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
     | null;
-  notifications?:
-    | {
-        templateId?: string | null;
-        recipientRole?: string | null;
-        status?: string | null;
-        attemptedAt?: string | null;
-        sentAt?: string | null;
-        error?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  version?: number | null;
+  proposal?: (string | null) | PriceChangeProposal;
+  emailMessage?: (number | null) | EmailMessage;
   updatedAt: string;
   createdAt: string;
 }
 /**
+ * Új ajánlat a rendelés oldaláról indítható. Elfogadni vagy elutasítani csak az ügyfél tudja.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "price-change-proposals".
  */
 export interface PriceChangeProposal {
-  id: number;
+  id: string;
   order: number | Order;
+  orderReference: string;
   status: 'pending' | 'accepted' | 'rejected' | 'expired' | 'superseded' | 'withdrawn';
+  isDemo?: boolean | null;
+  version?: number | null;
   explanation: string;
   lines: {
     lineId: string;
@@ -537,7 +639,7 @@ export interface PriceChangeProposal {
     lastError?: string | null;
     claimedAt?: string | null;
     /**
-     * A válaszidő ettől az időponttól indul.
+     * A válaszidő ettől az időponttól indul. Naplózó módban és sikertelen küldésnél üres marad.
      */
     sentAt?: string | null;
   };
@@ -548,15 +650,70 @@ export interface PriceChangeProposal {
     lastError?: string | null;
     claimedAt?: string | null;
     /**
-     * A válaszidő ettől az időponttól indul.
+     * A válaszidő ettől az időponttól indul. Naplózó módban és sikertelen küldésnél üres marad.
      */
     sentAt?: string | null;
   };
   resolvedAt?: string | null;
-  supersedes?: (number | null) | PriceChangeProposal;
-  supersededBy?: (number | null) | PriceChangeProposal;
-  createdBy?: (number | null) | User;
-  tokenHashes?:
+  supersedesId?: string | null;
+  supersededById?: string | null;
+  createdBy?: string | null;
+  createdByUser?: (number | null) | User;
+  proposalTokenHash?: string | null;
+  reminderTokenHash?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Minden alkalmazás által küldött (vagy kihagyott) e-mail. A „Kézbesítve” állapotot csak a Resend webhook állítja be; a szolgáltató általi átvétel nem kézbesítés.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-messages".
+ */
+export interface EmailMessage {
+  id: number;
+  templateId:
+    | 'order-received'
+    | 'store-new-order'
+    | 'price-change-proposal'
+    | 'price-change-reminder'
+    | 'price-change-accepted'
+    | 'cancelled-after-rejection'
+    | 'cancelled-after-timeout'
+    | 'cancelled-by-store'
+    | 'fulfillment-update'
+    | 'contact-message';
+  category: 'customer' | 'store' | 'contact';
+  status:
+    'queued' | 'submitted' | 'delivered' | 'failed' | 'bounced' | 'suppressed' | 'cancelled' | 'skipped' | 'simulated';
+  idempotencyKey: string;
+  to: string;
+  from?: string | null;
+  replyTo?: string | null;
+  subject?: string | null;
+  mode?: ('resend' | 'log' | 'invalid') | null;
+  order?: (number | null) | Order;
+  orderReference?: string | null;
+  proposal?: (string | null) | PriceChangeProposal;
+  contactMessage?: (string | null) | ContactMessage;
+  isDemo?: boolean | null;
+  attempts?: number | null;
+  queuedAt?: string | null;
+  nextAttemptAt?: string | null;
+  claimedAt?: string | null;
+  firstAttemptAt?: string | null;
+  lastAttemptAt?: string | null;
+  submittedAt?: string | null;
+  deliveredAt?: string | null;
+  providerMessageId?: string | null;
+  lastEventType?: string | null;
+  lastEventAt?: string | null;
+  lastError?: string | null;
+  skipReason?: string | null;
+  /**
+   * Csak azonosítók (rendelés, ajánlat, állapot). Tokent vagy linket nem tárolunk.
+   */
+  templateRef?:
     | {
         [k: string]: unknown;
       }
@@ -565,6 +722,89 @@ export interface PriceChangeProposal {
     | number
     | boolean
     | null;
+  previewHtml?: string | null;
+  previewText?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contact-messages".
+ */
+export interface ContactMessage {
+  id: string;
+  submissionKey: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  privacyVersion?: string | null;
+  receivedAt: string;
+  notificationStatus: 'pending' | 'sent' | 'sent_simulated' | 'failed';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-events".
+ */
+export interface EmailEvent {
+  id: number;
+  eventId: string;
+  type: string;
+  providerMessageId?: string | null;
+  emailMessage?: (number | null) | EmailMessage;
+  occurredAt?: string | null;
+  receivedAt: string;
+  applied?: boolean | null;
+  detail?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Új import a „Termékimport (CSV)” oldalon indítható.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "import-jobs".
+ */
+export interface ImportJob {
+  id: number;
+  fileName: string;
+  status: 'previewed' | 'running' | 'completed' | 'failed';
+  createdBy?: (number | null) | User;
+  createdByLabel?: string | null;
+  startedAt?: string | null;
+  heartbeatAt?: string | null;
+  finishedAt?: string | null;
+  error?: string | null;
+  previewReport?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  results?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  finalReport?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  csv: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -602,23 +842,43 @@ export interface PayloadLockedDocument {
       } | null)
     | ({
         relationTo: 'brands';
-        value: number | Brand;
+        value: string | Brand;
       } | null)
     | ({
         relationTo: 'categories';
-        value: number | Category;
+        value: string | Category;
       } | null)
     | ({
         relationTo: 'products';
-        value: number | Product;
+        value: string | Product;
       } | null)
     | ({
         relationTo: 'orders';
         value: number | Order;
       } | null)
     | ({
+        relationTo: 'order-events';
+        value: number | OrderEvent;
+      } | null)
+    | ({
         relationTo: 'price-change-proposals';
-        value: number | PriceChangeProposal;
+        value: string | PriceChangeProposal;
+      } | null)
+    | ({
+        relationTo: 'email-messages';
+        value: number | EmailMessage;
+      } | null)
+    | ({
+        relationTo: 'email-events';
+        value: number | EmailEvent;
+      } | null)
+    | ({
+        relationTo: 'contact-messages';
+        value: string | ContactMessage;
+      } | null)
+    | ({
+        relationTo: 'import-jobs';
+        value: number | ImportJob;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -692,8 +952,13 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
-  objectKey?: T;
+  brandSlug?: T;
+  categorySlug?: T;
+  productSlug?: T;
   colorHex?: T;
+  objectKey?: T;
+  prefix?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -735,6 +1000,7 @@ export interface MediaSelect<T extends boolean = true> {
  * via the `definition` "brands_select".
  */
 export interface BrandsSelect<T extends boolean = true> {
+  id?: T;
   name?: T;
   slug?: T;
   description?: T;
@@ -748,6 +1014,7 @@ export interface BrandsSelect<T extends boolean = true> {
  * via the `definition` "categories_select".
  */
 export interface CategoriesSelect<T extends boolean = true> {
+  id?: T;
   name?: T;
   slug?: T;
   description?: T;
@@ -761,6 +1028,7 @@ export interface CategoriesSelect<T extends boolean = true> {
  * via the `definition` "products_select".
  */
 export interface ProductsSelect<T extends boolean = true> {
+  id?: T;
   name?: T;
   slug?: T;
   model?: T;
@@ -825,9 +1093,11 @@ export interface ProductsSelect<T extends boolean = true> {
  */
 export interface OrdersSelect<T extends boolean = true> {
   reference?: T;
+  isDemo?: T;
   idempotencyKey?: T;
   submissionHash?: T;
   submittedAt?: T;
+  version?: T;
   fulfillmentStatus?: T;
   paymentStatus?: T;
   priceApprovalStatus?: T;
@@ -868,7 +1138,16 @@ export interface OrdersSelect<T extends boolean = true> {
         grandTotal?: T;
         currency?: T;
       };
-  submissionSnapshot?: T;
+  agreedTotals?:
+    | T
+    | {
+        itemsTotal?: T;
+        deliveryFee?: T;
+        grandTotal?: T;
+        currency?: T;
+      };
+  agreed?: T;
+  submission?: T;
   customer?:
     | T
     | {
@@ -910,36 +1189,30 @@ export interface OrdersSelect<T extends boolean = true> {
         privacyVersion?: T;
         acceptedAt?: T;
       };
-  agreedTotals?:
-    | T
-    | {
-        itemsTotal?: T;
-        deliveryFee?: T;
-        grandTotal?: T;
-        currency?: T;
-      };
-  agreedLines?: T;
-  events?:
-    | T
-    | {
-        at?: T;
-        type?: T;
-        actor?: T;
-        message?: T;
-        id?: T;
-      };
-  notifications?:
-    | T
-    | {
-        templateId?: T;
-        recipientRole?: T;
-        status?: T;
-        attemptedAt?: T;
-        sentAt?: T;
-        error?: T;
-        id?: T;
-      };
-  version?: T;
+  history?: T;
+  proposals?: T;
+  emails?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "order-events_select".
+ */
+export interface OrderEventsSelect<T extends boolean = true> {
+  order?: T;
+  orderReference?: T;
+  at?: T;
+  type?: T;
+  actorType?: T;
+  actorUser?: T;
+  actorLabel?: T;
+  message?: T;
+  reason?: T;
+  previousValue?: T;
+  newValue?: T;
+  proposal?: T;
+  emailMessage?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -948,8 +1221,12 @@ export interface OrdersSelect<T extends boolean = true> {
  * via the `definition` "price-change-proposals_select".
  */
 export interface PriceChangeProposalsSelect<T extends boolean = true> {
+  id?: T;
   order?: T;
+  orderReference?: T;
   status?: T;
+  isDemo?: T;
+  version?: T;
   explanation?: T;
   lines?:
     | T
@@ -999,10 +1276,103 @@ export interface PriceChangeProposalsSelect<T extends boolean = true> {
         sentAt?: T;
       };
   resolvedAt?: T;
-  supersedes?: T;
-  supersededBy?: T;
+  supersedesId?: T;
+  supersededById?: T;
   createdBy?: T;
-  tokenHashes?: T;
+  createdByUser?: T;
+  proposalTokenHash?: T;
+  reminderTokenHash?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-messages_select".
+ */
+export interface EmailMessagesSelect<T extends boolean = true> {
+  templateId?: T;
+  category?: T;
+  status?: T;
+  idempotencyKey?: T;
+  to?: T;
+  from?: T;
+  replyTo?: T;
+  subject?: T;
+  mode?: T;
+  order?: T;
+  orderReference?: T;
+  proposal?: T;
+  contactMessage?: T;
+  isDemo?: T;
+  attempts?: T;
+  queuedAt?: T;
+  nextAttemptAt?: T;
+  claimedAt?: T;
+  firstAttemptAt?: T;
+  lastAttemptAt?: T;
+  submittedAt?: T;
+  deliveredAt?: T;
+  providerMessageId?: T;
+  lastEventType?: T;
+  lastEventAt?: T;
+  lastError?: T;
+  skipReason?: T;
+  templateRef?: T;
+  previewHtml?: T;
+  previewText?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-events_select".
+ */
+export interface EmailEventsSelect<T extends boolean = true> {
+  eventId?: T;
+  type?: T;
+  providerMessageId?: T;
+  emailMessage?: T;
+  occurredAt?: T;
+  receivedAt?: T;
+  applied?: T;
+  detail?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contact-messages_select".
+ */
+export interface ContactMessagesSelect<T extends boolean = true> {
+  id?: T;
+  submissionKey?: T;
+  name?: T;
+  email?: T;
+  subject?: T;
+  message?: T;
+  privacyVersion?: T;
+  receivedAt?: T;
+  notificationStatus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "import-jobs_select".
+ */
+export interface ImportJobsSelect<T extends boolean = true> {
+  fileName?: T;
+  status?: T;
+  createdBy?: T;
+  createdByLabel?: T;
+  startedAt?: T;
+  heartbeatAt?: T;
+  finishedAt?: T;
+  error?: T;
+  previewReport?: T;
+  results?: T;
+  finalReport?: T;
+  csv?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1112,17 +1482,30 @@ export interface StoreSetting {
     | {
         slug: string;
         title: string;
-        body?: string | null;
-        faq?:
-          | {
-              question: string;
-              answer: string;
-              id?: string | null;
-            }[]
-          | null;
+        body: string;
         id?: string | null;
       }[]
     | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Automatikus ügyfél e-mail állapotváltáskor. A módosítás csak a későbbi állapotváltásokra hat; korábbi értesítést nem küld újra.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notification-settings".
+ */
+export interface NotificationSetting {
+  id: number;
+  statusEmails?: {
+    under_review?: boolean | null;
+    confirmed?: boolean | null;
+    procurement_in_progress?: boolean | null;
+    ready_for_collection?: boolean | null;
+    dispatched?: boolean | null;
+    completed?: boolean | null;
+    cancelled?: boolean | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1197,14 +1580,27 @@ export interface StoreSettingsSelect<T extends boolean = true> {
         slug?: T;
         title?: T;
         body?: T;
-        faq?:
-          | T
-          | {
-              question?: T;
-              answer?: T;
-              id?: T;
-            };
         id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notification-settings_select".
+ */
+export interface NotificationSettingsSelect<T extends boolean = true> {
+  statusEmails?:
+    | T
+    | {
+        under_review?: T;
+        confirmed?: T;
+        procurement_in_progress?: T;
+        ready_for_collection?: T;
+        dispatched?: T;
+        completed?: T;
+        cancelled?: T;
       };
   updatedAt?: T;
   createdAt?: T;

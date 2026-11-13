@@ -1,16 +1,17 @@
-# Benyom Webshop – Hungarian preorder webshop (sample mode)
+# Benyom Webshop – Hungarian preorder webshop
 
-A Hungarian preorder webshop built with Next.js (App Router), TypeScript, Payload CMS, Tailwind CSS, shadcn/ui and framer-motion.
+A Hungarian preorder webshop built with Next.js (App Router), TypeScript, Payload CMS 3 on Supabase PostgreSQL, Supabase Storage, Resend, Tailwind CSS, shadcn/ui and framer-motion.
 
-> **Sample mode only.** The shop runs on immutable sample data plus an in-memory runtime store. There is no database and no file uploads, and orders placed here are not real. Email is logged by default; real delivery through Resend is opt-in (`EMAIL_MODE=resend`). Payload, Supabase and Vercel are prepared but **not connected**.
+Customers pick products and variants, fill a cart and submit a **preorder**. Payment happens in person on collection or delivery. There is no online payment, no automatic invoicing and no stock tracking. Operations (orders, audit history, price-change proposals, products, CSV import, email history and notification switches) live in Payload's native admin at `/admin`.
 
-Customers pick products and variants, fill a cart, and submit a **preorder**. Payment happens in person on collection or delivery. There is no online payment, no automatic invoicing and no stock tracking.
+All data is persistent: the app reads and writes only through Payload's Local API (`src/dto/`) on PostgreSQL. **A database is required, locally too.** There is no sample mode and no in-memory fallback; a failing database operation is an error, never a silent substitute.
 
 ## Requirements
 
-- **Node.js 22.12 or newer** (developed on 22.16). Payload is pinned to 3.91.0 because Payload 3.92+ needs Node ≥ 22.23.4. Upgrading Node lets you upgrade Payload (see [docs/deployment.md](docs/deployment.md)).
-- **npm** (the lockfile is `package-lock.json`).
-- No external accounts or credentials for the default setup. A Resend account is needed only to send real email.
+- **Node.js 22.12 or newer** (developed on 22.16). Payload is pinned to 3.91.0 (3.92+ needs Node ≥ 22.23.4).
+- **npm** (`package-lock.json`).
+- **PostgreSQL**: a Supabase project (recommended, same as production) or any local PostgreSQL 15+ for development.
+- Optional for full functionality: Supabase Storage (product images), Resend (real email).
 
 ## Local startup
 
@@ -18,101 +19,105 @@ Customers pick products and variants, fill a cart, and submit a **preorder**. Pa
    ```bash
    npm install
    ```
-2. Optional local configuration. Sample mode needs no variables. To set the site URL or a stable signing secret:
+2. Create the local env file (git-ignored) and fill it in. See [.env.example](.env.example) for every variable:
    ```bash
    cp .env.example .env.local
    ```
-3. Start the development server:
+   Minimum: `APP_ENV=development`, `DATABASE_URL` (and preferably `DATABASE_MIGRATION_URL`), `PAYLOAD_SECRET`, `APP_SIGNING_SECRET` (32+ random characters each, e.g. `openssl rand -hex 32`). Keep `EMAIL_MODE=log` while developing.
+3. Apply the database migrations (uses `DATABASE_MIGRATION_URL`):
+   ```bash
+   npm run migrate
+   ```
+4. Import the initial data into **your development database**. The database name must be given explicitly (it is printed if missing):
+   ```bash
+   npm run import:initial -- target-database=postgres
+   ```
+5. Start the development server and create the first admin at <http://localhost:3000/admin>:
    ```bash
    npm run dev
    ```
-4. Open <http://localhost:3000>. The development tools are at <http://localhost:3000/fejlesztes>.
 
-### Production build
-
-```bash
-npm run build
-```
-```bash
-npm start
-```
-
-`npm start` runs with `NODE_ENV=production`, so the dev tools are off. To try them against a local production build, set `ENABLE_SAMPLE_DEV_TOOLS=true`. Setting `APP_ENV=production` (or `VERCEL_ENV=production`) always disables the dev tools **and** the sample checkout.
+The npm scripts load `.env.local` (Next.js and the Payload CLI both read it).
 
 ### Checks
 
 | Command | What it does |
 | --- | --- |
-| `npm run typecheck` | `tsc --noEmit` (strict, `noUncheckedIndexedAccess`) |
+| `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` | ESLint (Next core-web-vitals + TypeScript, explicit return types) |
-| `npm test` | Vitest: pricing, orders, price changes, CSV import, architecture rules |
-| `npm run check` | All three above |
-| `npm run generate:types` | Regenerates `src/payload-types.ts` (works without a database) |
-| `npm run generate:importmap` | Regenerates the Payload admin import map |
+| `npm test` | Vitest integration tests on a real PostgreSQL database (`TEST_DATABASE_URL`, name must end in `_test`; its schema is dropped and re-created) |
+| `npm run build` | Production build (no database access at build time) |
+| `npm run migrate` / `migrate:status` / `migrate:create` | Payload migrations (version-controlled in `src/migrations/`) |
+| `npm run import:initial` | Idempotent initial data import (see below) |
+| `npm run generate:types` / `generate:importmap` | Regenerate `src/payload-types.ts` / the admin import map after schema or admin component changes |
 
-## What to try
+## Environment and `APP_ENV`
 
-1. On the homepage, pick one of the top three brands or categories (ranked explicitly in the sample data), or open *Összes márka* / *Összes kategória*. Browse by brand (Apple, Samsung, Xiaomi, Google → phones, tablets, smartwatches, earbuds), search (`SAM-S26U`), and filter by color, storage and price. Every filter state is a shareable URL.
-2. In any product card, choose color/storage and a quantity and add to the cart directly: the card updates price, image and availability, and blocks incomplete or unavailable selections. On a product page, pick a color swatch and a storage size. The URL updates (`?valtozat=SKU`). Unavailable combinations are struck through and cannot be added.
-3. Add to cart, then check out with a fictional name and `@example.com` email. Pick personal collection or delivery (2 990 Ft, a **fictional sample fee**). The parcel-locker method has an **unknown** fee, so it cannot be chosen.
-4. In `/fejlesztes`: create a price-change proposal for your order, open the email preview, and use its decision link. Advance time (+24 h), run the scheduler, simulate email failures, or reset everything.
+`APP_ENV` is required: `development`, `test`, `preview` or `production`. It is validated with the rest of the configuration in [src/config/env.ts](src/config/env.ts); missing or invalid values stop the app with a message that names the variable (never its value). Secrets are server-only; a `NEXT_PUBLIC_` copy of any of them is rejected.
 
-## Contact form
+Development tools (`/fejlesztes`, its server action) exist only when `APP_ENV` is valid and not `production`, and require a signed-in admin. Production, a missing or an invalid `APP_ENV` all answer 404 (also for `/fejlesztés` and encoded spellings, enforced in `src/proxy.ts` and again in the page and action).
 
-`/kapcsolat` validates on the client and on the server (Hungarian messages, length limits), blocks duplicate submissions (per-submission key, button lock), and has basic anti-spam (a hidden honeypot field plus a signed render time: submissions within 3 s or after 2 h are refused). Messages go to `CONTACT_EMAIL` (or, in log mode without it, the sample `contactRecipientEmail` setting), sent from `EMAIL_FROM` with the visitor only as Reply-To. In log mode the confirmation says plainly that no email was sent.
+## Initial data import
 
-The desktop header links to *Összes termék* and *Kapcsolat*. *Fizetés és szállítás* (`/fizetes-es-szallitas`, built from store settings) is linked from the footer.
+`npm run import:initial -- target-database=<name> [skip-demo] [skip-media] [confirm-production]` moves the original dataset (`src/seed/initial-data.ts`, kept only as migration input) into the database through Payload:
 
-Information pages: general settings pages live at `/info/<slug>` (terms, privacy, warranty), the FAQ at `/gyik` and payment & delivery at `/fizetes-es-szallitas`. `src/lib/info-pages.ts` maps slugs to these URLs; links, the sitemap and redirects all use it, and FAQ / payment & delivery are never served under `/info/`. Old URLs redirect permanently (308) in one step: `/oldal/gyik` and `/info/gyik` → `/gyik`; `/oldal/fizetes-es-szallitas`, `/info/fizetes-es-szallitas` and `/oldal/szallitas` → `/fizetes-es-szallitas`; `/oldal/kapcsolat` → `/kapcsolat`; any other `/oldal/<slug>` → `/info/<slug>`. Brand browsing stays on the homepage, `/markak` and the mobile menu.
+- settings, brands, categories, 30 products with 167 variants (stable ids, SKUs and HEX colors preserved);
+- product images rendered from the placeholders and uploaded to Supabase Storage under `brand/category/product/[color]/` (reported as *unavailable* when storage is not configured; a later run fills in missing images);
+- two fictional orders as **historical demo data** (`isDemo`, marked *DEMÓ* in the admin): no emails, no jobs, never processed by the scheduler. Never imported when `APP_ENV=production`.
 
-## Email: logging or Resend
+It is repeatable: existing records are skipped (never overwritten or deleted), records with the same slug under another id are mapped, and the report lists created / skipped / mapped / conflict / failed / unavailable counts. Details: [docs/deployment.md](docs/deployment.md#initial-data-import).
 
-Templates are React Email components (`src/emails/*.tsx`) rendered to HTML and plain text. Every email goes through `emailService.sendEmail()` ([src/services/emailService.ts](src/services/emailService.ts)), controlled by `EMAIL_MODE`:
+## Operations in the admin
 
-- **`log` (default):** nothing is sent. Each email is logged as `[EMAIL – SZIMULÁLT, NEM KÜLDÖTT]` (metadata only, never bodies, links, tokens or keys), and a preview is stored while dev tools are on (`/fejlesztes` → *E-mail napló*).
-- **`resend`:** real delivery. Requires `RESEND_API_KEY`, `EMAIL_FROM` (a sender on a domain verified in Resend) and `CONTACT_EMAIL`. If any is missing or invalid, every send fails visibly; nothing falls back to simulated success.
+| Workflow | Where |
+| --- | --- |
+| Orders: search, filter, details, status change, cancellation (reason required) | *Rendelések* |
+| Audit history (append-only, chronological, actor and reason) | order → *Előzmények*; *Rendelési napló* |
+| Price-change proposals: edit prices → review → send | order → *Árváltozási ajánlat* |
+| Manual product management (drafts, variants, HEX, media) | *Termékek*, *Médiatár* |
+| CSV import with template, dry run, persisted jobs | *Termékimport (CSV)* (`/admin/termekimport`), *Termékimportok* |
+| Per-status customer email switches | *Értesítési beállítások* |
+| Email history, content snapshot, delivery state, retry | *E-mail előzmények* |
 
-Local setup goes in `.env.local` (git-ignored; never commit keys):
+Details: [docs/admin-operations.md](docs/admin-operations.md).
 
-```
-EMAIL_MODE=resend
-RESEND_API_KEY=re_…
-EMAIL_FROM=Webshop <rendeles@yourdomain.hu>
-CONTACT_EMAIL=bolt@yourdomain.hu
-```
+## Email
 
-Restart the dev server after changing it. On Vercel, set the same four variables under *Project → Settings → Environment Variables* (mark the key *Sensitive*; e.g. `log` for Preview, `resend` for Production) and redeploy. Never prefix them with `NEXT_PUBLIC_`.
+React Email templates, sent only through `emailService.sendEmail()` and persisted jobs:
 
-**Limitations:** orders, notification records and proposal deadlines live in the in-memory sample store, and the scheduler only runs when triggered from `/fejlesztes`. Failed emails are recorded, and proposal/reminder emails are retried on scheduler runs with a stable idempotency key, but there is no durable outbox or automatic retry, and nothing survives a restart. In `resend` mode sample orders email whatever customer address you enter, so use addresses you control.
+- `EMAIL_MODE=log` (default): rendered and stored in the email history as *Naplózva*, nothing is sent and **no customer deadline starts**.
+- `EMAIL_MODE=resend`: sent through Resend with a stable idempotency key per logical email. Failures are retried with backoff by the scheduler; provider acceptance is shown as *Átadva*, not delivered. Delivery and bounces arrive through the verified Resend webhook (`/webhooks/resend`).
 
 Details: [docs/email.md](docs/email.md).
 
-## Time simulation and reset
+## Scheduler
 
-- The *Idő* controls move a server-side simulated clock (+1/+12/+24 h). It affects quotes, proposal deadlines and the scheduler. The system clock is untouched.
-- *Ütemező futtatása* runs one scheduler tick (proposal retries, reminders, timeout cancellation). There is no live cron.
-- *Teljes visszaállítás* restores the initial sample data and resets the clock and failure simulation.
-- All runtime state (orders, proposals, email log, imports, price changes) lives in server memory. It is lost when the dev server restarts or the code reloads with a full restart. It is never shared between instances. See [docs/sample-mode.md](docs/sample-mode.md).
+`/cron/process` (Vercel cron, every minute, `Authorization: Bearer CRON_SECRET`) processes due email jobs, proposal reminders and expiry. It is idempotent; in development use *Ütemező futtatása* on `/fejlesztes`. See [docs/ordering-and-price-changes.md](docs/ordering-and-price-changes.md#scheduler).
+
+## Information pages
+
+General settings pages live at `/info/<slug>`, the FAQ at `/gyik` (content in `FaqAccordion`) and payment & delivery at `/fizetes-es-szallitas`. Old `/oldal/…` URLs redirect permanently in one step.
 
 ## Common problems
 
 | Problem | Fix |
 | --- | --- |
-| `/admin` shows "nem elérhető" (503) | Expected in sample mode: Payload needs `DATABASE_URL` and `PAYLOAD_SECRET`. |
-| `/fejlesztes` returns 404 | Dev tools are off in production builds. Use `npm run dev`, or set `ENABLE_SAMPLE_DEV_TOOLS=true` with `npm start`. |
-| Cart prices "reset" after restarting the server | Quotes are signed with a per-process secret unless `APP_SIGNING_SECRET` is set; old quotes then fall back to catalog prices. |
-| Orders disappeared | Runtime state is in memory; a server restart clears it. |
-| `npm install` warns about engines | Use Node 22.12+ (`nvm install 22`). |
-| Port 3000 busy | `npx next dev -p 3001` and set `NEXT_PUBLIC_SITE_URL` accordingly. |
+| "Hibás vagy hiányzó környezeti beállítás" on start | Fill in the listed variables in `.env.local` (names only are shown). |
+| "Az áruház beállításai hiányoznak az adatbázisból" | Run the migrations and `npm run import:initial`, or fill in *Áruház beállításai* in the admin. |
+| `relation … does not exist` | Run `npm run migrate`. |
+| `/fejlesztes` returns 404 | Expected unless `APP_ENV` is `development`, `test` or `preview`; sign in at `/admin` first. |
+| Image upload refused (503) | Configure the `SUPABASE_*` storage variables. |
+| Proposal created but no deadline | `EMAIL_MODE=log` never starts deadlines; use `resend` with a verified sender. |
+| `npm test` fails at setup | Set `TEST_DATABASE_URL` to a disposable database ending in `_test`. |
 
 ## Documentation
 
 - [Architecture](docs/architecture.md) – layers, data flow, security boundaries
-- [Project structure](docs/project-structure.md) – what lives where
-- [Data access](docs/data-access.md) – DTO functions and how to swap them to Payload
-- [Catalog and variants](docs/catalog-and-variants.md) – brands, categories, HEX colors, swatches
-- [Ordering and price changes](docs/ordering-and-price-changes.md) – snapshots, quotes, proposals, deadlines, races
-- [Email](docs/email.md) – React Email templates, logging and Resend modes, configuration, idempotency
-- [CSV import](docs/csv-import.md) – format, rules, idempotency
-- [Sample mode](docs/sample-mode.md) – runtime store, dev tools, limitations
-- [Deployment](docs/deployment.md) – Payload, Supabase, Storage, Vercel, scheduler (future work)
+- [Project structure](docs/project-structure.md)
+- [Data access](docs/data-access.md) – DTO functions on the Payload Local API, transactions, atomic contracts
+- [Admin operations](docs/admin-operations.md) – orders, audit, proposals, products, CSV, notifications, email history
+- [Catalog and variants](docs/catalog-and-variants.md)
+- [Ordering and price changes](docs/ordering-and-price-changes.md) – snapshots, proposals, deadlines, scheduler
+- [Email](docs/email.md) – Resend, logging mode, jobs, retries, webhooks, history
+- [CSV import](docs/csv-import.md)
+- [Deployment](docs/deployment.md) – Supabase, migrations, storage, Vercel, cron, verification status

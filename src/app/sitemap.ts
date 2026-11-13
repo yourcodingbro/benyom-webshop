@@ -7,7 +7,9 @@ import { getProductSitemapEntries } from '@/dto/products'
 import { getStoreSettings } from '@/dto/settings'
 import { DEDICATED_INFO_PAGE_PATHS, hasDedicatedRoute, infoPagePath } from '@/lib/info-pages'
 
-/** Public catalog pages only; cart, checkout, orders and decision pages are excluded. */
+/** Read from the database per request (never at build time). Cart, checkout, orders and decision pages are excluded. */
+export const dynamic = 'force-dynamic'
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getSiteUrl()
   const [brands, categories, products, settings] = await Promise.all([getBrands(), getCategories(), getProductSitemapEntries(), getStoreSettings()])
