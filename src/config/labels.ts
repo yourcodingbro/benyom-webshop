@@ -61,3 +61,16 @@ export const SORT_LABELS: Record<ProductSort, string> = {
   name_asc: 'Név szerint (A–Z)',
   newest: 'Legújabb',
 }
+
+/** Email job states (email history, admin actions). */
+export const EMAIL_STATUS_LABELS: Record<string, string> = {
+  queued: 'Sorban áll',
+  submitted: 'Átadva a szolgáltatónak',
+  delivered: 'Kézbesítve',
+  failed: 'Sikertelen',
+  bounced: 'Visszapattant',
+  suppressed: 'Letiltott címzett',
+  cancelled: 'Megszakítva',
+  skipped: 'Kihagyva (beállítás)',
+  simulated: 'Naplózva (nem küldött)',
+}

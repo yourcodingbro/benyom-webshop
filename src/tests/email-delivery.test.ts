@@ -38,7 +38,7 @@ async function jobId(key: string): Promise<number> {
 
 describe('email configuration', () => {
   it('defaults to logging mode without contacting Resend and records a simulated email', async () => {
-    expect(getEmailConfig().mode).toBe('log')
+    expect(getEmailConfig(await getStoreSettings()).mode).toBe('log')
     const result = await emailService.sendEmail(await contactInput('k-log'))
     expect(result.status).toBe('sent_simulated')
     expect(send).not.toHaveBeenCalled()
@@ -46,7 +46,7 @@ describe('email configuration', () => {
   })
 
   it('fails loudly (never simulated) when resend mode is misconfigured', async () => {
-    enableResendMode()
+    await enableResendMode()
     process.env.RESEND_API_KEY = ''
     const result = await emailService.sendEmail(await contactInput('k-bad'))
     expect(result.status).toBe('failed')
@@ -57,7 +57,7 @@ describe('email configuration', () => {
 
 describe('durable delivery and retries', () => {
   it('persists the job, retries transient failures with backoff using the same idempotency key', async () => {
-    enableResendMode()
+    await enableResendMode()
     failNext(1)
     const first = await emailService.sendEmail(await contactInput('k-retry'))
     expect(first.status).toBe('failed')
@@ -80,7 +80,7 @@ describe('durable delivery and retries', () => {
   })
 
   it('stops on permanent provider errors and lets an admin retry safely', async () => {
-    enableResendMode()
+    await enableResendMode()
     send.mockImplementationOnce(async () => ({ data: null, error: { name: 'validation_error', message: 'Érvénytelen címzett', statusCode: 422 } }))
     await emailService.sendEmail(await contactInput('k-perm'))
     const id = await jobId('contact-message/k-perm')
@@ -91,7 +91,7 @@ describe('durable delivery and retries', () => {
   })
 
   it('never logs the API key, decision links or message bodies', async () => {
-    enableResendMode()
+    await enableResendMode()
     await emailService.sendEmail(await contactInput('k-log2'))
     const logged = JSON.stringify([...infoSpy.mock.calls, ...errorSpy.mock.calls])
     expect(logged).not.toContain('re_test_0123456789')
@@ -109,7 +109,7 @@ function signed(body: string, id: string): { id: string; timestamp: string; sign
 
 describe('Resend webhooks', () => {
   async function submittedOrderEmail(): Promise<{ messageId: string; jobId: number }> {
-    enableResendMode()
+    await enableResendMode()
     const order = await placeTestOrder()
     const payload = await testPayload()
     const doc = (await payload.find({ collection: 'email-messages', where: { and: [{ orderReference: { equals: order.reference } }, { templateId: { equals: 'order-received' } }] }, overrideAccess: true })).docs[0]

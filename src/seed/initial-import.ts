@@ -108,8 +108,8 @@ async function importSettings(payload: Payload): Promise<void> {
     overrideAccess: true,
     data: {
       storeName: settings.storeName,
-      storeNotificationEmail: settings.storeNotificationEmail,
-      contactRecipientEmail: settings.contactRecipientEmail,
+      storeContactEmail: settings.contactEmail,
+      emailFrom: settings.emailFrom,
       contact: settings.contact,
       collection: { address: settings.collection.address, openingHours: settings.collection.openingHours.map((line: string) => ({ line })), note: settings.collection.note },
       deliveryMethods: settings.deliveryMethods.map((method) => ({

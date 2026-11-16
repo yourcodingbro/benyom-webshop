@@ -1,66 +1,59 @@
 import 'server-only'
 
-import { z } from 'zod'
-
+import { isEmailAddress, senderAddress } from '@/lib/email-address'
 import type { StoreSettings } from '@/types/settings'
 
 /**
- * Email delivery configuration, read lazily from server-only environment variables:
+ * Email delivery configuration. Transport secrets stay in server-only environment variables:
  *   EMAIL_MODE      log (default) | resend
  *   RESEND_API_KEY  Resend API key (resend mode)
- *   EMAIL_FROM      verified sender, e.g. "Webshop <rendeles@example.com>" (resend mode)
- *   CONTACT_EMAIL   store notification + contact-form recipient (required in resend mode)
- * None of these may use a NEXT_PUBLIC_ prefix; the API key is never logged or returned.
+ * The sender and the store recipient are admin-editable store settings (Áruház beállításai →
+ * "Feladó", "Kapcsolati e-mail"), read on every send, so a change applies without a redeploy.
+ * Nothing here may use a NEXT_PUBLIC_ prefix; the API key is never logged or returned.
  */
 export type EmailConfig =
-  | { mode: 'log'; contactEmail: string | null }
-  | { mode: 'resend'; apiKey: string; from: string; contactEmail: string }
+  | { mode: 'log'; from: string | null; contactEmail: string | null }
+  | { mode: 'resend'; apiKey: string; from: string; contactEmail: string | null }
   | { mode: 'invalid'; problems: string[] }
 
-const emailAddress = z.email()
-/** "Name <address>" or a bare address. */
-const SENDER_PATTERN: RegExp = /^(?:[^<>]{1,100}<([^<>\s]+)>|([^<>\s]+))$/
+type EmailSettings = Pick<StoreSettings, 'contactEmail' | 'emailFrom'>
 
-function senderAddress(value: string): string | null {
-  const match = SENDER_PATTERN.exec(value.trim())
-  const address = match?.[1] ?? match?.[2] ?? null
-  return address && emailAddress.safeParse(address).success ? address : null
-}
+/**
+ * Placeholder recipient of a store notification created while "Kapcsolati e-mail" is not set. It is never
+ * sent to: the job fails with an explanation and takes the configured address once it exists.
+ */
+export const UNSET_STORE_RECIPIENT: string = 'nincs-beallitva'
+
+const FROM_SETTING: string = 'Áruház beállításai → Feladó (email_from)'
+const CONTACT_SETTING: string = 'Áruház beállításai → Kapcsolati e-mail (contact_email)'
 
 function env(name: string): string {
   return (process.env[name] ?? '').trim()
 }
 
-export function getEmailConfig(): EmailConfig {
+export function getEmailConfig(settings: EmailSettings): EmailConfig {
   const mode = env('EMAIL_MODE') || 'log'
-  const contactRaw = env('CONTACT_EMAIL')
-  const contactValid = contactRaw === '' || emailAddress.safeParse(contactRaw).success
-  if (mode === 'log') {
-    return contactValid ? { mode: 'log', contactEmail: contactRaw || null } : { mode: 'invalid', problems: ['CONTACT_EMAIL nem érvényes e-mail-cím.'] }
-  }
+  const contactEmail = settings.contactEmail?.trim() || null
+  const from = settings.emailFrom?.trim() || null
+  const problems: string[] = []
+  if (contactEmail && !isEmailAddress(contactEmail)) problems.push(`${CONTACT_SETTING}: nem érvényes e-mail-cím.`)
+  if (from && !senderAddress(from)) problems.push(`${FROM_SETTING}: érvénytelen formátum („Webshop <rendeles@example.hu>” vagy „rendeles@example.hu”).`)
+  if (mode === 'log') return problems.length > 0 ? { mode: 'invalid', problems } : { mode: 'log', from, contactEmail }
   if (mode !== 'resend') return { mode: 'invalid', problems: [`Ismeretlen EMAIL_MODE érték: "${mode}" (log vagy resend lehet).`] }
 
   const apiKey = env('RESEND_API_KEY')
-  const from = env('EMAIL_FROM')
-  const problems: string[] = []
-  if (!apiKey) problems.push('RESEND_API_KEY hiányzik.')
+  if (!apiKey) problems.push('RESEND_API_KEY hiányzik (szerveroldali környezeti változó).')
   else if (!apiKey.startsWith('re_')) problems.push('RESEND_API_KEY formátuma érvénytelen (re_ előtaggal kezdődik).')
-  if (!from) problems.push('EMAIL_FROM hiányzik.')
-  else if (!senderAddress(from)) problems.push('EMAIL_FROM formátuma érvénytelen ("Név <cim@domain.hu>" vagy "cim@domain.hu").')
-  if (!contactRaw) problems.push('CONTACT_EMAIL hiányzik.')
-  else if (!contactValid) problems.push('CONTACT_EMAIL nem érvényes e-mail-cím.')
-  if (process.env.NEXT_PUBLIC_RESEND_API_KEY || process.env.NEXT_PUBLIC_EMAIL_FROM || process.env.NEXT_PUBLIC_CONTACT_EMAIL) {
-    problems.push('E-mail beállítás NEXT_PUBLIC_ előtaggal nem adható meg (a böngészőbe kerülne).')
-  }
-  return problems.length > 0 ? { mode: 'invalid', problems } : { mode: 'resend', apiKey, from, contactEmail: contactRaw }
+  if (!from) problems.push(`${FROM_SETTING} nincs megadva. Adjon meg egy, a Resendben ellenőrzött domainen lévő feladót.`)
+  if (process.env.NEXT_PUBLIC_RESEND_API_KEY) problems.push('A Resend kulcs NEXT_PUBLIC_ előtaggal nem adható meg (a böngészőbe kerülne).')
+  return problems.length > 0 || !from ? { mode: 'invalid', problems } : { mode: 'resend', apiKey, from, contactEmail }
 }
 
-/**
- * Recipient of store notifications and contact-form messages: CONTACT_EMAIL when set,
- * otherwise (log mode only) the sample settings address. Resend mode always requires CONTACT_EMAIL.
- */
-export function getStoreRecipient(settings: StoreSettings, purpose: 'orders' | 'contact'): string {
-  const config = getEmailConfig()
-  if (config.mode !== 'invalid' && config.contactEmail) return config.contactEmail
-  return purpose === 'contact' ? settings.contactRecipientEmail : settings.storeNotificationEmail
+/** Recipient of store notifications and contact-form messages ("Kapcsolati e-mail"), or the unset placeholder. */
+export function getStoreRecipient(settings: EmailSettings): string {
+  const address = settings.contactEmail?.trim()
+  return address && isEmailAddress(address) ? address : UNSET_STORE_RECIPIENT
 }
+
+/** Actionable error for a store notification without a configured recipient. */
+export const MISSING_STORE_RECIPIENT: string = `Nincs beállítva a bolti címzett: ${CONTACT_SETTING}. Adja meg; az e-mailt a rendszer automatikusan újrapróbálja, vagy küldje újra az E-mail előzményekből.`

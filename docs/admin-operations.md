@@ -4,7 +4,7 @@ Everything operational happens in Payload's native admin, with Hungarian labels.
 
 ## Sidebar groups
 
-Groups, in this order: *Rendelések* (orders, audit log, proposals, sales log), *Bolt* (media, brands, categories, products, imports), *Értesítések* (email history, delivery events, contact messages), *Rendszer* (users), *Beállítások* (store and notification settings). Labels and order live in `src/collections/utils/nav-groups.ts` (`NAV_GROUPS`, `NAV_GROUP_ORDER`); every collection and global references them. Payload has no group-order option, so `admin.components.Nav` (`OrderedNav`) renders Payload's own `DefaultNav` with the collections and globals sorted by group: appearance, collapse state, access-based visibility, active links and the mobile menu are native, and order inside a group stays the registration order. Limitation: Payload groups collections before globals, so a group containing only globals cannot be placed before groups with collections (true today: *Beállítások* is last); `src/tests/admin-nav.test.ts` checks the order.
+Groups, in this order: *Rendelések* (orders, audit log, proposals, sales log), *Bolt* (brands, categories, products), *Értesítések* (email history, delivery events, contact messages), *Rendszer* (media library, users, product imports), *Beállítások* (store and notification settings). Labels and order live in `src/collections/utils/nav-groups.ts` (`NAV_GROUPS`, `NAV_GROUP_ORDER`); every collection and global references them. Payload has no group-order option, so `admin.components.Nav` (`OrderedNav`) renders Payload's own `DefaultNav` with the collections and globals sorted by group: appearance, collapse state, access-based visibility, active links and the mobile menu are native, and order inside a group stays the registration order. Limitation: Payload groups collections before globals, so a group containing only globals cannot be placed before groups with collections (true today: *Beállítások* is last); `src/tests/admin-nav.test.ts` checks the order.
 
 ## Orders (*Rendelések*)
 
@@ -56,13 +56,17 @@ Manual create/edit with drafts and publishing. Validation is shared with the CSV
 
 ## CSV import (*Termékimportok*)
 
-One collection, one menu entry (*Bolt → Termékimportok*):
+One collection, one menu entry (*Rendszer → Termékimportok*):
 
 - **List**: the import history with status (*Előnézet kész*, *Folyamatban*, *Befejezve*, *Sikertelen*), file, who started it and when it finished.
 - **Új létrehozása**: download the template, upload the CSV and run the **dry run**. The dry run is stored as a new record and opens its detail view; nothing else changes.
 - **Detail**: status and progress, the preview report and (after applying) the result report with counts and row-level errors. The only way to apply is the explicit *Import megerősítése és alkalmazása* (with a confirmation). An interrupted run shows *Folytatás*, a failed one *Újrapróbálás*; both skip the product groups already recorded, so nothing is applied twice.
 
 There is no editable form: both views are the collection's `views.edit.root` component, and the collection refuses any create that does not come from the dry run (a form save or `POST /api/import-jobs` cannot start or fake an import). Details: [csv-import.md](csv-import.md).
+
+## Pending actions
+
+Custom admin actions (inviting an admin, new temporary password, password change, order cancellation, handover/payment/completion, price-change review and send, email retry, CSV upload/dry run and import runs, media upload) share one pattern: the button shows Payload's spinner with a specific label (*Küldés…*, *Rögzítés…*, *Importálás…*), is disabled with `aria-busy` while the request runs, ignores repeated clicks (`useAsyncAction`), keeps entered values, is restored after success or failure, and the outcome is announced (`role=status` / `role=alert`). A lost connection is reported as such instead of leaving a spinner. Other controls stay usable. Imports show the persisted state (*Előnézet kész* → *Indítás…* → processed groups → *Befejezve*); email jobs show *Sorban áll* (scheduler sends it), *Átadva*, *Kézbesítve* or *Sikertelen* with the reason and whether another automatic attempt is scheduled. Native Payload operations (saving documents and settings, drag-and-drop ordering) keep Payload's own loading feedback.
 
 ## List views
 

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import type React from 'react'
 import { useId, useState } from 'react'
 
+import { BusyButton } from '@/components/admin/BusyButton'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
+import { adminPost } from '@/lib/admin-request'
 import { checkPasswordPolicy, PASSWORD_MIN_LENGTH } from '@/lib/password-policy'
 
 type ChangePasswordFormProps = {
@@ -27,7 +30,7 @@ export function ChangePasswordForm(props: ChangePasswordFormProps): React.JSX.El
   const [confirmation, setConfirmation] = useState<string>('')
   const [submitted, setSubmitted] = useState<boolean>(false)
   const [serverErrors, setServerErrors] = useState<ServerErrors>({})
-  const [busy, setBusy] = useState<boolean>(false)
+  const { pending, run } = useAsyncAction()
   const [done, setDone] = useState<boolean>(false)
 
   const problems = checkPasswordPolicy({ password, confirmation, email: props.email })
@@ -42,21 +45,16 @@ export function ChangePasswordForm(props: ChangePasswordFormProps): React.JSX.El
       document.getElementById(problems.password.length ? `${id}-password` : `${id}-confirm`)?.focus()
       return
     }
-    setBusy(true)
-    const response = await fetch('/api/users/change-temporary-password', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ password, confirmPassword: confirmation }),
+    await run('save', async () => {
+      const { ok, body } = await adminPost<{ ok: boolean }>('/api/users/change-temporary-password', { password, confirmPassword: confirmation })
+      if (!ok) {
+        // The typed passwords stay in the fields for correction.
+        setServerErrors({ ...(body.fieldErrors ?? {}), form: body.error ?? 'A jelszócsere nem sikerült.' })
+        return
+      }
+      setDone(true)
+      window.setTimeout(() => router.push('/admin/login'), 2500)
     })
-    const body = ((await response.json().catch(() => ({}))) ?? {}) as { error?: string; fieldErrors?: { password?: string; confirmPassword?: string } | null }
-    setBusy(false)
-    if (!response.ok) {
-      setServerErrors({ ...(body.fieldErrors ?? {}), form: body.error ?? 'A jelszócsere nem sikerült.' })
-      return
-    }
-    setDone(true)
-    window.setTimeout(() => router.push('/admin/login'), 2500)
   }
 
   if (done) {
@@ -115,9 +113,9 @@ export function ChangePasswordForm(props: ChangePasswordFormProps): React.JSX.El
         ) : null}
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <button type="submit" className="btn btn--style-primary btn--size-medium" disabled={busy}>
+        <BusyButton type="submit" variant="primary" busy={pending === 'save'} busyLabel="Mentés…">
           Jelszó mentése
-        </button>
+        </BusyButton>
         <Link href="/admin/logout">Kijelentkezés</Link>
       </div>
     </form>

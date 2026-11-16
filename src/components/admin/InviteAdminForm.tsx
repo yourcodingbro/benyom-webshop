@@ -3,45 +3,55 @@
 import type React from 'react'
 import { useId, useState } from 'react'
 
-type InvitationResponse = { userId?: string; email?: string; expiresAt?: string; delivery?: 'sent' | 'simulated' | 'failed'; error?: string | null; fieldErrors?: Record<string, string> | null }
+import { ActionStatus, BusyButton } from '@/components/admin/BusyButton'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
+import { adminPost } from '@/lib/admin-request'
+
+export type InvitationResponse = { userId?: string; email?: string; expiresAt?: string; delivery?: 'sent' | 'simulated' | 'failed'; error?: string | null }
 
 const panel: React.CSSProperties = { border: '1px solid var(--theme-elevation-150)', borderRadius: 8, padding: 16, marginBottom: 20, maxWidth: 720 }
 
-/** Text shown after an invitation: never claims delivery that did not happen. */
-export function describeDelivery(result: InvitationResponse): { ok: boolean; text: string } {
+/**
+ * Outcome of an invitation or a new temporary password, with the account and the email reported
+ * separately: it never claims delivery that did not happen.
+ */
+export function describeDelivery(result: InvitationResponse, context: 'invite' | 'regenerate' = 'invite'): { ok: boolean; text: string } {
   const expires = result.expiresAt ? new Date(result.expiresAt).toLocaleString('hu-HU', { timeZone: 'Europe/Budapest' }) : ''
-  if (result.delivery === 'sent') return { ok: true, text: `Az ideiglenes jelszót tartalmazó e-mailt a Resend átvette (${result.email}). Lejárat: ${expires}. A kézbesítés állapota az E-mail előzményekben látható.` }
-  if (result.delivery === 'simulated') return { ok: false, text: `Naplózó mód (EMAIL_MODE=log): az e-mail NEM lett elküldve, így a meghívott nem kapta meg a jelszót. Éles küldéshez állítsa be a Resendet, majd generáljon új ideiglenes jelszót.` }
-  return { ok: false, text: `Az e-mail küldése NEM sikerült${result.error ? `: ${result.error}` : ''}. A fiók létrejött, de a jelszót senki nem kapta meg: használja a felhasználónál az „Új ideiglenes jelszó és újraküldés” műveletet.` }
+  const account = context === 'invite' ? `Fiók: létrehozva (${result.email ?? ''}), az ideiglenes jelszó lejár: ${expires}.` : `Ideiglenes jelszó: új jelszó beállítva, az előző érvénytelen; lejár: ${expires}.`
+  if (result.delivery === 'sent') return { ok: true, text: `${account}\nE-mail: a Resend átvette. A kézbesítés állapota az E-mail előzményekben látható.` }
+  const recovery = 'Teendő: a hiba elhárítása után a felhasználónál válassza az „Új ideiglenes jelszó és újraküldés” műveletet.'
+  if (result.delivery === 'simulated') return { ok: false, text: `${account}\nE-mail: NEM lett elküldve – naplózó mód (EMAIL_MODE=log), így a jelszót senki nem kapta meg.\n${recovery}` }
+  return { ok: false, text: `${account}\nE-mail: NEM ment ki${result.error ? ` – ${result.error}` : ''}. A jelszót senki nem kapta meg.\n${recovery}` }
 }
 
 /** "Új admin meghívása" above the user list: e-mail only; the password is generated and emailed by the server. */
 export function InviteAdminForm(): React.JSX.Element {
   const id = useId()
   const [email, setEmail] = useState<string>('')
-  const [busy, setBusy] = useState<boolean>(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [fieldError, setFieldError] = useState<string | null>(null)
+  const { pending, run } = useAsyncAction()
 
-  const submit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  const submit = (event: React.FormEvent<HTMLFormElement>): void => {
     event.preventDefault()
-    setBusy(true)
-    setMessage(null)
-    setFieldError(null)
-    const response = await fetch('/api/users/invite', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) })
-    const body = ((await response.json().catch(() => ({}))) ?? {}) as InvitationResponse
-    setBusy(false)
-    if (!response.ok) {
-      setFieldError(body.fieldErrors?.email ?? null)
-      setMessage({ ok: false, text: body.error ?? 'A meghívás nem sikerült.' })
-      return
-    }
-    setEmail('')
-    setMessage(describeDelivery(body))
+    void run('invite', async () => {
+      setMessage(null)
+      setFieldError(null)
+      const { ok, body } = await adminPost<InvitationResponse>('/api/users/invite', { email })
+      if (!ok) {
+        // Nothing was created: the typed address stays for correction.
+        setFieldError(body.fieldErrors?.email ?? null)
+        // A field error is announced at the field; repeat only other errors here.
+        setMessage(body.fieldErrors?.email ? null : { ok: false, text: body.error ?? 'A meghívás nem sikerült; fiók nem jött létre.' })
+        return
+      }
+      setEmail('')
+      setMessage(describeDelivery(body, 'invite'))
+    })
   }
 
   return (
-    <form onSubmit={submit} style={panel} noValidate>
+    <form onSubmit={submit} style={panel} noValidate aria-busy={pending !== null || undefined}>
       <h3 style={{ marginTop: 0 }}>Új admin meghívása</h3>
       <p>A rendszer ideiglenes jelszót generál, és e-mailben elküldi. Az első bejelentkezéskor kötelező új jelszót megadni.</p>
       <label htmlFor={`${id}-email`} style={{ display: 'block', marginBottom: 4 }}>
@@ -59,20 +69,16 @@ export function InviteAdminForm(): React.JSX.Element {
           aria-describedby={fieldError ? `${id}-error` : undefined}
           style={{ minWidth: 280 }}
         />
-        <button type="submit" className="btn btn--style-primary btn--size-medium" disabled={busy || !email}>
+        <BusyButton type="submit" variant="primary" busy={pending === 'invite'} busyLabel="Fiók létrehozása és küldés…" disabled={!email}>
           Meghívás küldése
-        </button>
+        </BusyButton>
       </div>
       {fieldError ? (
         <p id={`${id}-error`} role="alert" style={{ color: 'var(--theme-error-500)' }}>
           {fieldError}
         </p>
       ) : null}
-      {message ? (
-        <p role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'var(--theme-success-500)' : 'var(--theme-error-500)' }}>
-          {message.text}
-        </p>
-      ) : null}
+      <ActionStatus message={message} pendingText={pending ? 'Fiók létrehozása és a meghívó küldése folyamatban…' : null} />
     </form>
   )
 }

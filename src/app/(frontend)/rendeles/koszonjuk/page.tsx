@@ -9,6 +9,7 @@ import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { Reveal } from '@/components/Reveal'
 import { Alert, AlertDescription, AlertTitle } from '@/components/shadcn/alert'
 import { getEmailConfig } from '@/config/email'
+import { getStoreSettings } from '@/dto/settings'
 import { ORDER_ACCESS_COOKIE } from '@/config/shop'
 import { orderService } from '@/services/orderService'
 
@@ -19,6 +20,7 @@ export default async function ConfirmationPage(): Promise<React.JSX.Element> {
   const raw = (await cookies()).get(ORDER_ACCESS_COOKIE)?.value ?? ''
   const separator = raw.indexOf('.')
   const order = separator > 0 ? await orderService.getOrderForCustomer(raw.slice(0, separator), raw.slice(separator + 1)) : null
+  const emailMode = getEmailConfig(await getStoreSettings()).mode
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -29,7 +31,7 @@ export default async function ConfirmationPage(): Promise<React.JSX.Element> {
         <Reveal>
           <h1 className="text-3xl font-bold">Köszönjük, megkaptuk előrendelését!</h1>
           <p className="mt-3 text-muted-foreground">
-            Visszaigazolást küldtünk a(z) <strong>{order.submission.customer.email}</strong> címre{getEmailConfig().mode === 'resend' ? '.' : ' (naplózó módban csak a fejlesztői e-mail naplóba).'}
+            Visszaigazolást küldtünk a(z) <strong>{order.submission.customer.email}</strong> címre{emailMode === 'resend' ? '.' : ' (naplózó módban csak a fejlesztői e-mail naplóba).'}
           </p>
           <Alert className="my-6">
             <AlertTitle>Most nem kell fizetnie</AlertTitle>

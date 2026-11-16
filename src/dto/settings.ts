@@ -17,8 +17,8 @@ function toSettings(doc: StoreSetting): StoreSettings {
   return {
     storeName: doc.storeName,
     contact: { email: doc.contact?.email ?? '', phone: doc.contact?.phone ?? '', address: doc.contact?.address ?? '' },
-    storeNotificationEmail: doc.storeNotificationEmail,
-    contactRecipientEmail: doc.contactRecipientEmail,
+    contactEmail: doc.storeContactEmail ?? null,
+    emailFrom: doc.emailFrom ?? null,
     collection: {
       address: doc.collection?.address ?? '',
       openingHours: (doc.collection?.openingHours ?? []).map((row) => row.line),

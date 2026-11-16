@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { UNSET_STORE_RECIPIENT } from '@/config/email'
+
 import type { PayloadRequest } from 'payload'
 
 import { lockRow } from '@/collections/utils/db'
@@ -29,7 +31,8 @@ export type EmailJobOutcome =
   | { kind: 'failed'; at: IsoDateTime; error: string; retryAt: IsoDateTime | null }
   | { kind: 'cancelled'; at: IsoDateTime; reason: string }
 
-export type RenderedSnapshot = { subject: string; from: string | null; mode: 'resend' | 'log' | 'invalid'; html: string; text: string }
+/** `to`: the recipient actually used, recorded only in place of the unset-store-recipient placeholder. */
+export type RenderedSnapshot = { subject: string; from: string | null; to: string; mode: 'resend' | 'log' | 'invalid'; html: string; text: string }
 
 export type ProviderEvent = {
   eventId: string
@@ -167,6 +170,9 @@ export async function completeEmailJob(
       data.previewText = snapshot.text
     }
     if (snapshot) data.mode = snapshot.mode
+    // History keeps the first sender and recipient actually used; neither is rewritten by later settings changes.
+    if (snapshot?.from && !doc.from) data.from = snapshot.from
+    if (snapshot && doc.to === UNSET_STORE_RECIPIENT && snapshot.to !== UNSET_STORE_RECIPIENT) data.to = snapshot.to
     if (outcome.kind === 'submitted' || outcome.kind === 'simulated') {
       data.submittedAt = doc.submittedAt ?? outcome.at
       data.providerMessageId = doc.providerMessageId ?? outcome.messageId

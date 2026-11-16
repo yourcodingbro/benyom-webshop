@@ -3,18 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { adminOnly, serverOnly } from '@/collections/utils/access'
 import { emailEndpoints } from '@/collections/utils/endpoints'
 import { NAV_GROUPS } from '@/collections/utils/nav-groups'
-
-export const EMAIL_STATUS_LABELS: Record<string, string> = {
-  queued: 'Sorban áll',
-  submitted: 'Átadva a szolgáltatónak',
-  delivered: 'Kézbesítve',
-  failed: 'Sikertelen',
-  bounced: 'Visszapattant',
-  suppressed: 'Letiltott címzett',
-  cancelled: 'Megszakítva',
-  skipped: 'Kihagyva (beállítás)',
-  simulated: 'Naplózva (nem küldött)',
-}
+import { EMAIL_STATUS_LABELS } from '@/config/labels'
 
 export const EMAIL_TEMPLATE_LABELS: Record<string, string> = {
   'order-received': 'Rendelés visszaigazolása',

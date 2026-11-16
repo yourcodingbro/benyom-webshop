@@ -134,7 +134,7 @@ async function planProposal(input: unknown, auth: AuthorizationContext): Promise
       proposedTotals: { itemsTotal, deliveryFee, grandTotal: sumHuf([itemsTotal, deliveryFee]), currency: 'HUF' },
       explanation: data.explanation,
       activeProposalId: active?.id ?? null,
-      deliveryMode: getEmailConfig().mode,
+      deliveryMode: getEmailConfig(await getStoreSettings()).mode,
     },
   }
 }

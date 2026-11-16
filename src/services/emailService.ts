@@ -2,7 +2,7 @@ import 'server-only'
 
 import { Resend } from 'resend'
 
-import { type EmailConfig, getEmailConfig } from '@/config/email'
+import { type EmailConfig, getEmailConfig, getStoreRecipient, MISSING_STORE_RECIPIENT, UNSET_STORE_RECIPIENT } from '@/config/email'
 import { getServerEnv } from '@/config/env'
 import { EMAIL_CLAIM_STALE_MINUTES, PROPOSAL_FINAL_WINDOW_HOURS, PROPOSAL_REMINDER_AFTER_HOURS } from '@/config/shop'
 import { getContactMessage, updateContactMessageStatus } from '@/dto/contact-messages'
@@ -154,6 +154,22 @@ async function buildTemplate(job: EmailJob): Promise<{ template: EmailTemplate }
   }
 }
 
+/**
+ * Stored, admin-visible error for a Resend rejection. Sender/domain configuration errors get a Hungarian
+ * explanation of the fix; the recipient is never changed to get around them (they are permanent: no
+ * automatic retry).
+ */
+export function providerErrorText(error: { name: string; statusCode: number | null; message: string }): string {
+  const raw = `Resend hiba (${error.name}, ${error.statusCode ?? 'nincs státusz'}): ${redactForLog(error.message)}`
+  if (error.statusCode === 403 && /only send testing emails to your own email/i.test(error.message)) {
+    return `A Resend küldő jelenleg csak tesztelésre használható: kizárólag a Resend-fiók saját e-mail-címére küldhet, más címzettnek nem. Más címzetthez ellenőrzött domain kell a Resendben (Domains), és a feladónak (Áruház beállításai → Feladó) ezen a domainen kell lennie. Az e-mailt nem irányítottuk át más címre, és automatikusan sem próbáljuk újra. [${raw}]`
+  }
+  if (error.statusCode === 403 && /domain is not verified|not verified/i.test(error.message)) {
+    return `A feladó (Áruház beállításai → Feladó) domainje nincs ellenőrizve a Resendben. Ellenőrizze a domaint (Resend → Domains), vagy használjon ellenőrzött domainen lévő feladót. Automatikusan nem próbáljuk újra. [${raw}]`
+  }
+  return raw
+}
+
 async function send(config: EmailConfig, job: EmailJob, rendered: RenderedEmail): Promise<EmailJobOutcome> {
   const now = clock.now()
   const at = now.toISOString()
@@ -169,12 +185,7 @@ async function send(config: EmailConfig, job: EmailJob, rendered: RenderedEmail)
     )
     if (response.error) {
       const permanent = response.error.statusCode !== null && PERMANENT_STATUS_CODES.has(response.error.statusCode)
-      return {
-        kind: 'failed',
-        at,
-        error: `Resend hiba (${response.error.name}, ${response.error.statusCode ?? 'nincs státusz'}): ${redactForLog(response.error.message)}`,
-        retryAt: permanent ? null : retryAt(job.attempts, now),
-      }
+      return { kind: 'failed', at, error: providerErrorText(response.error), retryAt: permanent ? null : retryAt(job.attempts, now) }
     }
     // Accepted by the provider. Delivery is confirmed only by a later webhook event.
     return { kind: 'submitted', at, messageId: response.data.id }
@@ -207,16 +218,22 @@ async function deliverJob(id: number, oneShot?: OneShotContent): Promise<EmailJo
   try {
     const built = oneShot ? { template: oneShot.template } : await buildTemplate(job)
     if ('cancel' in built) return (await completeEmailJob(id, { kind: 'cancelled', at: clock.nowIso(), reason: built.cancel }, null)).status
-    const config = getEmailConfig()
-    const rendered = await renderEmail(built.template, await getStoreSettings())
-    const sent = await send(config, job, rendered)
+    // Sender and store recipient come from the current store settings (no redeploy needed).
+    const settings = await getStoreSettings()
+    const config = getEmailConfig(settings)
+    const rendered = await renderEmail(built.template, settings)
+    // A store notification created before "Kapcsolati e-mail" was set takes the address configured now.
+    const to = job.to === UNSET_STORE_RECIPIENT ? getStoreRecipient(settings) : job.to
+    const sent: EmailJobOutcome =
+      to === UNSET_STORE_RECIPIENT ? { kind: 'failed', at: clock.nowIso(), error: MISSING_STORE_RECIPIENT, retryAt: retryAt(job.attempts, clock.now()) } : await send(config, { ...job, to }, rendered)
     // One-shot content cannot be rebuilt later, so its failure is final (no scheduled retry).
     const outcome: EmailJobOutcome = oneShot && sent.kind === 'failed' ? { ...sent, retryAt: null } : sent
     const secrets = oneShot?.secrets ?? []
     const kind = proposalKind(job)
     const snapshot = {
       subject: redactSecrets(rendered.subject, secrets),
-      from: config.mode === 'resend' ? config.from : null,
+      from: config.mode === 'invalid' ? null : config.from,
+      to,
       mode: config.mode,
       // History snapshot: token-bearing decision links and one-time secrets are removed before storing.
       html: redactSecrets(redactDecisionLinks(rendered.html), secrets),

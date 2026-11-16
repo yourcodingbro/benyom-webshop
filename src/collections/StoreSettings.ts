@@ -1,7 +1,11 @@
-import type { GlobalConfig } from 'payload'
+import type { FieldAccess, GlobalConfig } from 'payload'
 
 import { adminOnly } from '@/collections/utils/access'
 import { NAV_GROUPS } from '@/collections/utils/nav-groups'
+import { validateSender } from '@/lib/email-address'
+
+/** Email addresses are server-side configuration: never exposed by the public settings read. */
+const signedIn: FieldAccess = ({ req }) => Boolean(req.user)
 
 /** Store-wide settings (contact, collection point, delivery methods and fees, legal versions, SEO, homepage, info pages). */
 export const StoreSettings: GlobalConfig = {
@@ -11,8 +15,35 @@ export const StoreSettings: GlobalConfig = {
   access: { read: () => true, update: adminOnly },
   fields: [
     { name: 'storeName', label: 'Áruház neve', type: 'text', required: true },
-    { name: 'storeNotificationEmail', label: 'Bolti értesítési e-mail', type: 'email', required: true, access: { read: ({ req }) => Boolean(req.user) } },
-    { name: 'contactRecipientEmail', label: 'Kapcsolati űrlap címzettje', type: 'email', required: true, access: { read: ({ req }) => Boolean(req.user) }, admin: { description: 'Ide érkeznek a kapcsolati űrlap üzenetei. A látogató címe csak válaszcím (Reply-To) lesz.' } },
+    {
+      type: 'collapsible',
+      label: 'E-mail küldés',
+      fields: [
+        {
+          // Not "contactEmail": that column (contact_email) belongs to the public Kapcsolat → E-mail field.
+          name: 'storeContactEmail',
+          label: 'Kapcsolati e-mail (bolti értesítések címzettje)',
+          type: 'email',
+          access: { read: signedIn },
+          admin: { description: 'Ide érkeznek a kapcsolati űrlap üzenetei és az új rendelések bolti értesítései. A látogató címe csak válaszcím (Reply-To) lesz, sosem feladó.' },
+        },
+        {
+          name: 'emailFrom',
+          label: 'Feladó (From)',
+          type: 'text',
+          access: { read: signedIn },
+          validate: validateSender,
+          admin: {
+            placeholder: 'Webshop <rendeles@example.hu>',
+            description:
+              'Formátum: „Webshop <rendeles@example.hu>” vagy „rendeles@example.hu”. A domainnek ellenőrzöttnek kell lennie a Resendben (Domains); a mező módosítása nem kerüli meg a szolgáltató korlátozásait (pl. a tesztkorlátozást). Éles küldéshez (EMAIL_MODE=resend) kötelező. A módosítás azonnal érvényes, újratelepítés nélkül.',
+          },
+        },
+      ],
+    },
+    // Former recipient fields, replaced by contactEmail; kept (hidden, unused) so the migration is non-destructive.
+    { name: 'storeNotificationEmail', label: 'Bolti értesítési e-mail (régi)', type: 'email', access: { read: signedIn }, admin: { hidden: true } },
+    { name: 'contactRecipientEmail', label: 'Kapcsolati űrlap címzettje (régi)', type: 'email', access: { read: signedIn }, admin: { hidden: true } },
     { name: 'contact', label: 'Kapcsolat', type: 'group', fields: [{ name: 'email', label: 'E-mail', type: 'email' }, { name: 'phone', label: 'Telefon', type: 'text' }, { name: 'address', label: 'Cím', type: 'text' }] },
     {
       name: 'collection',

@@ -56,7 +56,7 @@ export const contactService: ContactService = {
     if (message.notificationStatus === 'sent_simulated') return { ok: true, delivery: 'simulated' }
 
     const result = await emailService.sendEmail({
-      to: getStoreRecipient(settings, 'contact'),
+      to: getStoreRecipient(settings),
       replyTo: message.email,
       template: { id: 'contact-message', message },
       settings,

@@ -7,6 +7,7 @@ import type React from 'react'
 import { runSchedulerAction } from '@/app/(frontend)/fejlesztes/actions'
 import { Button } from '@/components/shadcn/button'
 import { getEmailConfig } from '@/config/email'
+import { getStoreSettings } from '@/dto/settings'
 import { getAppEnv } from '@/config/env'
 import { areDevToolsEnabled } from '@/config/runtime'
 import { getAdminAuthorization } from '@/dto/auth'
@@ -28,7 +29,7 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
   if (!(await getAdminAuthorization(await headers()))) redirect('/admin/login?redirect=%2Ffejlesztes')
   const searchParams = await props.searchParams
   const message = typeof searchParams.uzenet === 'string' ? searchParams.uzenet : null
-  const emailMode = getEmailConfig().mode
+  const emailMode = getEmailConfig(await getStoreSettings()).mode
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">

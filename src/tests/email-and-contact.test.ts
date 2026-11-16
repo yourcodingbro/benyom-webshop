@@ -103,7 +103,7 @@ describe('contact form service', () => {
     expect(await contactService.submitContactMessage(spam)).toEqual({ ok: true, delivery: 'simulated' })
     expect(await getContactMessages(ADMIN)).toHaveLength(0)
 
-    enableResendMode()
+    await enableResendMode()
     failNext(1)
     const failed = await contactService.submitContactMessage(input)
     expect(failed).toMatchObject({ ok: false, message: expect.stringMatching(/Automatikusan újrapróbáljuk/) })

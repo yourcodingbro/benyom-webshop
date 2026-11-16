@@ -33,12 +33,13 @@ describe('admin sidebar groups', () => {
     expect(groups.map((group) => group.label)).toEqual([...NAV_GROUP_ORDER])
     expect(Object.values(NAV_GROUPS).sort()).toEqual([...NAV_GROUP_ORDER].sort())
     // Order inside a group stays the registration order.
-    expect(groups.find((group) => group.label === NAV_GROUPS.STORE)?.slugs).toEqual(['media', 'brands', 'categories', 'products', 'import-jobs'])
+    expect(groups.find((group) => group.label === NAV_GROUPS.STORE)?.slugs).toEqual(['brands', 'categories', 'products'])
+    expect(groups.find((group) => group.label === NAV_GROUPS.SYSTEM)?.slugs).toEqual(['media', 'users', 'import-jobs'])
     expect(groups.find((group) => group.label === NAV_GROUPS.NOTIFICATIONS)?.slugs).toEqual(['email-messages', 'email-events', 'contact-messages'])
   })
 
   it('keeps permission-based visibility: a group without readable entries disappears, the order stays', async () => {
-    const groups = await sidebar(['users', 'orders'])
+    const groups = await sidebar(['users', 'media', 'import-jobs', 'orders'])
     expect(groups.map((group) => group.label)).toEqual(NAV_GROUP_ORDER.filter((label) => label !== NAV_GROUPS.SYSTEM))
     expect(groups.find((group) => group.label === NAV_GROUPS.ORDERS)?.slugs).not.toContain('orders')
   })

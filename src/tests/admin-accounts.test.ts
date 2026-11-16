@@ -13,7 +13,7 @@ let logged: string
 
 beforeEach(async () => {
   await resetWorld()
-  enableResendMode()
+  await enableResendMode()
   acceptAll()
   logged = ''
   const capture = (...args: unknown[]): void => {
@@ -82,6 +82,29 @@ describe('admin invitation with a temporary password', () => {
     const regenerated = await adminAccountService.regenerateTemporaryPassword(failed.userId, ADMIN)
     expect(regenerated.delivery).toBe('sent')
     expect(await login('hiba@example.com', deliveredPassword())).toBe(true)
+  })
+
+  it('explains the Resend testing restriction: account created, email failed, no automatic retry, recovery offered', async () => {
+    send.mockImplementationOnce(async () => ({ data: null, error: { name: 'validation_error', message: 'You can only send testing emails to your own email address (owner@example.com).', statusCode: 403 } }))
+    const result = await adminAccountService.inviteAdmin({ email: 'korlatozott@example.com' }, ADMIN)
+    expect(result).toMatchObject({ email: 'korlatozott@example.com', delivery: 'failed' })
+    expect(result.error).toMatch(/csak tesztelésre használható/)
+    expect(result.error).toMatch(/ellenőrzött domain/)
+    expect(result.error).toMatch(/nem irányítottuk át/)
+    // The account exists and the attempt is kept in the history, final (no scheduled retry) and without the password.
+    expect((await userDoc('korlatozott@example.com')).mustChangePassword).toBe(true)
+    const payload = await testPayload()
+    const job = (await payload.find({ collection: 'email-messages', where: { to: { equals: 'korlatozott@example.com' } }, overrideAccess: true })).docs[0]
+    expect(job).toMatchObject({ status: 'failed', nextAttemptAt: null })
+    expect(job?.lastError).toMatch(/csak tesztelésre/)
+    const attempted = (send.mock.calls.at(-1)?.[0] as { text?: string; to?: unknown } | undefined) ?? {}
+    expect(attempted.to).toBe('korlatozott@example.com')
+    const password = /Ideiglenes jelszó: (\S+)/.exec(attempted.text ?? '')?.[1] ?? 'nincs'
+    expect(JSON.stringify(job)).not.toContain(password)
+    expect(logged).not.toContain(password)
+    expect((await emailService.processDue(10)).processed).toBe(0)
+    // "Új ideiglenes jelszó és újraküldés" still works once sending is possible.
+    expect((await adminAccountService.regenerateTemporaryPassword(result.userId, ADMIN)).delivery).toBe('sent')
   })
 
   it('regeneration invalidates the previous temporary password and sessions; refused for activated users and self', async () => {

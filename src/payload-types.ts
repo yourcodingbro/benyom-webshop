@@ -1571,11 +1571,16 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 export interface StoreSetting {
   id: number;
   storeName: string;
-  storeNotificationEmail: string;
   /**
-   * Ide érkeznek a kapcsolati űrlap üzenetei. A látogató címe csak válaszcím (Reply-To) lesz.
+   * Ide érkeznek a kapcsolati űrlap üzenetei és az új rendelések bolti értesítései. A látogató címe csak válaszcím (Reply-To) lesz, sosem feladó.
    */
-  contactRecipientEmail: string;
+  storeContactEmail?: string | null;
+  /**
+   * Formátum: „Webshop <rendeles@example.hu>” vagy „rendeles@example.hu”. A domainnek ellenőrzöttnek kell lennie a Resendben (Domains); a mező módosítása nem kerüli meg a szolgáltató korlátozásait (pl. a tesztkorlátozást). Éles küldéshez (EMAIL_MODE=resend) kötelező. A módosítás azonnal érvényes, újratelepítés nélkül.
+   */
+  emailFrom?: string | null;
+  storeNotificationEmail?: string | null;
+  contactRecipientEmail?: string | null;
   contact?: {
     email?: string | null;
     phone?: string | null;
@@ -1663,6 +1668,8 @@ export interface NotificationSetting {
  */
 export interface StoreSettingsSelect<T extends boolean = true> {
   storeName?: T;
+  storeContactEmail?: T;
+  emailFrom?: T;
   storeNotificationEmail?: T;
   contactRecipientEmail?: T;
   contact?:

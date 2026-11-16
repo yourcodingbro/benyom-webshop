@@ -19,7 +19,7 @@ Independent of the database and of the per-status notification switches.
 | Mode | Behaviour |
 | --- | --- |
 | `log` (default) | Rendered, stored in the history as **Naplózva (nem küldött)**, metadata logged. Nothing is sent. Price-change proposals are **not** treated as sent: no customer deadline starts. |
-| `resend` | Sent through Resend with `idempotencyKey` = the job's key. Requires `RESEND_API_KEY`, `EMAIL_FROM` (verified domain) and `CONTACT_EMAIL`. |
+| `resend` | Sent through Resend with `idempotencyKey` = the job's key. Requires `RESEND_API_KEY` (env) and the **Feladó** store setting (sender on a verified domain); store notifications also need **Kapcsolati e-mail**. |
 | invalid configuration | Every attempt fails visibly with the configuration problem and is retried with backoff; there is never a fallback to simulated success. |
 
 ## Status model
@@ -41,6 +41,8 @@ Transient failures (network, 429, 5xx, invalid configuration, unexpected errors)
 
 Admins can retry `failed` (or stuck `queued`) emails from the email detail view. Submitted or delivered emails cannot be re-sent.
 
+**Permanent rejections** (Resend 400/401/403/404/422) are not retried automatically: the job is `failed` with no next attempt, and the email view says so. Sender configuration errors are explained in Hungarian in the stored error, e.g. the Resend **testing restriction** (`403 validation_error: You can only send testing emails to your own email address`): the sender can only reach the Resend account owner's address; other recipients need a verified domain in Resend and a *Feladó* on that domain. The recipient is never changed to work around it. For an admin invitation, the account still exists and the outcome is reported separately (account created / email not sent); fix the sender, then use *Új ideiglenes jelszó és újraküldés*. The failed attempt stays in the email history with the temporary password redacted.
+
 ## Webhooks
 
 `POST /webhooks/resend`: the Svix signature (`svix-id`, `svix-timestamp`, `svix-signature`) is verified over the **raw body** with `RESEND_WEBHOOK_SECRET` using the Resend SDK. Each event is stored once (`email-events`, unique `svix-id`); redeliveries return `duplicate`. Status changes only move forward (`submitted` → `delivered` → `bounced`/`failed`/`suppressed`), so out-of-order events cannot downgrade an email. Delivery and bounce events are added to the order's audit trail.
@@ -53,6 +55,17 @@ Admins can retry `failed` (or stuck `queued`) emails from the email detail view.
 - Server logs contain metadata only (template, recipient, reference, status, attempt count): never bodies, links, tokens, reply-to addresses or keys.
 - Email history, contact messages and webhook events are readable only by admins and cannot be created or changed through any API.
 - There is no separate store of sensitive transport data: everything needed to retry is re-derived. Contact-message content stays in `contact-messages` (admin-only); delete messages there when they are no longer needed.
+
+## Sender and store address (store settings)
+
+*Beállítások → Áruház beállításai → E-mail küldés*, admin-only (the public settings read never returns them):
+
+- **Kapcsolati e-mail** (`storeContactEmail`): receives contact-form messages and new-order notifications. The visitor's address is only `replyTo`, never the sender. (Named `storeContactEmail` because `contactEmail` would share the `contact_email` column of the public *Kapcsolat → E-mail* field.)
+- **Feladó** (`emailFrom`): `Webshop <rendeles@example.hu>` or `rendeles@example.hu`, validated on save. The domain must be **verified in Resend** (Domains); changing this field does not get around provider restrictions such as the testing restriction.
+
+Both are read from the settings on every send, so a change applies immediately, without a redeploy. The email history keeps the sender and recipient each email was actually sent with; later changes do not rewrite it. A missing or invalid value is an actionable failure (the error names the setting), never simulated success: in `resend` mode without a sender every attempt fails and is retried with backoff until it is set. A store notification created while *Kapcsolati e-mail* is empty is stored with the placeholder recipient `nincs-beallitva` (never sent to), fails with an explanation, and is sent to the configured address once it exists.
+
+Migration `20261116_205853_email_settings_in_store` imported the former `CONTACT_EMAIL` and `EMAIL_FROM` environment variables once into empty settings (without `CONTACT_EMAIL`, the former contact-form recipient). Configured settings are never overwritten, invalid values are skipped, and only the source is logged. The application no longer reads these variables; remove them from your environments after migrating.
 
 ## Setup
 
@@ -67,9 +80,9 @@ Real delivery:
 ```
 EMAIL_MODE=resend
 RESEND_API_KEY=re_…
-EMAIL_FROM=Webshop <rendeles@yourdomain.hu>
-CONTACT_EMAIL=bolt@yourdomain.hu
 RESEND_WEBHOOK_SECRET=whsec_…
 ```
+
+then set *Feladó* and *Kapcsolati e-mail* in the admin (see above).
 
 On Vercel set them per environment (*Sensitive*), e.g. `log` for Preview and `resend` for Production, and register the webhook (see [deployment.md](deployment.md#vercel)).

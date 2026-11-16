@@ -19,7 +19,7 @@ let infoSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(async () => {
   await resetWorld()
-  enableResendMode()
+  await enableResendMode()
   acceptAll()
   infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
   vi.spyOn(console, 'error').mockImplementation(() => undefined)

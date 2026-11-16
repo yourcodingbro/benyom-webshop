@@ -973,8 +973,8 @@ const settings: StoreSettings = {
     phone: "+36 1 000 0000 (fiktív)",
     address: "0000 Mintaváros, Példa utca 1. (fiktív cím)",
   },
-  storeNotificationEmail: "rendelesek@minta-webshop.example",
-  contactRecipientEmail: "kapcsolat@minta-webshop.example",
+  contactEmail: "kapcsolat@minta-webshop.example",
+  emailFrom: null,
   collection: {
     address: "0000 Mintaváros, Példa utca 1. (fiktív átvételi pont)",
     openingHours: [

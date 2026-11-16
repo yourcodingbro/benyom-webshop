@@ -19,11 +19,20 @@ export async function testPayload(): Promise<Payload> {
   return getPayload({ config })
 }
 
-const EMAIL_ENV = ['EMAIL_MODE', 'RESEND_API_KEY', 'EMAIL_FROM', 'CONTACT_EMAIL'] as const
+const EMAIL_ENV = ['EMAIL_MODE', 'RESEND_API_KEY'] as const
 
-/** Live-email configuration for tests; the Resend SDK itself is mocked (src/tests/resend-mock.ts). */
-export function enableResendMode(): void {
-  Object.assign(process.env, { EMAIL_MODE: 'resend', RESEND_API_KEY: 're_test_0123456789abcdefghijklmnopqrstuv', EMAIL_FROM: 'Webshop <rendeles@example.com>', CONTACT_EMAIL: 'bolt@example.com' })
+export const TEST_SENDER: string = 'Webshop <rendeles@example.com>'
+export const TEST_STORE_EMAIL: string = 'bolt@example.com'
+
+/** Live-email configuration for tests: transport in env, sender and store recipient in the store settings. The Resend SDK is mocked (src/tests/resend-mock.ts). */
+export async function enableResendMode(): Promise<void> {
+  Object.assign(process.env, { EMAIL_MODE: 'resend', RESEND_API_KEY: 're_test_0123456789abcdefghijklmnopqrstuv' })
+  await setEmailSettings({ emailFrom: TEST_SENDER, contactEmail: TEST_STORE_EMAIL })
+}
+
+export async function setEmailSettings(data: { emailFrom?: string | null; contactEmail?: string | null }): Promise<void> {
+  const payload = await testPayload()
+  await payload.updateGlobal({ slug: 'store-settings', data: { ...(data.emailFrom !== undefined ? { emailFrom: data.emailFrom } : {}), ...(data.contactEmail !== undefined ? { storeContactEmail: data.contactEmail } : {}) }, overrideAccess: true })
 }
 
 /**

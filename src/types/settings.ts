@@ -26,9 +26,10 @@ export type InfoPage = {
 export type StoreSettings = {
   storeName: string
   contact: { email: string; phone: string; address: string }
-  storeNotificationEmail: string
-  /** Server-only recipient of contact-form messages. */
-  contactRecipientEmail: string
+  /** Server-only recipient of contact-form messages and store notifications (null until configured). */
+  contactEmail: string | null
+  /** Server-only sender, e.g. "Webshop <rendeles@example.hu>" (null until configured). */
+  emailFrom: string | null
   collection: { address: string; openingHours: string[]; note: string }
   deliveryMethods: DeliveryMethod[]
   legal: { termsVersion: string; privacyVersion: string }

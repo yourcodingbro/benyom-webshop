@@ -4,6 +4,10 @@ import { useDocumentInfo } from '@payloadcms/ui'
 import type React from 'react'
 import { useEffect, useState } from 'react'
 
+import { ActionStatus, BusyButton } from '@/components/admin/BusyButton'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
+import { adminPost } from '@/lib/admin-request'
+
 type OrderLine = { lineId: string; productName: string; sku: string; quantity: number; unitPrice: number }
 
 type OrderSummary = {
@@ -41,12 +45,20 @@ type OrderDocResponse = {
 const huf = (value: number): string => `${new Intl.NumberFormat('hu-HU').format(value)} Ft`
 const panel: React.CSSProperties = { border: '1px solid var(--theme-elevation-150)', borderRadius: 8, padding: 16, marginBottom: 16 }
 const TERMINAL: ReadonlySet<string> = new Set(['completed', 'cancelled'])
+const PENDING_TEXT: Record<string, string> = {
+  cancel: 'A rendelés törlése folyamatban…',
+  review: 'Az árváltozási ajánlat ellenőrzése folyamatban…',
+  send: 'Az árváltozási ajánlat létrehozása és küldése folyamatban…',
+  'handover-all': 'Átvétel, fizetés és teljesítés rögzítése folyamatban…',
+  receipt: 'Az átvétel rögzítése folyamatban…',
+  payment: 'A fizetés rögzítése folyamatban…',
+  complete: 'A teljesítés rögzítése folyamatban…',
+}
 const NO_PROPOSAL: ReadonlySet<string> = new Set(['dispatched', 'completed', 'cancelled'])
 
 async function post(url: string, body: Record<string, unknown>): Promise<{ ok: boolean; data: Record<string, unknown> }> {
-  const response = await fetch(url, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-  const data = ((await response.json().catch(() => ({}))) ?? {}) as Record<string, unknown>
-  return { ok: response.ok, data }
+  const { ok, body: data } = await adminPost<Record<string, unknown>>(url, body)
+  return { ok, data }
 }
 
 /**
@@ -58,7 +70,7 @@ export function OrderActions(): React.JSX.Element | null {
   const { id } = useDocumentInfo()
   const [order, setOrder] = useState<OrderSummary | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
-  const [busy, setBusy] = useState<boolean>(false)
+  const { pending, run } = useAsyncAction()
   const [reason, setReason] = useState<string>('')
   const [prices, setPrices] = useState<Record<string, string>>({})
   const [explanation, setExplanation] = useState<string>('')
@@ -105,7 +117,6 @@ export function OrderActions(): React.JSX.Element | null {
 
   const finish = (ok: boolean, text: string): void => {
     setMessage({ kind: ok ? 'ok' : 'error', text })
-    setBusy(false)
     if (ok) window.setTimeout(() => window.location.reload(), 1200)
   }
 
@@ -115,16 +126,20 @@ export function OrderActions(): React.JSX.Element | null {
       return
     }
     if (!window.confirm('Biztosan törli a teljes rendelést? A művelet nem vonható vissza; az ügyfél (ha engedélyezett) e-mailt kap, és egy függő árváltozási ajánlat visszavonásra kerül.')) return
-    setBusy(true)
-    const { ok, data } = await post(`/api/orders/${id}/cancel`, { reason, version: order.version })
-    finish(ok, ok ? 'A rendelés törölve.' : String(data.error ?? 'A törlés nem sikerült.'))
+    await run('cancel', async () => {
+      setMessage(null)
+      const { ok, data } = await post(`/api/orders/${id}/cancel`, { reason, version: order.version })
+      finish(ok, ok ? 'A rendelés törölve.' : String(data.error ?? 'A törlés nem sikerült; a rendelés változatlan.'))
+    })
   }
 
-  const handover = async (facts: { receipt: boolean; payment: boolean; complete: boolean }, question: string, done: string): Promise<void> => {
+  const handover = async (key: string, facts: { receipt: boolean; payment: boolean; complete: boolean }, question: string, done: string): Promise<void> => {
     if (!window.confirm(question)) return
-    setBusy(true)
-    const { ok, data } = await post(`/api/orders/${id}/handover`, { ...facts, version: order.version })
-    finish(ok, ok ? done : String(data.error ?? 'A rögzítés nem sikerült.'))
+    await run(key, async () => {
+      setMessage(null)
+      const { ok, data } = await post(`/api/orders/${id}/handover`, { ...facts, version: order.version })
+      finish(ok, ok ? done : String(data.error ?? 'A rögzítés nem sikerült; semmi nem változott.'))
+    })
   }
   const handedOver = order.fulfillmentStatus === 'ready_for_collection' || order.fulfillmentStatus === 'dispatched'
   const received = order.receivedByCustomerAt !== null
@@ -136,40 +151,35 @@ export function OrderActions(): React.JSX.Element | null {
     supersedeActive: supersede,
   })
 
-  const runReview = async (): Promise<void> => {
-    setBusy(true)
-    setMessage(null)
-    const { ok, data } = await post(`/api/orders/${id}/price-change`, { ...proposalBody(), review: true })
-    setBusy(false)
-    if (!ok) {
-      setReview(null)
-      setMessage({ kind: 'error', text: String(data.error ?? 'Az ellenőrzés nem sikerült.') })
-      return
-    }
-    setReview(data.review as ProposalReview)
-  }
+  const runReview = (): Promise<void> =>
+    run('review', async () => {
+      setMessage(null)
+      const { ok, data } = await post(`/api/orders/${id}/price-change`, { ...proposalBody(), review: true })
+      if (!ok) {
+        setReview(null)
+        setMessage({ kind: 'error', text: String(data.error ?? 'Az ellenőrzés nem sikerült.') })
+        return
+      }
+      setReview(data.review as ProposalReview)
+    })
 
   const send = async (): Promise<void> => {
     if (!window.confirm('Elküldi az árváltozási ajánlatot az ügyfélnek? A teljesítés a döntésig szünetel.')) return
-    setBusy(true)
-    const { ok, data } = await post(`/api/orders/${id}/price-change`, proposalBody())
-    finish(
-      ok,
-      ok
-        ? data.sentAt
-          ? 'Ajánlat létrehozva és átadva a Resendnek. A válaszhatáridő elindult.'
-          : `Ajánlat létrehozva, de az e-mail nem lett elküldve${data.lastError ? `: ${String(data.lastError)}` : ''}. Határidő nem indult; az ütemező újrapróbálja.`
-        : String(data.error ?? 'Az ajánlat létrehozása nem sikerült.'),
-    )
+    await run('send', async () => {
+      setMessage(null)
+      const { ok, data } = await post(`/api/orders/${id}/price-change`, proposalBody())
+      if (ok && !data.sentAt) {
+        // Proposal and email are separate outcomes; no deadline starts without an accepted email.
+        setMessage({ kind: 'error', text: `Ajánlat: létrehozva.\nE-mail: NEM ment ki${data.lastError ? ` – ${String(data.lastError)}` : ''}.\nVálaszhatáridő nem indult. Átmeneti hibánál az ütemező újrapróbálja; végleges hibánál (pl. a Resend tesztkorlátozása) javítsa a beállítást, majd küldje újra az E-mail előzményekből.` })
+        return
+      }
+      finish(ok, ok ? 'Ajánlat: létrehozva.\nE-mail: a Resend átvette. A válaszhatáridő elindult.' : String(data.error ?? 'Az ajánlat létrehozása nem sikerült; semmi nem változott.'))
+    })
   }
 
   return (
     <div>
-      {message ? (
-        <p role={message.kind === 'error' ? 'alert' : 'status'} style={{ ...panel, color: message.kind === 'error' ? 'var(--theme-error-500)' : 'var(--theme-success-500)' }}>
-          {message.text}
-        </p>
-      ) : null}
+      <ActionStatus message={message ? { ok: message.kind === 'ok', text: message.text } : null} pendingText={PENDING_TEXT[pending ?? ''] ?? null} />
 
       {handedOver ? (
         <div style={panel}>
@@ -178,28 +188,30 @@ export function OrderActions(): React.JSX.Element | null {
             Átvétel: <strong>{received ? 'rögzítve' : 'nincs rögzítve'}</strong> · Fizetés: <strong>{paid ? 'kifizetve' : 'nincs rögzítve'}</strong>. A rendelés csak mindkettő után teljesíthető, és ekkor számít eladásnak (heti népszerűség).
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <button
-              type="button"
-              className="btn btn--style-primary btn--size-medium"
-              disabled={busy || order.priceApprovalStatus === 'pending'}
-              onClick={() => handover({ receipt: true, payment: true, complete: true }, 'Rögzíti, hogy az ügyfél átvette és kifizette a rendelést, és teljesítettre állítja? Teljesítés után az átvétel és a fizetés nem módosítható.', 'Átvétel, fizetés és teljesítés rögzítve.')}
+            <BusyButton
+              variant="primary"
+              busy={pending === 'handover-all'}
+              busyLabel="Rögzítés…"
+              blocked={pending !== null}
+              disabled={order.priceApprovalStatus === 'pending'}
+              onClick={() => void handover('handover-all', { receipt: true, payment: true, complete: true }, 'Rögzíti, hogy az ügyfél átvette és kifizette a rendelést, és teljesítettre állítja? Teljesítés után az átvétel és a fizetés nem módosítható.', 'Átvétel, fizetés és teljesítés rögzítve.')}
             >
               Átadva, kifizetve – teljesítés
-            </button>
+            </BusyButton>
             {!received ? (
-              <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy} onClick={() => handover({ receipt: true, payment: false, complete: false }, 'Rögzíti, hogy az ügyfél átvette a terméke(ke)t?', 'Átvétel rögzítve.')}>
+              <BusyButton busy={pending === 'receipt'} busyLabel="Rögzítés…" blocked={pending !== null} onClick={() => void handover('receipt', { receipt: true, payment: false, complete: false }, 'Rögzíti, hogy az ügyfél átvette a terméke(ke)t?', 'Átvétel rögzítve.')}>
                 Csak átvétel rögzítése
-              </button>
+              </BusyButton>
             ) : null}
             {!paid ? (
-              <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy} onClick={() => handover({ receipt: false, payment: true, complete: false }, 'Rögzíti, hogy a fizetés megtörtént?', 'Fizetés rögzítve.')}>
+              <BusyButton busy={pending === 'payment'} busyLabel="Rögzítés…" blocked={pending !== null} onClick={() => void handover('payment', { receipt: false, payment: true, complete: false }, 'Rögzíti, hogy a fizetés megtörtént?', 'Fizetés rögzítve.')}>
                 Csak fizetés rögzítése
-              </button>
+              </BusyButton>
             ) : null}
             {received && paid ? (
-              <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy || order.priceApprovalStatus === 'pending'} onClick={() => handover({ receipt: false, payment: false, complete: true }, 'Teljesítettre állítja a rendelést?', 'A rendelés teljesítve.')}>
+              <BusyButton busy={pending === 'complete'} busyLabel="Teljesítés…" blocked={pending !== null} disabled={order.priceApprovalStatus === 'pending'} onClick={() => void handover('complete', { receipt: false, payment: false, complete: true }, 'Teljesítettre állítja a rendelést?', 'A rendelés teljesítve.')}>
                 Teljesítés
-              </button>
+              </BusyButton>
             ) : null}
           </div>
         </div>
@@ -261,9 +273,9 @@ export function OrderActions(): React.JSX.Element | null {
               <input type="checkbox" checked={supersede} onChange={(event) => setSupersede(event.target.checked)} /> Az aktív ajánlat felülírása (a korábbi döntési link érvénytelen lesz)
             </label>
           ) : null}
-          <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy} onClick={runReview}>
+          <BusyButton busy={pending === 'review'} busyLabel="Ellenőrzés…" blocked={pending !== null} onClick={() => void runReview()}>
             Ellenőrzés
-          </button>
+          </BusyButton>
           {review ? (
             <div style={{ marginTop: 12 }}>
               <h4>Ellenőrzés – még semmi nem került mentésre vagy kiküldésre</h4>
@@ -284,9 +296,9 @@ export function OrderActions(): React.JSX.Element | null {
                   Figyelem: az e-mail mód nem éles ({review.deliveryMode}). Az ajánlat nem kerül ténylegesen kiküldésre, ezért válaszhatáridő sem indul.
                 </p>
               ) : null}
-              <button type="button" className="btn btn--style-primary btn--size-medium" disabled={busy} onClick={send}>
+              <BusyButton variant="primary" busy={pending === 'send'} busyLabel="Küldés…" blocked={pending !== null} onClick={() => void send()}>
                 Ajánlat küldése az ügyfélnek
-              </button>
+              </BusyButton>
             </div>
           ) : null}
         </div>
@@ -299,9 +311,9 @@ export function OrderActions(): React.JSX.Element | null {
             A törlés oka (kötelező; a naplóba kerül)
             <textarea rows={2} style={{ width: '100%' }} value={reason} onChange={(event) => setReason(event.target.value)} />
           </label>
-          <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy} onClick={cancel}>
+          <BusyButton busy={pending === 'cancel'} busyLabel="Törlés…" blocked={pending !== null} onClick={() => void cancel()}>
             Rendelés törlése
-          </button>
+          </BusyButton>
         </div>
       ) : null}
     </div>

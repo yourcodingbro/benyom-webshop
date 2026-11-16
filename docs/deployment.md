@@ -19,7 +19,7 @@ All are server-side; see [.env.example](../.env.example) for placeholders and ex
 | `PAYLOAD_SECRET`, `APP_SIGNING_SECRET` | always | ≥ 32 random characters each |
 | `SUPABASE_URL`, `SUPABASE_STORAGE_BUCKET`, `SUPABASE_S3_ENDPOINT`, `SUPABASE_S3_REGION`, `SUPABASE_S3_ACCESS_KEY_ID`, `SUPABASE_S3_SECRET_ACCESS_KEY` | production (all or none elsewhere) | Without them media uploads are refused (503); there is no local-disk fallback |
 | `CRON_SECRET` | production | ≥ 16 characters; Vercel sends it as `Authorization: Bearer …` |
-| `EMAIL_MODE`, `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` | for real email | see [email.md](email.md) |
+| `EMAIL_MODE`, `RESEND_API_KEY` | for real email | the sender and the store address are admin settings (*Áruház beállításai → E-mail küldés*), not env; see [email.md](email.md#sender-and-store-address-store-settings) |
 | `RESEND_WEBHOOK_SECRET` | for delivery tracking | `whsec_…` from the Resend webhook |
 | `NEXT_PUBLIC_SITE_URL`, `ALLOW_INDEXING` | yes / no | public URL; indexing only in production with `true` |
 | `ADMIN_TEMP_PASSWORD_TTL_HOURS` | no | Validity of an invited admin's temporary password in hours (1–720, default 72); see [admin-operations.md](admin-operations.md#admin-accounts-felhasználók) |
@@ -48,6 +48,7 @@ npm run migrate
 - `20261116_161931_admin_temporary_passwords`: temporary-password columns on `users` and the `admin-invitation` email template/category.
 - `20261116_170823_product_identity_and_media_uploads`: `product_slug_reservations` (unique slug), `products.primary_category_id` (+ versions; backfilled with each product's first category), `media.upload_origin`. Additive; existing ids, slugs, object keys and relations are unchanged.
 - `20261116_175758_slug_history_ordering_and_sales`: `product_slug_history`, `sale_entries`, `_order` on brands/categories (`COLLATE "C"`, initialized from the previous `sortOrder`, name, id), order handover timestamps, `orders_items.brand_id`/`category_ids` (backfilled by SKU from current products) and two audit event types. Additive.
+- `20261116_205853_email_settings_in_store`: `store_settings.store_contact_email` and `email_from`, filled once from the former `CONTACT_EMAIL` / `EMAIL_FROM` env vars when empty (never overwriting); the old recipient columns become optional and unused. Additive.
 
 When changing collections or plugins, generate migrations with the **same** storage configuration as production, and check for drift with `npm run migrate:create -- check --skip-empty` both with and without the `SUPABASE_*` variables: no file should be created.
 

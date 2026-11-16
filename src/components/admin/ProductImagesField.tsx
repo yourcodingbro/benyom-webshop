@@ -5,6 +5,8 @@ import type { UploadFieldClientComponent } from 'payload'
 import type React from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 
+import { ActionStatus, BusyButton } from '@/components/admin/BusyButton'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
 import { hexToPathSegment, normalizeHexColor } from '@/lib/hex'
 import { slugify } from '@/lib/slug'
 
@@ -62,7 +64,9 @@ export const ProductImagesField: UploadFieldClientComponent = (props) => {
   const colorHex = useFormFields(([fields]) => (variantRow ? fields[`${variantRow}.colorHex`]?.value : undefined))
   const colorLabel = useFormFields(([fields]) => (variantRow ? fields[`${variantRow}.colorLabel`]?.value : undefined))
 
-  const [busy, setBusy] = useState<boolean>(false)
+  const { pending, run } = useAsyncAction()
+  const busy = pending !== null
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
   const productName = typeof name === 'string' ? name.trim() : ''
@@ -80,75 +84,77 @@ export const ProductImagesField: UploadFieldClientComponent = (props) => {
   if (!categoryId) missing.push('legalább egy kategóriát')
   if (!productName) missing.push('a termék nevét')
   if (isVariantImage && !hex) missing.push('a változat érvényes HEX színét (pl. #1F1F1F)')
-  const disabled = missing.length > 0 || busy || props.readOnly === true
+  const disabled = missing.length > 0 || props.readOnly === true
 
   const productSegment = currentSlug ?? (productName ? `${slugify(productName) || 'termek'} (mentéskor véglegesítve)` : '…')
   const pathPreview = [brandSlug ?? '…', categorySlug ?? '…', productSegment, ...(isVariantImage && hex ? [hexToPathSegment(hex)] : []), 'fajlnev-<egyedi>.webp'].join('/')
 
-  const upload = async (files: FileList | null): Promise<void> => {
-    if (!files || files.length === 0 || disabled) return
-    setBusy(true)
-    setMessage(null)
-    // A slug still following the name is not reserved yet: the server reserves one from the name (suffix if taken).
-    let reservedSlug = slugAuto === true && !productId ? null : currentSlug
-    const added: number[] = []
-    let failure: string | null = null
-    for (const file of Array.from(files)) {
-      const form = new FormData()
-      form.append('file', file)
-      form.append(
-        '_payload',
-        JSON.stringify({
-          productId: productId ? String(productId) : null,
-          name: productName,
-          slug: reservedSlug,
-          brandId,
-          categoryId,
-          isVariantImage,
-          variantColorHex: hex,
-          colorLabel: typeof colorLabel === 'string' ? colorLabel : null,
-        }),
-      )
-      const response = await fetch('/api/media/product-upload', { method: 'POST', credentials: 'include', body: form }).catch(() => null)
-      const body = ((await response?.json().catch(() => ({}))) ?? {}) as UploadResponse
-      if (!response?.ok || typeof body.id !== 'number') {
-        failure = body.error ?? 'A feltöltés nem sikerült. Ellenőrizze a kapcsolatot, majd próbálja újra.'
-        break
+  const upload = (files: FileList | null): Promise<void> =>
+    run('upload', async () => {
+      if (!files || files.length === 0 || disabled) return
+      setMessage(null)
+      setProgress({ done: 0, total: files.length })
+      // A slug still following the name is not reserved yet: the server reserves one from the name (suffix if taken).
+      let reservedSlug = slugAuto === true && !productId ? null : currentSlug
+      const added: number[] = []
+      let failure: string | null = null
+      for (const file of Array.from(files)) {
+        const form = new FormData()
+        form.append('file', file)
+        form.append(
+          '_payload',
+          JSON.stringify({
+            productId: productId ? String(productId) : null,
+            name: productName,
+            slug: reservedSlug,
+            brandId,
+            categoryId,
+            isVariantImage,
+            variantColorHex: hex,
+            colorLabel: typeof colorLabel === 'string' ? colorLabel : null,
+          }),
+        )
+        const response = await fetch('/api/media/product-upload', { method: 'POST', credentials: 'include', body: form }).catch(() => null)
+        const body = ((await response?.json().catch(() => ({}))) ?? {}) as UploadResponse
+        if (!response?.ok || typeof body.id !== 'number') {
+          failure = body.error ?? 'A feltöltés nem sikerült. Ellenőrizze a kapcsolatot, majd próbálja újra.'
+          break
+        }
+        added.push(body.id)
+        setProgress({ done: added.length, total: files.length })
+        // An unsaved product keeps the slug reserved by its first upload, so every path and the saved product match.
+        if (!productId && body.productSlug) {
+          if (body.productSlug !== reservedSlug || slug !== body.productSlug) dispatchFields({ type: 'UPDATE', path: 'slug', value: body.productSlug })
+          reservedSlug = body.productSlug
+          // Media paths now use this slug: it must no longer follow the name.
+          dispatchFields({ type: 'UPDATE', path: 'slugAuto', value: false })
+        }
       }
-      added.push(body.id)
-      // An unsaved product keeps the slug reserved by its first upload, so every path and the saved product match.
-      if (!productId && body.productSlug) {
-        if (body.productSlug !== reservedSlug || slug !== body.productSlug) dispatchFields({ type: 'UPDATE', path: 'slug', value: body.productSlug })
-        reservedSlug = body.productSlug
-        // Media paths now use this slug: it must no longer follow the name.
-        dispatchFields({ type: 'UPDATE', path: 'slugAuto', value: false })
+      if (added.length > 0) {
+        const existing = Array.isArray(value) ? value.map(idOf).filter(Boolean).map(Number) : []
+        setValue([...existing, ...added])
+        setModified(true)
       }
-    }
-    if (added.length > 0) {
-      const existing = Array.isArray(value) ? value.map(idOf).filter(Boolean).map(Number) : []
-      setValue([...existing, ...added])
-      setModified(true)
-    }
-    if (fileInput.current) fileInput.current.value = ''
-    setBusy(false)
-    setMessage(failure ? { ok: false, text: added.length > 0 ? `${added.length} kép feltöltve és kiválasztva; a további feltöltés megszakadt: ${failure}` : failure } : { ok: true, text: `${added.length} kép feltöltve és kiválasztva. Mentse a terméket a módosítás véglegesítéséhez.` })
-  }
+      if (fileInput.current) fileInput.current.value = ''
+      setProgress(null)
+      setMessage(failure ? { ok: false, text: added.length > 0 ? `${added.length} kép feltöltve és kiválasztva; a további feltöltés megszakadt: ${failure}` : failure } : { ok: true, text: `${added.length} kép feltöltve és kiválasztva. Mentse a terméket a módosítás véglegesítéséhez.` })
+    })
 
   return (
     <div style={{ marginBottom: 24 }}>
       <UploadField {...props} />
       <div style={{ marginTop: 8 }}>
-        <input ref={fileInput} id={inputId} type="file" accept={ACCEPT} multiple hidden disabled={disabled} onChange={(event) => void upload(event.target.files)} />
-        <button
-          type="button"
-          className="btn btn--style-secondary btn--size-small"
+        <input ref={fileInput} id={inputId} type="file" accept={ACCEPT} multiple hidden disabled={disabled || busy} onChange={(event) => void upload(event.target.files)} />
+        <BusyButton
+          size="small"
+          busy={busy}
+          busyLabel={progress && progress.total > 1 ? `Feltöltés… (${progress.done} / ${progress.total})` : 'Feltöltés…'}
           disabled={disabled}
-          aria-describedby={`${inputId}-help`}
+          describedBy={`${inputId}-help`}
           onClick={() => fileInput.current?.click()}
-          style={{ margin: 0 }}
         >
-          {busy ? 'Feltöltés…' : isVariantImage ? 'Új kép feltöltése ehhez a színhez' : 'Új kép feltöltése'}
-        </button>
+          {isVariantImage ? 'Új kép feltöltése ehhez a színhez' : 'Új kép feltöltése'}
+        </BusyButton>
         <p id={`${inputId}-help`} style={{ margin: '6px 0 0', color: 'var(--theme-elevation-600)', fontSize: 13 }}>
           {missing.length > 0
             ? `Új kép feltöltéséhez előbb adja meg ${missing.join(', ')}. Meglévő kép kiválasztása most is lehetséges.`
@@ -157,11 +163,7 @@ export const ProductImagesField: UploadFieldClientComponent = (props) => {
         {missing.length === 0 && categoryIds.length > 1 ? (
           <p style={{ margin: '2px 0 0', color: 'var(--theme-elevation-600)', fontSize: 13 }}>Több kategória esetén az elsődleges kategória határozza meg az útvonalat.</p>
         ) : null}
-        {message ? (
-          <p role={message.ok ? 'status' : 'alert'} style={{ margin: '6px 0 0', color: message.ok ? 'var(--theme-success-500)' : 'var(--theme-error-500)' }}>
-            {message.text}
-          </p>
-        ) : null}
+        <ActionStatus message={message} pendingText={progress ? `Képfeltöltés folyamatban: ${progress.done} / ${progress.total} kész.` : null} />
       </div>
     </div>
   )

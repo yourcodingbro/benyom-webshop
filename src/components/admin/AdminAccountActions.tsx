@@ -4,7 +4,10 @@ import { useAuth, useDocumentInfo } from '@payloadcms/ui'
 import type React from 'react'
 import { useEffect, useState } from 'react'
 
-import { describeDelivery } from '@/components/admin/InviteAdminForm'
+import { ActionStatus, BusyButton } from '@/components/admin/BusyButton'
+import { describeDelivery, type InvitationResponse } from '@/components/admin/InviteAdminForm'
+import { useAsyncAction } from '@/hooks/useAsyncAction'
+import { adminRequest } from '@/lib/admin-request'
 
 type UserDoc = { email?: string; mustChangePassword?: boolean | null; temporaryPasswordExpiresAt?: string | null; lastInvitationEmail?: number | { id: number } | null }
 type EmailDoc = { status?: string; lastError?: string | null; skipReason?: string | null }
@@ -29,9 +32,10 @@ export function AdminAccountActions(): React.JSX.Element | null {
   const { user } = useAuth()
   const [doc, setDoc] = useState<UserDoc | null>(null)
   const [email, setEmail] = useState<EmailDoc | null>(null)
-  const [busy, setBusy] = useState<boolean>(false)
+  const { pending, run } = useAsyncAction()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [expired, setExpired] = useState<boolean>(false)
+  const [reload, setReload] = useState<number>(0)
 
   useEffect(() => {
     if (!id) return
@@ -50,19 +54,21 @@ export function AdminAccountActions(): React.JSX.Element | null {
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, reload])
 
   if (!id || !doc?.mustChangePassword) return null
   const isSelf = user?.id !== undefined && String(user.id) === String(id)
   const expires = doc.temporaryPasswordExpiresAt ? new Date(doc.temporaryPasswordExpiresAt) : null
 
-  const regenerate = async (): Promise<void> => {
+  const regenerate = (): void => {
     if (!window.confirm('Új ideiglenes jelszót generál és elküldi? Az előző ideiglenes jelszó azonnal érvénytelen lesz, és a felhasználó minden munkamenete lezárul.')) return
-    setBusy(true)
-    const response = await fetch(`/api/users/${id}/regenerate-temporary-password`, { method: 'POST', credentials: 'include' })
-    const body = ((await response.json().catch(() => ({}))) ?? {}) as Parameters<typeof describeDelivery>[0] & { error?: string }
-    setBusy(false)
-    setMessage(response.ok ? describeDelivery(body) : { ok: false, text: body.error ?? 'A művelet nem sikerült.' })
+    void run('regenerate', async () => {
+      setMessage(null)
+      const { ok, body } = await adminRequest<InvitationResponse>(`/api/users/${id}/regenerate-temporary-password`, { method: 'POST' })
+      setMessage(ok ? describeDelivery(body, 'regenerate') : { ok: false, text: body.error ?? 'A művelet nem sikerült; az előző ideiglenes jelszó érvényes maradt.' })
+      // Show the new attempt in "Utolsó meghívó e-mail" too.
+      setReload((value) => value + 1)
+    })
   }
 
   return (
@@ -77,15 +83,11 @@ export function AdminAccountActions(): React.JSX.Element | null {
         {email?.lastError ? ` – ${email.lastError}` : ''}
       </p>
       {isSelf ? null : (
-        <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy} onClick={regenerate}>
+        <BusyButton busy={pending === 'regenerate'} busyLabel="Új jelszó és küldés…" onClick={regenerate}>
           Új ideiglenes jelszó és újraküldés
-        </button>
+        </BusyButton>
       )}
-      {message ? (
-        <p role={message.ok ? 'status' : 'alert'} style={{ color: message.ok ? 'var(--theme-success-500)' : 'var(--theme-error-500)' }}>
-          {message.text}
-        </p>
-      ) : null}
+      <ActionStatus message={message} pendingText={pending ? 'Új ideiglenes jelszó generálása és küldése folyamatban…' : null} />
     </div>
   )
 }

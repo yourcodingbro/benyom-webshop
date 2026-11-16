@@ -124,7 +124,7 @@ describe('idempotency and authorization (persistent)', () => {
   })
 
   it('keeps the order when email delivery fails and leaves the emails queued for retry', async () => {
-    enableResendMode()
+    await enableResendMode()
     failNext(10)
     const order = await placeTestOrder()
     expect(order.notifications.map((record) => record.templateId).sort()).toEqual(['order-received', 'store-new-order'])
