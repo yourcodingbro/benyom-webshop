@@ -26,6 +26,7 @@ export const EMAIL_TEMPLATE_LABELS: Record<string, string> = {
   'cancelled-by-store': 'Bolti törlés',
   'fulfillment-update': 'Állapotváltozás',
   'contact-message': 'Kapcsolati üzenet',
+  'admin-invitation': 'Admin meghívó (ideiglenes jelszó)',
 }
 
 /**
@@ -53,7 +54,7 @@ export const EmailMessages: CollectionConfig = {
       type: 'row',
       fields: [
         { name: 'templateId', label: 'Sablon', type: 'select', required: true, index: true, options: Object.entries(EMAIL_TEMPLATE_LABELS).map(([value, label]) => ({ value, label })), admin: { readOnly: true } },
-        { name: 'category', label: 'Típus', type: 'select', required: true, options: [{ label: 'Ügyfél', value: 'customer' }, { label: 'Bolti értesítés', value: 'store' }, { label: 'Kapcsolati üzenet', value: 'contact' }], admin: { readOnly: true } },
+        { name: 'category', label: 'Típus', type: 'select', required: true, options: [{ label: 'Ügyfél', value: 'customer' }, { label: 'Bolti értesítés', value: 'store' }, { label: 'Kapcsolati üzenet', value: 'contact' }, { label: 'Admin fiók', value: 'admin' }], admin: { readOnly: true } },
         { name: 'status', label: 'Állapot', type: 'select', required: true, index: true, options: Object.entries(EMAIL_STATUS_LABELS).map(([value, label]) => ({ value, label })), admin: { readOnly: true } },
       ],
     },

@@ -84,6 +84,7 @@ function resendClient(apiKey: string): Resend {
 function categoryOf(template: EmailTemplate): EmailCategory {
   if (template.id === 'store-new-order') return 'store'
   if (template.id === 'contact-message') return 'contact'
+  if (template.id === 'admin-invitation') return 'admin'
   return 'customer'
 }
 
@@ -145,6 +146,9 @@ async function buildTemplate(job: EmailJob): Promise<{ template: EmailTemplate }
         ? { template: { id: 'price-change-proposal', order, proposal, decisionUrl: url, earliestCancellation: addHours(anchor, PROPOSAL_REMINDER_AFTER_HOURS + PROPOSAL_FINAL_WINDOW_HOURS) } }
         : { template: { id: 'price-change-reminder', order, proposal, decisionUrl: url, deadline: addHours(anchor, PROPOSAL_FINAL_WINDOW_HOURS) } }
     }
+    case 'admin-invitation':
+      // The temporary password is never stored, so this email cannot be rebuilt or retried from storage.
+      return { cancel: 'Az ideiglenes jelszó nincs tárolva; használja az „Új ideiglenes jelszó és újraküldés” műveletet.' }
     default:
       return { cancel: 'Ismeretlen sablon.' }
   }
@@ -185,26 +189,38 @@ function toResult(job: EmailJob): SendEmailResult {
   return { status: 'failed', attemptedAt: clock.nowIso(), error: job.lastError ?? job.skipReason ?? `Az e-mail állapota: ${job.status}.` }
 }
 
-async function deliverJob(id: number): Promise<EmailJobStatus | 'busy'> {
+/** Email content that is sent once from memory (never rebuilt from storage) with its secrets redacted from history. */
+type OneShotContent = { template: EmailTemplate; secrets: string[] }
+
+const SECRET_PLACEHOLDER: string = '[ideiglenes jelszó – a naplóból eltávolítva]'
+
+function redactSecrets(value: string, secrets: string[]): string {
+  return secrets.filter((secret: string) => secret.length > 0).reduce((text: string, secret: string) => text.split(secret).join(SECRET_PLACEHOLDER), value)
+}
+
+async function deliverJob(id: number, oneShot?: OneShotContent): Promise<EmailJobStatus | 'busy'> {
   const now = clock.now()
   const staleBefore = new Date(now.getTime() - EMAIL_CLAIM_STALE_MINUTES * 60_000).toISOString()
   const job = await claimEmailJob(id, now.toISOString(), staleBefore)
   if (!job) return (await getEmailJob(id))?.status ?? 'busy'
 
   try {
-    const built = await buildTemplate(job)
+    const built = oneShot ? { template: oneShot.template } : await buildTemplate(job)
     if ('cancel' in built) return (await completeEmailJob(id, { kind: 'cancelled', at: clock.nowIso(), reason: built.cancel }, null)).status
     const config = getEmailConfig()
     const rendered = await renderEmail(built.template, await getStoreSettings())
-    const outcome = await send(config, job, rendered)
+    const sent = await send(config, job, rendered)
+    // One-shot content cannot be rebuilt later, so its failure is final (no scheduled retry).
+    const outcome: EmailJobOutcome = oneShot && sent.kind === 'failed' ? { ...sent, retryAt: null } : sent
+    const secrets = oneShot?.secrets ?? []
     const kind = proposalKind(job)
     const snapshot = {
-      subject: rendered.subject,
+      subject: redactSecrets(rendered.subject, secrets),
       from: config.mode === 'resend' ? config.from : null,
       mode: config.mode,
-      // History snapshot: token-bearing decision links are removed before storing.
-      html: redactDecisionLinks(rendered.html),
-      text: redactDecisionLinks(rendered.text),
+      // History snapshot: token-bearing decision links and one-time secrets are removed before storing.
+      html: redactSecrets(redactDecisionLinks(rendered.html), secrets),
+      text: redactSecrets(redactDecisionLinks(rendered.text), secrets),
     }
     const completed = await completeEmailJob(id, outcome, snapshot, async (req, finished) => {
       if (!kind || !finished.proposalId) return
@@ -250,7 +266,7 @@ export const emailService: EmailService = {
       status: 'queued',
       skipReason: null,
     })
-    await deliverJob(ref.id)
+    await deliverJob(ref.id, input.secrets?.length ? { template: input.template, secrets: input.secrets } : undefined)
     const job = await getEmailJob(ref.id)
     if (!job) throw new AppError('NOT_FOUND', 'Az e-mail nem található.')
     return toResult(job)
@@ -273,6 +289,9 @@ export const emailService: EmailService = {
 
   async retry(id: number, auth: AuthorizationContext): Promise<EmailJobStatus | 'busy'> {
     assertAdminOrSystem(auth)
+    if ((await getEmailJob(id))?.template.id === 'admin-invitation') {
+      throw new AppError('INVALID_STATE', 'Ez az e-mail ideiglenes jelszót tartalmazott, ezért nem küldhető újra. Használja a felhasználónál az „Új ideiglenes jelszó és újraküldés” műveletet.')
+    }
     await requeueEmailJob(id, clock.nowIso(), auth)
     return deliverJob(id)
   },

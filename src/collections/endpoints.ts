@@ -117,3 +117,42 @@ export const importJobEndpoints: Endpoint[] = [
     },
   },
 ]
+
+export const userEndpoints: Endpoint[] = [
+  {
+    path: '/invite',
+    method: 'post',
+    handler: async (req: PayloadRequest): Promise<Response> => {
+      const auth = adminAuth(req)
+      if (!auth) return forbidden()
+      const body = await readJson(req)
+      const { adminAccountService } = await import('@/services/adminAccountService')
+      return respond(async () => adminAccountService.inviteAdmin(body, auth))
+    },
+  },
+  {
+    path: '/:id/regenerate-temporary-password',
+    method: 'post',
+    handler: async (req: PayloadRequest): Promise<Response> => {
+      const auth = adminAuth(req)
+      if (!auth) return forbidden()
+      const { adminAccountService } = await import('@/services/adminAccountService')
+      return respond(async () => adminAccountService.regenerateTemporaryPassword(idParam(req), auth))
+    },
+  },
+  {
+    // The one operation (besides "me" and logout) open to an admin who still has a temporary password.
+    path: '/change-temporary-password',
+    method: 'post',
+    handler: async (req: PayloadRequest): Promise<Response> => {
+      if (!req.user || req.user.collection !== 'users') return Response.json({ error: 'Jelentkezzen be az ideiglenes jelszóval.' }, { status: 401 })
+      const body = await readJson(req)
+      const { adminAccountService } = await import('@/services/adminAccountService')
+      const userId = String(req.user.id)
+      return respond(async () => {
+        await adminAccountService.changeTemporaryPassword(userId, body)
+        return { ok: true }
+      })
+    },
+  },
+]

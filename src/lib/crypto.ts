@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 
 import { getServerEnv } from '@/config/env'
 
@@ -45,4 +45,21 @@ export function canonicalJson(value: unknown): string {
     return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(',')}}`
   }
   return JSON.stringify(value)
+}
+
+const TEMP_PASSWORD_GROUPS: readonly string[] = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!#%+=?@']
+
+/**
+ * Cryptographically random temporary password (20 characters, no look-alike characters) with at least
+ * one character from every group, so it satisfies the password policy.
+ */
+export function generateTemporaryPassword(length: number = 20): string {
+  const all = TEMP_PASSWORD_GROUPS.join('')
+  const chars = TEMP_PASSWORD_GROUPS.map((group: string) => group[randomInt(group.length)] ?? 'x')
+  while (chars.length < length) chars.push(all[randomInt(all.length)] ?? 'x')
+  for (let index = chars.length - 1; index > 0; index -= 1) {
+    const swap = randomInt(index + 1)
+    ;[chars[index], chars[swap]] = [chars[swap] ?? 'x', chars[index] ?? 'x']
+  }
+  return chars.join('')
 }

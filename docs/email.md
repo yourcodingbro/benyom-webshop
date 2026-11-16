@@ -49,6 +49,7 @@ Admins can retry `failed` (or stuck `queued`) emails from the email detail view.
 
 - The detail view shows a **snapshot** of the rendered HTML (sandboxed iframe) and text, stored once at the first send attempt, so template changes never rewrite history.
 - Decision links are **redacted** before storage (`[döntési link – a naplóból eltávolítva]`). Raw decision tokens are never stored: they are HMAC-derived from the proposal id when sending, and only their SHA-256 hash is saved after the provider accepted the email.
+- **One-shot secret emails** (`SendEmailInput.secrets`, used only by the admin invitation): the secret is redacted from the stored subject, HTML and text (`[ideiglenes jelszó – a naplóból eltávolítva]`) and never persisted, so such an email is sent exactly once. A failure is final (no scheduled retry, manual *retry* refused); the remedy is *Új ideiglenes jelszó és újraküldés* on the user.
 - Server logs contain metadata only (template, recipient, reference, status, attempt count): never bodies, links, tokens, reply-to addresses or keys.
 - Email history, contact messages and webhook events are readable only by admins and cannot be created or changed through any API.
 - There is no separate store of sensitive transport data: everything needed to retry is re-derived. Contact-message content stays in `contact-messages` (admin-only); delete messages there when they are no longer needed.

@@ -299,3 +299,9 @@ export async function getEmailLogEntry(id: string, auth: AuthorizationContext): 
   const doc = await findById(Number(id))
   return doc ? toEntry(doc) : null
 }
+
+export async function getEmailJobIdByKey(idempotencyKey: string): Promise<number | null> {
+  const payload = await payloadClient()
+  const result = await payload.find({ collection: 'email-messages', where: { idempotencyKey: { equals: idempotencyKey } }, limit: 1, depth: 0, overrideAccess: true })
+  return result.docs[0]?.id ?? null
+}

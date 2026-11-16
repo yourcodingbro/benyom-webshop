@@ -3,6 +3,7 @@ import 'server-only'
 import { render } from '@react-email/render'
 import type React from 'react'
 
+import { AdminInvitationEmail, adminInvitationSubject } from '@/emails/AdminEmails'
 import { ContactMessageEmail, contactSubject } from '@/emails/ContactMessageEmail'
 import {
   CancellationEmail,
@@ -55,6 +56,11 @@ function buildEmail(template: EmailTemplate, settings: StoreSettings): EmailElem
       return { subject: fulfillmentUpdateSubject(template.order, template.status), element: <FulfillmentUpdateEmail order={template.order} status={template.status} settings={settings} /> }
     case 'contact-message':
       return { subject: contactSubject(template.message), element: <ContactMessageEmail message={template.message} settings={settings} /> }
+    case 'admin-invitation':
+      return {
+        subject: adminInvitationSubject(settings),
+        element: <AdminInvitationEmail email={template.email} temporaryPassword={template.temporaryPassword} loginUrl={template.loginUrl} expiresAt={template.expiresAt} settings={settings} />,
+      }
   }
 }
 

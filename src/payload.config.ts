@@ -68,8 +68,10 @@ export default buildConfig({
     components: {
       views: {
         csvImport: { Component: '@/components/admin/CsvImportView#CsvImportView', path: '/termekimport' },
+        changePassword: { Component: '@/components/admin/ChangePasswordView#ChangePasswordView', path: '/jelszocsere' },
       },
       afterNavLinks: ['@/components/admin/AdminNavLinks#AdminNavLinks'],
+      providers: ['@/components/admin/MustChangePasswordGate#MustChangePasswordGate'],
     },
   },
   i18n: { supportedLanguages: { hu }, fallbackLanguage: 'hu' },

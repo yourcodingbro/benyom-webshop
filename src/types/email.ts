@@ -17,6 +17,8 @@ export type EmailTemplate =
   | { id: 'cancelled-by-store'; order: Order }
   | { id: 'fulfillment-update'; order: Order; status: FulfillmentStatus }
   | { id: 'contact-message'; message: ContactMessage }
+  /** Contains a one-time secret: never re-rendered from storage, so it is not retried automatically. */
+  | { id: 'admin-invitation'; email: string; temporaryPassword: string; loginUrl: string; expiresAt: IsoDateTime }
 
 export type EmailTemplateId = EmailTemplate['id']
 
@@ -33,6 +35,12 @@ export type SendEmailInput = {
    * so the provider can deduplicate a request that was accepted but whose response was lost.
    */
   idempotencyKey: string
+  /**
+   * One-time secrets contained in this email (e.g. a temporary password). They are redacted from the
+   * stored snapshot and logs, and the email is sent from this input only: it is never rebuilt from
+   * storage, so a failed delivery is final and must be re-issued by the workflow that created it.
+   */
+  secrets?: string[]
 }
 
 export type SendEmailResult =

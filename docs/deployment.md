@@ -22,6 +22,7 @@ All are server-side; see [.env.example](../.env.example) for placeholders and ex
 | `EMAIL_MODE`, `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` | for real email | see [email.md](email.md) |
 | `RESEND_WEBHOOK_SECRET` | for delivery tracking | `whsec_…` from the Resend webhook |
 | `NEXT_PUBLIC_SITE_URL`, `ALLOW_INDEXING` | yes / no | public URL; indexing only in production with `true` |
+| `ADMIN_TEMP_PASSWORD_TTL_HOURS` | no | Validity of an invited admin's temporary password in hours (1–720, default 72); see [admin-operations.md](admin-operations.md#admin-accounts-felhasználók) |
 
 Local secrets go in `.env.local` (git-ignored). `npm run dev`, `npm run migrate*` and `npm run import:initial` all load it (Next.js and the Payload CLI read `.env`/`.env.local`).
 

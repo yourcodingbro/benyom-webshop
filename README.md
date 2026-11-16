@@ -78,6 +78,7 @@ It is repeatable: existing records are skipped (never overwritten or deleted), r
 | CSV import with template, dry run, persisted jobs | *Termékimport (CSV)* (`/admin/termekimport`), *Termékimportok* |
 | Per-status customer email switches | *Értesítési beállítások* |
 | Email history, content snapshot, delivery state, retry | *E-mail előzmények* |
+| Invite admins (emailed temporary password, mandatory change at first login), regenerate and resend | *Felhasználók* |
 
 Details: [docs/admin-operations.md](docs/admin-operations.md).
 

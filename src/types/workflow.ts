@@ -47,7 +47,7 @@ export type EmailTemplateRef = {
 
 export type EmailJobStatus = 'queued' | 'submitted' | 'delivered' | 'failed' | 'bounced' | 'suppressed' | 'cancelled' | 'skipped' | 'simulated'
 
-export type EmailCategory = 'customer' | 'store' | 'contact'
+export type EmailCategory = 'customer' | 'store' | 'contact' | 'admin'
 
 /** Status-transition emails that can be switched off per target status (Értesítési beállítások). */
 export const SWITCHABLE_STATUS_EMAILS: readonly FulfillmentStatus[] = ['under_review', 'confirmed', 'procurement_in_progress', 'ready_for_collection', 'dispatched', 'completed', 'cancelled']

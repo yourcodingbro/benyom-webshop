@@ -52,7 +52,7 @@ describe('architecture boundaries', () => {
     expect(resendImporters.map(rel)).toEqual(['services/emailService.ts'])
     expect(read(path.join(SRC, 'services', 'emailService.ts'))).toMatch(/^import 'server-only'/)
     const callers = sources.filter((file: string) => read(file).includes('emailService.sendEmail('))
-    expect(callers.map(rel).sort()).toEqual(['services/contactService.ts', 'services/notificationService.ts'])
+    expect(callers.map(rel).sort()).toEqual(['services/adminAccountService.ts', 'services/contactService.ts', 'services/notificationService.ts'])
   })
 
   it('shadcn components live in src/components/shadcn and components/ui is not used', () => {

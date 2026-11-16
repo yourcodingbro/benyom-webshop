@@ -47,3 +47,13 @@ One switch per status transition for automatic customer emails (Ellenőrzés ala
 ## Email history (*E-mail előzmények*)
 
 Every application email (customer, store, contact form): template, recipient, sender, subject, related order/proposal/message, timestamps, mode, status, Resend id, attempts, sanitized error, skip reason, and a snapshot of the rendered content with decision links removed. Failed emails can be retried safely from the detail view. See [email.md](email.md).
+
+## Admin accounts (*Felhasználók*)
+
+- **Invite:** *Új admin meghívása* above the user list takes only an email address. The server generates a 20-character random temporary password (`generateTemporaryPassword`), stores it only through Payload's native hashing and emails it with the *Admin meghívó* template via `emailService.sendEmail()`. Admins cannot type a password and cannot create users through the API (`create` is closed); the very first user still comes from Payload's first-registration screen.
+- **Never stored in plain text:** the password is redacted from the email history snapshot, absent from logs, audit and job payloads. Only a keyed fingerprint (HMAC, never readable through any API) is kept to reject its reuse.
+- **Expiry:** `ADMIN_TEMP_PASSWORD_TTL_HOURS` (default 72). An expired temporary password is refused at login and cannot be used to change the password.
+- **Delivery:** the form reports the real outcome: sent (accepted by Resend), *naplózó mód* (`EMAIL_MODE=log`: nothing sent, the invitee cannot sign in) or failed (with the sanitized error). The invitation email cannot be retried, because the password is not stored.
+- **Regenerate:** the user's edit view shows the expiry and the last invitation email status; *Új ideiglenes jelszó és újraküldés* issues a new password and a new email, and immediately invalidates the previous password and all of the user's sessions. Not available for yourself or for activated users.
+- **First login:** while `mustChangePassword` is set, the server refuses every collection, global, GraphQL, custom endpoint and `/fejlesztes` server action to the user (`isAdminRequest`, `getAdminAuthorization`); only *me*, the password change and logout work. The admin UI redirects to *Jelszócsere* (`/admin/jelszocsere`) for convenience.
+- **Password change:** at least 12 characters (max 128), at least three of lowercase/uppercase/digit/symbol, no leading or trailing space, no character repeated 4×, must not contain the email name, must differ from the temporary password. On success the password, the cleared flag, expiry and fingerprint and the emptied session list are written in one transaction; the user signs in again with the new password.
