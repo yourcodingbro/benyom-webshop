@@ -2,7 +2,9 @@ import 'server-only'
 
 import { toCategory } from '@/dto/catalog-mappers'
 import { isUniqueViolation, payloadClient, relationId } from '@/dto/payload'
+import { rankByWeeklySales } from '@/dto/popularity'
 import { assertAdminOrSystem } from '@/lib/authorization'
+import { clock } from '@/lib/clock'
 import { AppError } from '@/lib/errors'
 import type { AuthorizationContext } from '@/types/auth'
 import type { Category } from '@/types/catalog'
@@ -14,7 +16,8 @@ export type CategoryQuery = {
 
 export async function getCategories(query: CategoryQuery = {}): Promise<Category[]> {
   const payload = await payloadClient()
-  const result = await payload.find({ collection: 'categories', sort: ['sortOrder', 'name'], pagination: false, depth: 0 })
+  // Manual drag-and-drop order; id breaks ties deterministically.
+  const result = await payload.find({ collection: 'categories', sort: ['_order', 'id'], pagination: false, depth: 0 })
   let categories = result.docs.map(toCategory)
   if (query.brandSlug) {
     const products = await payload.find({
@@ -30,11 +33,16 @@ export async function getCategories(query: CategoryQuery = {}): Promise<Category
   return categories
 }
 
-/** Most popular categories by the explicit editorial ranking (`popularityRank`). */
+/**
+ * Most popular categories: units sold in the last seven days, then manual order. A product in several
+ * categories counts in each, so category totals overlap.
+ */
 export async function getPopularCategories(limit: number): Promise<Category[]> {
+  const ranked = await rankByWeeklySales('category', limit, clock.now())
   const payload = await payloadClient()
-  const result = await payload.find({ collection: 'categories', sort: ['popularityRank', 'name'], limit, depth: 0 })
-  return result.docs.map(toCategory)
+  const result = await payload.find({ collection: 'categories', where: { id: { in: ranked.map((row) => row.id) } }, pagination: false, depth: 0 })
+  const byId = new Map(result.docs.map((doc) => [doc.id, toCategory(doc)]))
+  return ranked.map((row) => byId.get(row.id)).filter((category): category is Category => category !== undefined)
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {

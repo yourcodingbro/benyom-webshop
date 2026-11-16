@@ -6,6 +6,8 @@ import '@fontsource/open-sans/700.css'
 import './globals.css'
 
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
+import { permanentRedirect } from 'next/navigation'
 import type React from 'react'
 
 import { CartProvider } from '@/components/cart/CartProvider'
@@ -13,7 +15,9 @@ import { MotionProvider } from '@/components/layout/MotionProvider'
 import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteHeader } from '@/components/layout/SiteHeader'
 import { getSiteUrl, isIndexingAllowed } from '@/config/runtime'
+import { getCanonicalSlugForFormer } from '@/dto/products'
 import { getStoreSettings } from '@/dto/settings'
+import { PRODUCT_REQUEST_HEADER } from '@/proxy'
 import { catalogService } from '@/services/catalogService'
 
 // Catalog, settings and orders live in the database and change at runtime, so render on request.
@@ -41,7 +45,28 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
+/**
+ * 308 from a renamed product's former URL to its current one, before streaming starts. The proxy sets
+ * the header for /termek/<slug> (replacing any client-sent copy there); a forged header on another path
+ * could only redirect its own sender to a real product page. Client-side navigations are redirected by
+ * the product page itself.
+ */
+async function redirectFormerProductSlug(): Promise<void> {
+  const raw = (await headers()).get(PRODUCT_REQUEST_HEADER)
+  if (!raw) return
+  let request: { slug?: unknown; search?: unknown }
+  try {
+    request = JSON.parse(raw) as { slug?: unknown; search?: unknown }
+  } catch {
+    return
+  }
+  if (typeof request.slug !== 'string') return
+  const canonical = await getCanonicalSlugForFormer(request.slug)
+  if (canonical) permanentRedirect(`/termek/${canonical}${typeof request.search === 'string' ? request.search : ''}`)
+}
+
 export default async function FrontendLayout(props: FrontendLayoutProps): Promise<React.JSX.Element> {
+  await redirectFormerProductSlug()
   const [settings, navigation] = await Promise.all([getStoreSettings(), catalogService.getNavigation()])
   return (
     <html lang="hu">

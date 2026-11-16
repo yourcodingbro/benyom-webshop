@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { randomUUID } from 'node:crypto'
+
 import { addBrand, getBrands } from '@/dto/brands'
 import { addCategory, getCategories } from '@/dto/categories'
 import { addProduct, getAllProducts, updateProduct } from '@/dto/products'
@@ -7,7 +9,7 @@ import { assertAdminOrSystem } from '@/lib/authorization'
 import { canonicalJson } from '@/lib/crypto'
 import { parseCsv } from '@/lib/csv'
 import { normalizeHexColor } from '@/lib/hex'
-import { isValidSlug } from '@/lib/slug'
+import { isValidSlug, slugify } from '@/lib/slug'
 import type { AuthorizationContext } from '@/types/auth'
 import type { Brand, Category, Orderability, Product, ProductImage, ProductVariant, PublicationStatus } from '@/types/catalog'
 import { claimImportJob, createImportJob, finishImportJob, getImportJob, recordImportGroup } from '@/dto/import-jobs'
@@ -98,7 +100,8 @@ function parseRow(cells: string[], header: string[], rowNumber: number, errors: 
 
   const productId = value('product_id') ?? ''
   const sku = (value('sku') ?? '').toUpperCase()
-  if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(productId)) fail('product_id', 'Kötelező, stabil azonosító (kisbetű, szám, kötőjel).')
+  // Empty product_id: a new product (UUID assigned) or, when its slug matches, an existing one.
+  if (productId && !/^[a-z0-9][a-z0-9-]{1,79}$/.test(productId)) fail('product_id', 'Stabil azonosító: kisbetű, szám, kötőjel (vagy hagyja üresen új terméknél).')
   if (!/^[A-Z0-9][A-Z0-9-]{1,63}$/.test(sku)) fail('sku', 'Kötelező cikkszám (nagybetű, szám, kötőjel).')
 
   const fields: RowFields = {
@@ -195,8 +198,8 @@ async function planImport(csv: string, dryRun: boolean, auth: AuthorizationConte
     return report
   }
   const unknownColumns = parsed.header.filter((column: string) => !CSV_COLUMNS.includes(column))
-  if (!parsed.header.includes('product_id') || !parsed.header.includes('sku')) {
-    report.errors.push({ row: 1, column: null, message: 'A fejlécben kötelező a product_id és a sku oszlop.' })
+  if (!parsed.header.includes('sku')) {
+    report.errors.push({ row: 1, column: null, message: 'A fejlécben kötelező a sku oszlop.' })
     return report
   }
   if (unknownColumns.length > 0) {
@@ -218,24 +221,38 @@ async function planImport(csv: string, dryRun: boolean, auth: AuthorizationConte
     if (seen !== undefined) rowErrors.push({ row: row.row, column: 'sku', message: `Duplikált cikkszám a fájlban (lásd ${seen}. sor).` })
     skuSeen.set(row.sku, row.row)
     const owner = skuOwner.get(row.sku)
-    if (owner && owner !== row.productId) rowErrors.push({ row: row.row, column: 'sku', message: `A cikkszám már egy másik termékhez tartozik (${owner}).` })
+    if (owner && row.productId && owner !== row.productId) rowErrors.push({ row: row.row, column: 'sku', message: `A cikkszám már egy másik termékhez tartozik (${owner}).` })
   }
 
+  // Rows without product_id are grouped by their slug (product_slug, or derived from product_name).
+  const groupKey = (row: ImportRow): string => row.productId || `slug:${row.fields.slug ?? slugify(row.fields.name ?? '')}`
   const groups = new Map<string, ImportRow[]>()
-  for (const row of rows) groups.set(row.productId, [...(groups.get(row.productId) ?? []), row])
+  for (const row of rows) groups.set(groupKey(row), [...(groups.get(groupKey(row)) ?? []), row])
 
   const newBrands = new Map<string, Brand>()
   const newCategories = new Map<string, Category>()
   const plans: ImportPlanEntry[] = []
 
-  for (const [productId, groupRows] of groups) {
+  for (const [key, groupRows] of groups) {
     const groupErrors: ImportRowError[] = rowErrors.filter((error: ImportRowError) => groupRows.some((row: ImportRow) => row.row === error.row))
-    const cellErrorCount = groupErrors.length
-    const pick = <K extends keyof RowFields>(key: K): RowFields[K] => groupValue(groupRows, key, groupErrors)
-    const existing = products.find((product: Product) => product.id === productId) ?? null
+    const pick = <K extends keyof RowFields>(field: K): RowFields[K] => groupValue(groupRows, field, groupErrors)
     const firstRow = groupRows[0]?.row ?? 0
+    const keyedBySlug = key.startsWith('slug:')
+    const groupSlug = keyedBySlug ? key.slice(5) : ''
+    if (keyedBySlug && !groupSlug) groupErrors.push({ row: firstRow, column: 'product_id', message: 'Adjon meg product_id-t, product_slug-ot vagy product_name-et.' })
+    // Existing ids are never regenerated; a new product without product_id gets a UUID. A resumed job finds
+    // the product created by an earlier batch through its slug, so the same UUID is kept.
+    const existing = (keyedBySlug ? products.find((product: Product) => groupSlug !== '' && product.slug === groupSlug) : products.find((product: Product) => product.id === key)) ?? null
+    const productId = existing?.id ?? (keyedBySlug ? randomUUID() : key)
+    if (keyedBySlug) {
+      for (const row of groupRows) {
+        const owner = skuOwner.get(row.sku)
+        if (owner && owner !== productId) groupErrors.push({ row: row.row, column: 'sku', message: `A cikkszám már egy másik termékhez tartozik (${owner}).` })
+      }
+    }
+    const cellErrorCount = groupErrors.length
 
-    const slug = pick('slug') ?? existing?.slug
+    const slug = pick('slug') ?? existing?.slug ?? (groupSlug || undefined)
     const name = pick('name') ?? existing?.name
     const brandSlug = pick('brandSlug')
     const brandName = pick('brandName')

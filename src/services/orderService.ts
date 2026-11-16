@@ -2,7 +2,7 @@ import 'server-only'
 
 import type { PayloadRequest } from 'payload'
 
-import { FULFILLMENT_LABELS } from '@/config/labels'
+import { FULFILLMENT_LABELS, PAYMENT_LABELS } from '@/config/labels'
 import { FULFILLMENT_TRANSITIONS } from '@/config/order-rules'
 import { getDueEmailJobIds } from '@/dto/email-log'
 import { addOrder, getOrder, getOrderById, updateOrder } from '@/dto/orders'
@@ -36,6 +36,15 @@ export type UpdateStatusInput = {
 }
 
 /** Identify the order by public reference or (admin UI) by Payload id. */
+/** Explicit handover facts recorded by the admin; `complete` alone works only when both are already recorded. */
+export type HandoverInput = {
+  orderId: string
+  receipt: boolean
+  payment: boolean
+  complete: boolean
+  expectedVersion: number
+}
+
 export type CancelOrderInput = {
   reference?: string
   orderId?: string
@@ -49,6 +58,7 @@ type OrderService = {
   getOrderForCustomer: (reference: string, accessToken: string) => Promise<Order | null>
   updateFulfillmentStatus: (input: UpdateStatusInput, auth: AuthorizationContext) => Promise<Order>
   cancelOrder: (input: CancelOrderInput, auth: AuthorizationContext) => Promise<Order>
+  recordHandover: (input: HandoverInput, auth: AuthorizationContext) => Promise<Order>
   addAdminNote: (reference: string, text: string, auth: AuthorizationContext) => Promise<Order>
 }
 
@@ -88,6 +98,8 @@ function snapshotLine(line: QuotedLine, index: number): OrderLineSnapshot {
     productName: line.productName,
     productSlug: line.productSlug,
     brandName: line.brandName,
+    brandId: line.brandId,
+    categoryIds: line.categoryIds,
     sku: line.sku,
     attributes: line.attributes,
     unitPrice: line.unitPrice,
@@ -218,6 +230,9 @@ export const orderService: OrderService = {
     if (input.status === 'dispatched' && order.submission.delivery.kind !== 'delivery') {
       throw new AppError('INVALID_STATE', 'Személyes átvételes rendelés nem állítható „Kiszállítás alatt” állapotba.')
     }
+    if (input.status === 'completed' && (order.handover.receivedByCustomerAt === null || order.paymentStatus !== 'paid')) {
+      throw new AppError('VALIDATION', 'Teljesítéshez előbb rögzíteni kell az ügyfél általi átvételt és a fizetést (recordHandover).')
+    }
     const updated = await updateOrder(
       order.reference,
       input.expectedVersion,
@@ -272,6 +287,49 @@ export const orderService: OrderService = {
     }
     await deliverQueued(order.reference)
     return requireOrder({ reference: order.reference }, auth)
+  },
+
+  /**
+   * Records that the customer received the goods and/or paid, and optionally completes the order (the
+   * one-click "Átadva, kifizetve, teljesítve" action records all three). Completion counts as a sale
+   * for the weekly popularity; the Orders hook enforces the same rules for every other write path.
+   * Completing an already completed order changes nothing, so a sale is never counted twice.
+   */
+  async recordHandover(input: HandoverInput, auth: AuthorizationContext): Promise<Order> {
+    assertAdminOrSystem(auth)
+    const order = await requireOrder({ orderId: input.orderId }, auth)
+    if (order.isDemo) throw new AppError('INVALID_STATE', 'Demó (történeti) rendelés nem módosítható.')
+    if (order.fulfillmentStatus === 'completed') return order
+    if (order.fulfillmentStatus === 'cancelled') throw new AppError('INVALID_STATE', 'Törölt rendelésnél nem rögzíthető átvétel vagy fizetés.')
+    if (!input.receipt && !input.payment && !input.complete) throw new AppError('VALIDATION', 'Válassza ki, mit rögzít (átvétel, fizetés, teljesítés).')
+    if (order.fulfillmentStatus !== 'ready_for_collection' && order.fulfillmentStatus !== 'dispatched') {
+      throw new AppError('INVALID_STATE', 'Átvétel és fizetés csak „Átvehető” vagy „Kiszállítás alatt” állapotú rendelésnél rögzíthető.')
+    }
+    if (input.complete && order.priceApprovalStatus === 'pending') throw new AppError('INVALID_STATE', 'A teljesítés szünetel, amíg az ügyfél nem döntött az árváltozásról.')
+    const received = input.receipt || order.handover.receivedByCustomerAt !== null
+    const paid = input.payment || order.paymentStatus === 'paid'
+    if (input.complete && (!received || !paid)) {
+      throw new AppError('VALIDATION', 'Teljesítéshez rögzíteni kell az ügyfél általi átvételt és a fizetést is.')
+    }
+    if (order.version !== input.expectedVersion) throw new AppError('CONFLICT', 'A rendelést időközben módosították. Frissítse az oldalt, és próbálja újra.')
+    const now = clock.nowIso()
+    const actor = actorOf(auth)
+    const patch: OrderPatch = { appendEvents: [] }
+    if (input.receipt && !order.handover.receivedByCustomerAt) {
+      patch.receivedByCustomerAt = now
+      patch.appendEvents?.push({ type: 'receipt_recorded', actor, message: 'Az ügyfél átvette a terméke(ke)t.', newValue: now })
+    }
+    if (input.payment && order.paymentStatus !== 'paid') {
+      patch.paymentStatus = 'paid'
+      patch.appendEvents?.push({ type: 'payment_changed', actor, message: `Fizetés: ${PAYMENT_LABELS.paid}.`, previousValue: order.paymentStatus, newValue: 'paid' })
+    }
+    if (input.complete) {
+      patch.fulfillmentStatus = 'completed'
+      patch.appendEvents?.push({ type: 'status_changed', actor, message: `Állapot: ${FULFILLMENT_LABELS.completed}.`, previousValue: order.fulfillmentStatus, newValue: 'completed' })
+    }
+    const updated = await updateOrder(order.reference, input.expectedVersion, patch, auth)
+    await deliverQueued(updated.reference)
+    return (await getOrder(updated.reference, auth)) ?? updated
   },
 
   async addAdminNote(reference: string, text: string, auth: AuthorizationContext): Promise<Order> {

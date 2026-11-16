@@ -79,6 +79,9 @@ export interface Config {
     'email-events': EmailEvent;
     'contact-messages': ContactMessage;
     'import-jobs': ImportJob;
+    'product-slug-reservations': ProductSlugReservation;
+    'product-slug-history': ProductSlugHistory;
+    'sale-entries': SaleEntry;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -104,6 +107,9 @@ export interface Config {
     'email-events': EmailEventsSelect<false> | EmailEventsSelect<true>;
     'contact-messages': ContactMessagesSelect<false> | ContactMessagesSelect<true>;
     'import-jobs': ImportJobsSelect<false> | ImportJobsSelect<true>;
+    'product-slug-reservations': ProductSlugReservationsSelect<false> | ProductSlugReservationsSelect<true>;
+    'product-slug-history': ProductSlugHistorySelect<false> | ProductSlugHistorySelect<true>;
+    'sale-entries': SaleEntriesSelect<false> | SaleEntriesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -260,6 +266,13 @@ export interface Order {
   idempotencyKey: string;
   submissionHash?: string | null;
   submittedAt?: string | null;
+  receivedByCustomerAt?: string | null;
+  paidAt?: string | null;
+  completedAt?: string | null;
+  /**
+   * Átvétel, fizetés és teljesítés együtt: ettől számít a heti népszerűségbe.
+   */
+  saleRecordedAt?: string | null;
   /**
    * Egyidejű módosítások elleni védelem.
    */
@@ -277,7 +290,7 @@ export interface Order {
     | 'completed'
     | 'cancelled';
   /**
-   * Fizetés kizárólag átvételkor vagy kiszállításkor.
+   * Fizetés kizárólag átvételkor vagy kiszállításkor. Kényelmesebb: „Átadva, kifizetve – teljesítés” művelet. Teljesítéshez az átvétel és a fizetés rögzítése is kell.
    */
   paymentStatus: 'unpaid' | 'paid' | 'void';
   priceApprovalStatus: 'not_required' | 'pending' | 'accepted' | 'rejected' | 'expired';
@@ -317,6 +330,16 @@ export interface Order {
          * Bruttó ár egész forintban (HUF).
          */
         catalogUnitPrice: number;
+        brandId?: string | null;
+        categoryIds?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
         id?: string | null;
       }[]
     | null;
@@ -430,6 +453,8 @@ export interface OrderEvent {
   orderReference: string;
   at: string;
   type:
+    | 'receipt_recorded'
+    | 'sale_recorded'
     | 'submitted'
     | 'imported'
     | 'status_changed'
@@ -604,6 +629,7 @@ export interface Media {
    * márka/kategória/termék/[szín]/fájlnév
    */
   objectKey?: string | null;
+  uploadOrigin?: 'product-form' | null;
   prefix?: string | null;
   _objectKey?: string | null;
   updatedAt: string;
@@ -637,41 +663,47 @@ export interface Media {
   };
 }
 /**
+ * A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "brands".
  */
 export interface Brand {
+  _order?: string | null;
   /**
-   * Üresen hagyva a slugból képezzük. Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
+   * Üresen hagyva a slugból képezzük (brand-…). Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
    */
   id: string;
   name: string;
+  /**
+   * Üresen hagyva a névből képezzük (egyedi utótaggal, ha foglalt). A név későbbi módosítása nem változtatja meg.
+   */
   slug: string;
   description?: string | null;
   sortOrder?: number | null;
-  /**
-   * Kézzel megadott rangsor (1 = legnépszerűbb). A főoldal az első hármat mutatja. Nem eladási statisztika.
-   */
   popularityRank: number;
   updatedAt: string;
   createdAt: string;
 }
 /**
+ * A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "categories".
  */
 export interface Category {
+  _order?: string | null;
   /**
-   * Üresen hagyva a slugból képezzük. Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
+   * Üresen hagyva a slugból képezzük (cat-…). Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
    */
   id: string;
   name: string;
+  /**
+   * Üresen hagyva a névből képezzük (egyedi utótaggal, ha foglalt). A név későbbi módosítása nem változtatja meg.
+   */
   slug: string;
   description?: string | null;
   sortOrder?: number | null;
-  /**
-   * Kézzel megadott rangsor (1 = legnépszerűbb). A főoldal az első hármat mutatja. Nem eladási statisztika.
-   */
   popularityRank: number;
   updatedAt: string;
   createdAt: string;
@@ -684,14 +716,19 @@ export interface Category {
  */
 export interface Product {
   /**
-   * Üresen hagyva a slugból képezzük. Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
+   * Automatikusan generált UUID.
    */
   id: string;
   name: string;
   slug: string;
+  slugAuto?: boolean | null;
   model: string;
   brand: string | Brand;
   categories: (string | Category)[];
+  /**
+   * Ez a kategória határozza meg a képek tárolási útvonalát (márka/kategória/termék/…). Üresen hagyva az első kiválasztott kategória.
+   */
+  primaryCategory?: (string | null) | Category;
   description?: string | null;
   featured?: boolean | null;
   /**
@@ -815,6 +852,48 @@ export interface ImportJob {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-slug-reservations".
+ */
+export interface ProductSlugReservation {
+  id: number;
+  slug: string;
+  expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-slug-history".
+ */
+export interface ProductSlugHistory {
+  id: number;
+  slug: string;
+  product?: (string | null) | Product;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Csak olvasható. Átvett, kifizetett és teljesített rendelések tételei; ebből számolódik a heti népszerűség.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sale-entries".
+ */
+export interface SaleEntry {
+  id: number;
+  entryKey: string;
+  order: number | Order;
+  orderReference?: string | null;
+  lineId?: string | null;
+  sku?: string | null;
+  dimension: 'brand' | 'category';
+  key: string;
+  quantity: number;
+  soldAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -884,6 +963,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'import-jobs';
         value: number | ImportJob;
+      } | null)
+    | ({
+        relationTo: 'product-slug-reservations';
+        value: number | ProductSlugReservation;
+      } | null)
+    | ({
+        relationTo: 'product-slug-history';
+        value: number | ProductSlugHistory;
+      } | null)
+    | ({
+        relationTo: 'sale-entries';
+        value: number | SaleEntry;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -966,6 +1057,7 @@ export interface MediaSelect<T extends boolean = true> {
   productSlug?: T;
   colorHex?: T;
   objectKey?: T;
+  uploadOrigin?: T;
   prefix?: T;
   _objectKey?: T;
   updatedAt?: T;
@@ -1009,6 +1101,7 @@ export interface MediaSelect<T extends boolean = true> {
  * via the `definition` "brands_select".
  */
 export interface BrandsSelect<T extends boolean = true> {
+  _order?: T;
   id?: T;
   name?: T;
   slug?: T;
@@ -1023,6 +1116,7 @@ export interface BrandsSelect<T extends boolean = true> {
  * via the `definition` "categories_select".
  */
 export interface CategoriesSelect<T extends boolean = true> {
+  _order?: T;
   id?: T;
   name?: T;
   slug?: T;
@@ -1040,9 +1134,11 @@ export interface ProductsSelect<T extends boolean = true> {
   id?: T;
   name?: T;
   slug?: T;
+  slugAuto?: T;
   model?: T;
   brand?: T;
   categories?: T;
+  primaryCategory?: T;
   description?: T;
   featured?: T;
   orderability?: T;
@@ -1106,6 +1202,10 @@ export interface OrdersSelect<T extends boolean = true> {
   idempotencyKey?: T;
   submissionHash?: T;
   submittedAt?: T;
+  receivedByCustomerAt?: T;
+  paidAt?: T;
+  completedAt?: T;
+  saleRecordedAt?: T;
   version?: T;
   fulfillmentStatus?: T;
   paymentStatus?: T;
@@ -1137,6 +1237,8 @@ export interface OrdersSelect<T extends boolean = true> {
         quantity?: T;
         lineTotal?: T;
         catalogUnitPrice?: T;
+        brandId?: T;
+        categoryIds?: T;
         id?: T;
       };
   submittedTotals?:
@@ -1382,6 +1484,43 @@ export interface ImportJobsSelect<T extends boolean = true> {
   results?: T;
   finalReport?: T;
   csv?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-slug-reservations_select".
+ */
+export interface ProductSlugReservationsSelect<T extends boolean = true> {
+  slug?: T;
+  expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-slug-history_select".
+ */
+export interface ProductSlugHistorySelect<T extends boolean = true> {
+  slug?: T;
+  product?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sale-entries_select".
+ */
+export interface SaleEntriesSelect<T extends boolean = true> {
+  entryKey?: T;
+  order?: T;
+  orderReference?: T;
+  lineId?: T;
+  sku?: T;
+  dimension?: T;
+  key?: T;
+  quantity?: T;
+  soldAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

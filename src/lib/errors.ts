@@ -16,3 +16,12 @@ export class AppError extends Error {
 export function isAppError(value: unknown): value is AppError {
   return value instanceof AppError
 }
+
+/** Postgres 23505, or Payload's ValidationError for a `unique` field (message is localized). */
+export function isUniqueViolation(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const details = error as Error & { cause?: { code?: unknown } | unknown; data?: unknown }
+  if (details.cause && typeof details.cause === 'object' && 'code' in details.cause && (details.cause as { code?: unknown }).code === '23505') return true
+  const text = `${error.message} ${JSON.stringify(details.data ?? '')} ${String(details.cause ?? '')}`
+  return /duplicate key|unique constraint|23505|egyedinek kell|must be unique|already exists/i.test(text)
+}

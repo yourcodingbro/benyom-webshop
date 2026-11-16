@@ -16,9 +16,9 @@ async function product(slug: string): Promise<Product> {
 }
 
 describe('popularity ranking', () => {
-  it('returns the top three brands and categories by explicit rank', async () => {
+  it('without completed sales the top three follow the manual order', async () => {
     expect((await getPopularBrands(3)).map((brand) => brand.slug)).toEqual(['apple', 'samsung', 'xiaomi'])
-    expect((await getPopularCategories(3)).map((category) => category.slug)).toEqual(['mobiltelefon', 'okosora', 'tablet'])
+    expect((await getPopularCategories(3)).map((category) => category.slug)).toEqual(['mobiltelefon', 'tablet', 'okosora'])
   })
 })
 

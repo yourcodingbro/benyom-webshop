@@ -14,7 +14,7 @@ import type { Paginated } from '@/types/common'
 import type { AgreedPricing, NotificationRecord, Order, OrderEvent, OrderPatch, OrderQuery, OrderSubmission } from '@/types/order'
 import type { AuditEventInput, EmailJobStatus } from '@/types/workflow'
 
-export type NewOrder = Omit<Order, 'id' | 'reference' | 'version' | 'createdAt' | 'updatedAt' | 'events' | 'notifications'> & {
+export type NewOrder = Omit<Order, 'id' | 'reference' | 'version' | 'createdAt' | 'updatedAt' | 'events' | 'notifications' | 'handover'> & {
   /** Audit entries written together with the order (e.g. submitted, price review flagged). */
   auditEvents: AuditEventInput[]
 }
@@ -90,6 +90,12 @@ function toOrder(doc: OrderDoc, events: OrderEvent[], notifications: Notificatio
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     isDemo: Boolean(doc.isDemo),
+    handover: {
+      receivedByCustomerAt: doc.receivedByCustomerAt ?? null,
+      paidAt: doc.paidAt ?? null,
+      completedAt: doc.completedAt ?? null,
+      saleRecordedAt: doc.saleRecordedAt ?? null,
+    },
   }
 }
 
@@ -122,6 +128,8 @@ function snapshotFields(input: NewOrder): SnapshotFields {
       quantity: line.quantity,
       lineTotal: line.lineTotal,
       catalogUnitPrice: line.catalogUnitPrice,
+      brandId: line.brandId ?? null,
+      categoryIds: line.categoryIds ?? [],
     })),
     submittedTotals: submission.totals,
     customer: submission.customer,
@@ -140,6 +148,7 @@ function patchData(patch: OrderPatch, existingNotes: OrderDoc['adminNotes']): Pa
   if (patch.paymentStatus) data.paymentStatus = patch.paymentStatus
   if (patch.priceApprovalStatus) data.priceApprovalStatus = patch.priceApprovalStatus
   if (patch.needsPriceReview !== undefined) data.needsPriceReview = patch.needsPriceReview
+  if (patch.receivedByCustomerAt) data.receivedByCustomerAt = patch.receivedByCustomerAt
   if (patch.agreed) {
     data.agreed = json(patch.agreed)
     data.agreedTotals = patch.agreed.totals

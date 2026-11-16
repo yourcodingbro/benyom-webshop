@@ -49,6 +49,18 @@ export const Orders: CollectionConfig = {
     readOnly({ name: 'idempotencyKey', label: 'Idempotencia-kulcs', type: 'text', required: true, unique: true, index: true, admin: { position: 'sidebar' } }),
     readOnly({ name: 'submissionHash', label: 'Beküldési lenyomat', type: 'text', admin: { position: 'sidebar' } }),
     readOnly({ name: 'submittedAt', label: 'Leadva', type: 'date', index: true, admin: { position: 'sidebar', date: { pickerAppearance: 'dayAndTime' } } }),
+    {
+      type: 'collapsible',
+      label: 'Átadás és fizetés',
+      admin: { position: 'sidebar', initCollapsed: false },
+      // Set only by the order actions and the Orders hook; a generic edit never infers them.
+      fields: [
+        readOnly({ name: 'receivedByCustomerAt', label: 'Ügyfél átvette', type: 'date', admin: { date: { pickerAppearance: 'dayAndTime' } } }),
+        readOnly({ name: 'paidAt', label: 'Fizetés rögzítve', type: 'date', admin: { date: { pickerAppearance: 'dayAndTime' } } }),
+        readOnly({ name: 'completedAt', label: 'Teljesítve', type: 'date', admin: { date: { pickerAppearance: 'dayAndTime' } } }),
+        readOnly({ name: 'saleRecordedAt', label: 'Eladásként számolva', type: 'date', index: true, admin: { date: { pickerAppearance: 'dayAndTime' }, description: 'Átvétel, fizetés és teljesítés együtt: ettől számít a heti népszerűségbe.' } }),
+      ],
+    },
     { name: 'version', label: 'Verzió', type: 'number', defaultValue: 1, admin: { readOnly: true, position: 'sidebar', description: 'Egyidejű módosítások elleni védelem.' } },
     {
       type: 'tabs',
@@ -57,7 +69,7 @@ export const Orders: CollectionConfig = {
           label: 'Állapot és műveletek',
           fields: [
             { name: 'fulfillmentStatus', label: 'Teljesítési állapot', type: 'select', required: true, defaultValue: 'received', options: options(FULFILLMENT_LABELS), index: true, admin: { description: 'Csak engedélyezett lépés választható; törléshez használja a lenti műveletet.' } },
-            { name: 'paymentStatus', label: 'Fizetés', type: 'select', required: true, defaultValue: 'unpaid', options: options(PAYMENT_LABELS), admin: { description: 'Fizetés kizárólag átvételkor vagy kiszállításkor.' } },
+            { name: 'paymentStatus', label: 'Fizetés', type: 'select', required: true, defaultValue: 'unpaid', options: options(PAYMENT_LABELS), admin: { description: 'Fizetés kizárólag átvételkor vagy kiszállításkor. Kényelmesebb: „Átadva, kifizetve – teljesítés” művelet. Teljesítéshez az átvétel és a fizetés rögzítése is kell.' } },
             readOnly({ name: 'priceApprovalStatus', label: 'Árjóváhagyás', type: 'select', required: true, defaultValue: 'not_required', options: options(PRICE_APPROVAL_LABELS), index: true }),
             { name: 'needsPriceReview', label: 'Árellenőrzés javasolt', type: 'checkbox' },
             {
@@ -95,6 +107,9 @@ export const Orders: CollectionConfig = {
                 { name: 'quantity', label: 'Mennyiség', type: 'number' },
                 hufField('lineTotal', 'Sorösszeg'),
                 hufField('catalogUnitPrice', 'Katalógusár leadáskor'),
+                // Fixed at submission so later product edits never rewrite historical sales statistics.
+                { name: 'brandId', label: 'Márka (azonosító)', type: 'text' },
+                { name: 'categoryIds', label: 'Kategóriák (azonosítók)', type: 'json' },
               ],
             }),
             readOnly(totalsGroup('submittedTotals', 'Leadáskori összesítő (eredeti)')),

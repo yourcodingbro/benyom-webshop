@@ -111,7 +111,7 @@ export function CsvImportClient(): React.JSX.Element {
         <a href="/minta/termekimport-minta.csv" download>
           Sablon letöltése
         </a>
-        . A <code>product_id</code> stabil azonosító: azonos azonosítóval újra importálva a termék frissül (a nem kitöltött mezők megmaradnak), új azonosítóval létrejön. A fájlból hiányzó termékeket nem töröljük.
+        . A <code>product_id</code> stabil azonosító: azonos azonosítóval újra importálva a termék frissül (a nem kitöltött mezők megmaradnak), új azonosítóval létrejön. Üresen hagyva új termék esetén automatikus UUID-t kap; meglévő termék ilyenkor a slug alapján frissül. A fájlból hiányzó termékeket nem töröljük.
       </p>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>

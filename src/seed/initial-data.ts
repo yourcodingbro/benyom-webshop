@@ -21,7 +21,7 @@ import type { StoreSettings } from "@/types/settings";
  */
 
 /** Historical demo order as authored in the dataset (events become audit entries on import). */
-export type SeedOrder = Omit<Order, "events" | "notifications" | "isDemo"> & {
+export type SeedOrder = Omit<Order, "events" | "notifications" | "isDemo" | "handover"> & {
   events: { id: string; at: string; type: OrderEventType; actor: "customer" | "admin" | "system"; message: string }[];
   notifications: never[];
 };

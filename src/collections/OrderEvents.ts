@@ -12,6 +12,8 @@ const neverDelete: CollectionBeforeDeleteHook = () => {
 }
 
 export const ORDER_EVENT_TYPE_LABELS: Record<string, string> = {
+  receipt_recorded: 'Átvétel rögzítve',
+  sale_recorded: 'Eladás rögzítve',
   submitted: 'Rendelés leadva',
   imported: 'Demó import',
   status_changed: 'Állapotváltás',

@@ -1,5 +1,8 @@
 import { AdminAccountActions as AdminAccountActions_d4c1a39377ab97ab5ac19fd57fa55511 } from '@/components/admin/AdminAccountActions'
 import { InviteAdminForm as InviteAdminForm_c52446367466bfc4359a86ca37f98bd2 } from '@/components/admin/InviteAdminForm'
+import { EditViewOnlyField as EditViewOnlyField_607c33889f271eb41d8ba37cb71a55a8 } from '@/components/admin/EditViewOnlyField'
+import { ProductSlugField as ProductSlugField_5f7672852e15c93e577eda58e816d5d4 } from '@/components/admin/ProductSlugField'
+import { ProductImagesField as ProductImagesField_c87a82a25834c9a224a3f99bb8bcd5dd } from '@/components/admin/ProductImagesField'
 import { OrderActions as OrderActions_bd9a3eb0969675b027902d6a22a18ee7 } from '@/components/admin/OrderActions'
 import { EmailPreview as EmailPreview_26ff0c3c8c64756354667624f7216f27 } from '@/components/admin/EmailPreview'
 import { AdminNavLinks as AdminNavLinks_f5da5fa50c48fc2ef14afcb84f969fcf } from '@/components/admin/AdminNavLinks'
@@ -13,6 +16,9 @@ import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc056
 export const importMap = {
   "@/components/admin/AdminAccountActions#AdminAccountActions": AdminAccountActions_d4c1a39377ab97ab5ac19fd57fa55511,
   "@/components/admin/InviteAdminForm#InviteAdminForm": InviteAdminForm_c52446367466bfc4359a86ca37f98bd2,
+  "@/components/admin/EditViewOnlyField#EditViewOnlyField": EditViewOnlyField_607c33889f271eb41d8ba37cb71a55a8,
+  "@/components/admin/ProductSlugField#ProductSlugField": ProductSlugField_5f7672852e15c93e577eda58e816d5d4,
+  "@/components/admin/ProductImagesField#ProductImagesField": ProductImagesField_c87a82a25834c9a224a3f99bb8bcd5dd,
   "@/components/admin/OrderActions#OrderActions": OrderActions_bd9a3eb0969675b027902d6a22a18ee7,
   "@/components/admin/EmailPreview#EmailPreview": EmailPreview_26ff0c3c8c64756354667624f7216f27,
   "@/components/admin/AdminNavLinks#AdminNavLinks": AdminNavLinks_f5da5fa50c48fc2ef14afcb84f969fcf,

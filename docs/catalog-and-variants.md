@@ -79,11 +79,19 @@ SKUs are never derived from colors (e.g. `APL-IP17P-512-02`).
 
 ## Images
 
-Product images are Payload media stored in Supabase Storage at `brand/category/product/[color]/filename` (explicit `objectKey`, never parsed back into relations) and served from the public bucket. Variants reference images by id, so images can be shared across storage sizes. The initial import uploads WebP renderings of the original placeholders. See [deployment.md](deployment.md#supabase-storage).
+Product images are Payload media stored in Supabase Storage at `brand/category/product/[color]/filename` (explicit `objectKey`, never parsed back into relations) and served from the public bucket. `category` is the product's primary category. New files are uploaded only from the product form, which derives the path on the server (see [admin-operations.md](admin-operations.md#products-termékek-médiatár)). Variants reference images by id, so images can be shared across storage sizes. The initial import uploads WebP renderings of the original placeholders. See [deployment.md](deployment.md#supabase-storage).
 
 ## Popular brands and categories
 
-`Brand.popularityRank` and `Category.popularityRank` are an **explicit editorial ranking** (1 = most popular). They are admin-edited number fields (initial values come from the initial import). They are **not** sales statistics. `getPopularBrands(3)` / `getPopularCategories(3)` feed the homepage blocks; *Összes márka* (`/markak`) and *Összes kategória* (`/kategoriak`) list everything with links to the brand, brand+category and category listings.
+Manual order and popularity are separate. The **manual order** (drag and drop, see [admin-operations.md](admin-operations.md#brand-and-category-order-márkák-kategóriák)) drives navigation and lists. **Popularity** (homepage top three brands and categories, `getPopularBrands(3)` / `getPopularCategories(3)`) ranks by:
+
+1. units sold in the rolling seven days (`now − 7 days < soldAt ≤ now`), descending;
+2. manual order;
+3. id.
+
+Without qualifying sales this is exactly the manual order. A **sale** is an order that the customer received, that was paid, and that was completed (all recorded explicitly; see [ordering-and-price-changes.md](ordering-and-price-changes.md#fulfillment)), counted at the moment all three became true. Preorders, confirmation, procurement or dispatch alone never count; demo orders never count; quantities are summed, not orders. Each sale writes `sale-entries` (*Eladási napló*) once, in the completing transaction (unique entry keys; a repeated completion adds nothing), using the brand and categories fixed on the order line at checkout, so later product edits never rewrite history. A product in several categories counts once **in each** of them, so category totals overlap. The ranking is one aggregate query per request (indexed on `soldAt`), so it follows new sales and sales leaving the window without a refresh job. Completed orders cannot be cancelled; there is no refund/return workflow yet; when one is added, it must write negative entries for the returned quantities.
+
+The rest: *Összes márka* (`/markak`) and *Összes kategória* (`/kategoriak`) list everything with links to the brand, brand+category and category listings.
 
 ## Product card quick add
 

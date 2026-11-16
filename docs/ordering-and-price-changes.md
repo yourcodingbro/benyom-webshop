@@ -41,6 +41,8 @@ The checkout form creates a UUID idempotency key (kept in sessionStorage until s
 
 States: Beérkezett → Ellenőrzés alatt → Visszaigazolva → Beszerzés folyamatban → Átvehető (collection) / Kiszállítás alatt (delivery) → Teljesítve, plus Törölve. Transitions are listed in `config/order-rules.ts` and enforced in `orderService` and the Payload hook. Updates use optimistic concurrency (`version`, checked under a row lock). Customer emails per status transition are governed by the switches in *Értesítési beállítások* (see [admin-operations.md](admin-operations.md#notification-settings-értesítési-beállítások)), applied centrally in the Orders hook. Cancellation by the store requires a reason.
 
+**Completion** needs two explicit records first: the customer received the goods (`receivedByCustomerAt`, set only by the handover action) and payment (`paymentStatus = paid`, which stamps `paidAt`). Then "Teljesítve" stamps `completedAt` and `saleRecordedAt` and writes the sale entries used for the weekly popularity. The Orders hook enforces this for every write path (admin form, REST/GraphQL, services, background jobs); a completed order's receipt and payment facts are final. Each order line also stores `brandId` and `categoryIds` from checkout (existing lines were backfilled by SKU).
+
 ## Audit trail
 
 Every order change writes append-only `order-events` entries in the same transaction (actor from the server-side context, previous/new values, reason, related proposal/email). See [admin-operations.md](admin-operations.md#audit-history).

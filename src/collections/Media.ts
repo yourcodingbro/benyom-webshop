@@ -1,6 +1,7 @@
 import { APIError, type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionBeforeValidateHook, type CollectionConfig } from 'payload'
 
-import { adminOnly, publicRead } from '@/collections/access'
+import { adminOnly, publicRead, serverOnly } from '@/collections/access'
+import { mediaEndpoints } from '@/collections/endpoints'
 import { hexColorField, SLUG_PATTERN } from '@/collections/fields'
 import { getServerEnv, getStorageEnv } from '@/config/env'
 import { hexToPathSegment, normalizeHexColor } from '@/lib/hex'
@@ -48,6 +49,7 @@ const slugText = (name: string, label: string) =>
     label,
     type: 'text',
     required: true,
+    admin: { readOnly: true },
     validate: (value: string | null | undefined) => (value && SLUG_PATTERN.test(value) ? true : 'Slug formátum: kisbetű, szám, kötőjel.'),
   }) as const
 
@@ -56,7 +58,10 @@ export const Media: CollectionConfig = {
   slug: 'media',
   labels: { singular: 'Média', plural: 'Médiatár' },
   admin: { useAsTitle: 'alt', group: 'Katalógus', defaultColumns: ['filename', 'alt', 'objectKey'] },
-  access: { read: publicRead, create: adminOnly, update: adminOnly, delete: adminOnly },
+  // New files are uploaded only from the product form (POST /api/media/product-upload), which derives the
+  // storage path on the server; there is no free-form upload with a user-chosen destination.
+  access: { read: publicRead, create: serverOnly, update: adminOnly, delete: adminOnly },
+  endpoints: mediaEndpoints,
   upload: {
     // Every file lives under its own brand/category/product/[color] prefix, so the same filename may repeat
     // (e.g. elolnezet.webp); uniqueness is per prefix instead of collection-wide.
@@ -72,10 +77,12 @@ export const Media: CollectionConfig = {
     slugText('brandSlug', 'Márka (slug)'),
     slugText('categorySlug', 'Kategória (slug)'),
     slugText('productSlug', 'Termék (slug)'),
-    hexColorField('colorHex', 'Megjelenített szín (HEX)'),
+    hexColorField('colorHex', 'Megjelenített szín (HEX)', false, true),
     { name: 'objectKey', label: 'Tárolási kulcs', type: 'text', unique: true, index: true, admin: { readOnly: true, description: 'márka/kategória/termék/[szín]/fájlnév' } },
     // Storage-adapter fields, declared here as well so the database schema is identical with or without
     // SUPABASE_* configured; the S3 plugin replaces them with its own definitions of the same name and type.
+    // Marks uploads from the product form, so abandoned ones (never attached to a product) can be cleaned up.
+    { name: 'uploadOrigin', type: 'select', options: [{ label: 'Termékűrlap', value: 'product-form' }], admin: { hidden: true, readOnly: true } },
     { name: 'prefix', type: 'text', defaultValue: '', admin: { hidden: true, readOnly: true } },
     { name: '_objectKey', type: 'text', admin: { hidden: true, readOnly: true } },
   ],

@@ -73,7 +73,7 @@ export const quoteService: QuoteService = {
       if (!lookup) {
         return {
           sku: line.sku, quantity: line.quantity, status: 'not_found', orderability: null, productId: null,
-          productName: 'Ismeretlen termék', productSlug: null, brandName: '', attributes: null, imageUrl: null, imageAlt: '',
+          productName: 'Ismeretlen termék', productSlug: null, brandName: '', brandId: null, categoryIds: [], attributes: null, imageUrl: null, imageAlt: '',
           unitPrice: 0, catalogUnitPrice: 0, lineTotal: 0, priceSource: 'catalog', quoteToken: null, quoteExpiresAt: null,
         }
       }
@@ -94,6 +94,8 @@ export const quoteService: QuoteService = {
         productName: product.name,
         productSlug: product.slug,
         brandName: brand.name,
+        brandId: product.brandId,
+        categoryIds: product.categoryIds,
         attributes: variant.attributes,
         imageUrl: image?.url ?? null,
         imageAlt: image?.alt ?? product.name,

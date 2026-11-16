@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import type React from 'react'
 
 import { Breadcrumbs } from '@/components/Breadcrumbs'
@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/shadcn/alert'
 import { getSiteUrl } from '@/config/runtime'
 import { getBrands } from '@/dto/brands'
 import { getCategories } from '@/dto/categories'
-import { getProductBySlug } from '@/dto/products'
+import { getCanonicalSlugForFormer, getProductBySlug } from '@/dto/products'
 import { effectiveOrderability, primaryImage } from '@/lib/catalog'
 import type { Orderability, Product } from '@/types/catalog'
 
@@ -60,7 +60,13 @@ export async function generateMetadata(props: ProductPageProps): Promise<Metadat
 export default async function ProductPage(props: ProductPageProps): Promise<React.JSX.Element> {
   const [{ slug }, searchParams] = await Promise.all([props.params, props.searchParams])
   const product = await getProductBySlug(slug)
-  if (!product) notFound()
+  if (!product) {
+    // A renamed product: 308 to its current URL, keeping the selected variant.
+    const canonical = await getCanonicalSlugForFormer(slug)
+    if (!canonical) notFound()
+    const variant = typeof searchParams.valtozat === 'string' ? `?valtozat=${encodeURIComponent(searchParams.valtozat)}` : ''
+    permanentRedirect(`/termek/${canonical}${variant}`)
+  }
   const [brands, categories] = await Promise.all([getBrands(), getCategories()])
   const brand = brands.find((item) => item.id === product.brandId)
   const category = categories.find((item) => product.categoryIds.includes(item.id))

@@ -8,7 +8,7 @@ All data goes through **Payload's Local API on Supabase PostgreSQL** (`src/dto/p
 | --- | --- |
 | `payload.ts` (private) | `payloadClient()`, `withTransaction(work)`, `orderWriteContext(events, options)`, `relationId`, `isUniqueViolation` |
 | `products.ts` | `getProducts(query)`, `getProductFacets(query)`, `getProductBySlug(slug)`, `getProductById(id, auth)`, `getAllProducts(auth)`, `getVariantsBySku(skus)`, `getProductSitemapEntries()`, `addProduct(input, auth)`, `updateProduct(id, input, auth)`, `deleteProduct(id, auth)` |
-| `brands.ts`, `categories.ts` | `getBrands()`, `getPopularBrands(limit)`, `getBrandBySlug(slug)`, `addBrand(input, auth)`; `getCategories({ brandSlug? })`, `getPopularCategories(limit)`, `getCategoryBySlug(slug)`, `addCategory(input, auth)` |
+| `brands.ts`, `categories.ts` | `getBrands()` (manual order), `getPopularBrands(limit)` (weekly sales, `dto/popularity.ts`), `getBrandBySlug(slug)`, `addBrand(input, auth)`; `getCategories({ brandSlug? })`, `getPopularCategories(limit)`, `getCategoryBySlug(slug)`, `addCategory(input, auth)` |
 | `orders.ts` | `addOrder(input, inTransaction?)` (idempotent), `getOrder(reference, auth)`, `getOrderById(id, auth)`, `getOrders(query, auth)`, `updateOrder(reference, expectedVersion, patch, auth, inTransaction?)`, `patchOrderInTransaction` (DTO-internal) |
 | `price-change-proposals.ts` | `addProposal`, `getProposal`, `getProposalsForOrder`, `getActiveProposal`, `getPendingProposals` (never demo), `getProposalByTokenHash`, `resolveProposal`, `recordProposalEmailAttempt`, `anchorProposalEmail` |
 | `email-log.ts` | `enqueueEmail`, `claimEmailJob`, `completeEmailJob`, `requeueEmailJob`, `getDueEmailJobIds`, `getEmailJob`, `applyProviderEvent`, `getEmailLogEntries(auth)`, `getEmailLogEntry(id, auth)` |
@@ -19,7 +19,7 @@ All data goes through **Payload's Local API on Supabase PostgreSQL** (`src/dto/p
 
 ## Conventions
 
-- **Identifiers**: catalog records (brands, categories, products) and proposals use stable text ids (`brand-apple`, `prod-iphone-17`, `prop-…`); the CSV import and the initial import rely on them. Orders, audit entries, emails and jobs use numeric Payload ids plus their own business keys (order `reference`, email `idempotencyKey`).
+- **Identifiers**: catalog records (brands, categories, products) and proposals use stable text ids (`brand-apple`, `prod-iphone-17`, `prop-…`; products created since the admin/CSV identity change get a UUID); the CSV import and the initial import rely on them. Orders, audit entries, emails and jobs use numeric Payload ids plus their own business keys (order `reference`, email `idempotencyKey`).
 - **Money**: integer forints; arithmetic in `lib/money.ts`.
 - **Dates**: UTC ISO strings, read from `lib/clock.ts` (tests control it).
 - **Errors**: `AppError` (`NOT_FOUND | VALIDATION | CONFLICT | FORBIDDEN | UNAVAILABLE | INVALID_STATE`) with Hungarian messages. Payload validation errors (400/409) and unique-index violations are mapped to `VALIDATION`/`CONFLICT`.

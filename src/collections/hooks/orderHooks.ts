@@ -9,7 +9,7 @@ import { clock } from '@/lib/clock'
 import type { FulfillmentStatus } from '@/types/order'
 import { type AuditActor, type AuditEventInput, type OrderWriteContext, SWITCHABLE_STATUS_EMAILS } from '@/types/workflow'
 
-type OrderDoc = Record<string, unknown> & { id: number; reference: string; fulfillmentStatus: string; isDemo?: boolean | null; customer?: { email?: string | null } | null }
+type OrderDoc = Record<string, unknown> & { id: number; reference: string; fulfillmentStatus: string; isDemo?: boolean | null; saleRecordedAt?: string | null; items?: unknown; customer?: { email?: string | null } | null }
 
 /** Fields an admin may change in the native form; everything else changes only through services. */
 const ADMIN_EDITABLE: ReadonlySet<string> = new Set(['fulfillmentStatus', 'paymentStatus', 'needsPriceReview', 'adminNotes', 'version', 'updatedAt'])
@@ -36,10 +36,39 @@ function same(a: unknown, b: unknown): boolean {
  *   cancellation fields are immutable here; cancellation needs the dedicated action with a reason;
  * - concurrent edits are serialized with a row lock and stale saves are rejected.
  */
+const SALE_FACTS: readonly string[] = ['paymentStatus', 'receivedByCustomerAt', 'paidAt', 'completedAt', 'saleRecordedAt']
+
+/**
+ * Sale integrity, for every write path (admin form, REST/GraphQL, services, background jobs):
+ * - payment is recorded only by an explicit payment change (never inferred from dispatch or a status);
+ * - "Teljesítve" requires the recorded customer receipt and payment, and stamps completion and the
+ *   sale time (the moment all three became true);
+ * - once completed, the handover facts are final, so a sale can never be counted twice or rewritten.
+ */
+function enforceSaleIntegrity(data: Record<string, unknown>, originalDoc: Record<string, unknown>): Record<string, unknown> {
+  const now = clock.nowIso()
+  if (originalDoc.fulfillmentStatus === 'completed') {
+    for (const field of SALE_FACTS) {
+      if (data[field] !== undefined && !same(data[field], originalDoc[field])) throw new APIError('Teljesített rendelés átvételi és fizetési adatai már nem módosíthatók.', 400)
+    }
+    return data
+  }
+  const next = { ...data }
+  if (next.paymentStatus !== undefined && next.paymentStatus !== originalDoc.paymentStatus) next.paidAt = next.paymentStatus === 'paid' ? now : null
+  const status = next.fulfillmentStatus ?? originalDoc.fulfillmentStatus
+  if (status === 'completed') {
+    if (!(next.receivedByCustomerAt ?? originalDoc.receivedByCustomerAt)) throw new APIError('Teljesítés előtt rögzítse, hogy az ügyfél átvette a terméket (Átadás rögzítése).', 400)
+    if ((next.paymentStatus ?? originalDoc.paymentStatus) !== 'paid') throw new APIError('Teljesítés előtt rögzítse a fizetést (Fizetés: Kifizetve).', 400)
+    next.completedAt = now
+    next.saleRecordedAt = now
+  }
+  return next
+}
+
 export const protectOrder: CollectionBeforeChangeHook = async ({ data, originalDoc, operation, req }) => {
   if (operation !== 'update' || !originalDoc) return data
   const context = workflowContext(req)
-  if (context.workflow) return { ...data, version: (Number(originalDoc.version) || 1) + 1 }
+  if (context.workflow) return { ...enforceSaleIntegrity(data, originalDoc), version: (Number(originalDoc.version) || 1) + 1 }
   if (!isAdminRequest(req)) throw new APIError('Nincs jogosultság.', 403)
 
   const locked = await lockRow(req, 'orders', originalDoc.id)
@@ -62,7 +91,7 @@ export const protectOrder: CollectionBeforeChangeHook = async ({ data, originalD
     if (to === 'ready_for_collection' && kind !== 'collection') throw new APIError('Kiszállításos rendelés nem állítható „Átvehető” állapotba.', 400)
     if (to === 'dispatched' && kind !== 'delivery') throw new APIError('Személyes átvételes rendelés nem állítható „Kiszállítás alatt” állapotba.', 400)
   }
-  return { ...data, version: (Number(originalDoc.version) || 1) + 1 }
+  return { ...enforceSaleIntegrity(data, originalDoc), version: (Number(originalDoc.version) || 1) + 1 }
 }
 
 /** Audit entries for a native admin edit, derived from the actual changes. */
@@ -158,6 +187,35 @@ async function queueStatusEmail(req: PayloadRequest, doc: OrderDoc, from: string
   return [{ type: 'notification_queued', actor: system, message: `Állapotértesítés sorba állítva (${FULFILLMENT_LABELS[to]}).`, emailMessageId: job.id }]
 }
 
+type SaleLine = { lineId?: string | null; sku?: string | null; quantity?: number | null; brandId?: string | null; categoryIds?: unknown }
+
+/**
+ * Writes the sale entries once, in the transaction that recorded the sale: one per line for its brand
+ * and one per assigned category, with the attribution fixed at submission. Demo orders never count.
+ */
+async function recordSale(req: PayloadRequest, order: OrderDoc): Promise<AuditEventInput[]> {
+  const soldAt = typeof order.saleRecordedAt === 'string' ? order.saleRecordedAt : clock.nowIso()
+  const existing = await req.payload.count({ collection: 'sale-entries', where: { order: { equals: order.id } }, req, overrideAccess: true })
+  if (existing.totalDocs > 0) return []
+  let units = 0
+  for (const line of (Array.isArray(order.items) ? order.items : []) as SaleLine[]) {
+    const quantity = Number(line.quantity)
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) continue
+    units += quantity
+    const categories = Array.isArray(line.categoryIds) ? [...new Set(line.categoryIds.filter((id): id is string => typeof id === 'string' && id !== ''))] : []
+    const targets = [...(line.brandId ? [{ dimension: 'brand' as const, key: line.brandId }] : []), ...categories.map((key: string) => ({ dimension: 'category' as const, key }))]
+    for (const target of targets) {
+      await req.payload.create({
+        collection: 'sale-entries',
+        data: { entryKey: `${order.id}/${line.lineId ?? line.sku}/${target.dimension}/${target.key}`, order: order.id, orderReference: order.reference, lineId: line.lineId ?? null, sku: line.sku ?? null, quantity, soldAt, ...target },
+        req,
+        overrideAccess: true,
+      })
+    }
+  }
+  return [{ type: 'sale_recorded', actor: { type: 'system', label: 'eladási statisztika' }, message: `Eladás rögzítve (${units} db) a heti népszerűséghez.`, newValue: { units, soldAt } }]
+}
+
 export const auditOrderChange: CollectionAfterChangeHook = async ({ doc, previousDoc, operation, req }) => {
   const context = workflowContext(req)
   const order = doc as OrderDoc
@@ -171,6 +229,7 @@ export const auditOrderChange: CollectionAfterChangeHook = async ({ doc, previou
   if (statusChanged && !context.skipStatusNotification && !context.suppressSideEffects && !order.isDemo) {
     events.push(...(await queueStatusEmail(req, order, previous.fulfillmentStatus, order.fulfillmentStatus)))
   }
+  if (!previous.saleRecordedAt && order.saleRecordedAt && !order.isDemo) events.push(...(await recordSale(req, order)))
   await writeAuditEvents(req, order, events)
   return doc
 }

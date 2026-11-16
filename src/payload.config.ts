@@ -17,6 +17,9 @@ import { NotificationSettings } from './collections/NotificationSettings'
 import { OrderEvents } from './collections/OrderEvents'
 import { Orders } from './collections/Orders'
 import { PriceChangeProposals } from './collections/PriceChangeProposals'
+import { ProductSlugHistory } from './collections/ProductSlugHistory'
+import { SaleEntries } from './collections/SaleEntries'
+import { ProductSlugReservations } from './collections/ProductSlugReservations'
 import { Products } from './collections/Products'
 import { StoreSettings } from './collections/StoreSettings'
 import { Users } from './collections/Users'
@@ -75,7 +78,7 @@ export default buildConfig({
     },
   },
   i18n: { supportedLanguages: { hu }, fallbackLanguage: 'hu' },
-  collections: [Users, Media, Brands, Categories, Products, Orders, OrderEvents, PriceChangeProposals, EmailMessages, EmailEvents, ContactMessages, ImportJobs],
+  collections: [Users, Media, Brands, Categories, Products, Orders, OrderEvents, PriceChangeProposals, EmailMessages, EmailEvents, ContactMessages, ImportJobs, ProductSlugReservations, ProductSlugHistory, SaleEntries],
   globals: [StoreSettings, NotificationSettings],
   secret: env.PAYLOAD_SECRET,
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },

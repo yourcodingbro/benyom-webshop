@@ -2,7 +2,7 @@ import 'server-only'
 
 import { DEFAULT_PRODUCT_SORT } from '@/config/shop'
 import { toBrand, toCategory, toProduct, toProductData } from '@/dto/catalog-mappers'
-import { isUniqueViolation, payloadClient } from '@/dto/payload'
+import { isUniqueViolation, payloadClient, relationId } from '@/dto/payload'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import type { Product as ProductDoc } from '@/payload-types'
 import { priceRange, searchKey } from '@/lib/catalog'
@@ -157,6 +157,20 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   return doc ? toProduct(doc) : null
 }
 
+/**
+ * Current slug of the published product that used to be reachable at a former slug, or null. Former
+ * slugs point at the product itself, so the answer is always the canonical slug (one redirect, no chain).
+ */
+export async function getCanonicalSlugForFormer(slug: string): Promise<string | null> {
+  const payload = await payloadClient()
+  const former = (await payload.find({ collection: 'product-slug-history', where: { slug: { equals: slug } }, limit: 1, depth: 0, overrideAccess: true })).docs[0]
+  const productId = former ? relationId(former.product) : null
+  if (!productId) return null
+  const result = await payload.find({ collection: 'products', where: { and: [{ id: { equals: productId } }, { _status: { equals: 'published' } }] }, limit: 1, depth: 0, overrideAccess: false })
+  const current = result.docs[0]?.slug
+  return current && current !== slug ? current : null
+}
+
 /** Any product, including drafts. Admin/system only. */
 export async function getProductById(id: string, auth: AuthorizationContext): Promise<Product | null> {
   assertAdminOrSystem(auth)
@@ -214,6 +228,11 @@ export async function getProductSitemapEntries(): Promise<{ slug: string; update
 
 /** Payload validation errors (status 400/409) become actionable AppErrors; anything else is rethrown. */
 function toAppError(error: unknown): AppError | null {
+  // Field errors raised by the collection hooks (e.g. a taken slug) carry the Hungarian message.
+  const fieldError = error instanceof Error && 'data' in error ? (error as { data?: { errors?: { message?: unknown; path?: unknown }[] } }).data?.errors?.[0] : undefined
+  if (fieldError && typeof fieldError.message === 'string' && !/must be unique/i.test(fieldError.message)) {
+    return new AppError('VALIDATION', fieldError.message, typeof fieldError.path === 'string' ? { [fieldError.path]: fieldError.message } : null)
+  }
   if (isUniqueViolation(error)) return new AppError('CONFLICT', 'Már létezik termék ezzel az azonosítóval, slug-gal vagy cikkszámmal.')
   const status = error instanceof Error && 'status' in error ? (error as { status: unknown }).status : null
   if (status === 409 && error instanceof Error) return new AppError('CONFLICT', error.message)
@@ -225,7 +244,8 @@ function toAppError(error: unknown): AppError | null {
 export async function addProduct(input: ProductInput, auth: AuthorizationContext): Promise<Product> {
   assertAdminOrSystem(auth)
   const payload = await payloadClient()
-  const data = { ...toProductData(input), id: input.id ?? `prod-${input.slug}` }
+  // Without an id the collection hook assigns a UUID; an existing id is never regenerated.
+  const data = { ...toProductData(input), ...(input.id ? { id: input.id } : {}) }
   try {
     const doc = await payload.create({ collection: 'products', data: data as ProductDoc, draft: input.status === 'draft', overrideAccess: true, depth: 1 })
     return toProduct(doc)

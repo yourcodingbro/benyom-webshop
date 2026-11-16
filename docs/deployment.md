@@ -45,6 +45,9 @@ npm run migrate
 - `20261113_192000_order_events_append_only`: a trigger that rejects any `UPDATE` or `DELETE` on `order_events` (append-only audit trail, whatever the client).
 - `20261113_203439_media_storage_fields`: adds the storage adapter columns `media.prefix` and `media._objectkey`. The initial migration had been generated without Supabase Storage configured, so the S3 plugin (which adds these fields) was inactive and they were missing; with storage configured every media query failed (`42703 column "prefix" does not exist`). The Media collection now declares both fields itself, so the schema is identical with or without `SUPABASE_*`.
 - `20261113_204024_media_filename_per_prefix`: replaces the collection-wide unique `filename` index with a unique (`filename`, `prefix`) index (`upload.filenameCompoundIndex`), because every product image is called `elolnezet.webp` under its own `brand/category/product/[color]` prefix.
+- `20261116_161931_admin_temporary_passwords`: temporary-password columns on `users` and the `admin-invitation` email template/category.
+- `20261116_170823_product_identity_and_media_uploads`: `product_slug_reservations` (unique slug), `products.primary_category_id` (+ versions; backfilled with each product's first category), `media.upload_origin`. Additive; existing ids, slugs, object keys and relations are unchanged.
+- `20261116_175758_slug_history_ordering_and_sales`: `product_slug_history`, `sale_entries`, `_order` on brands/categories (`COLLATE "C"`, initialized from the previous `sortOrder`, name, id), order handover timestamps, `orders_items.brand_id`/`category_ids` (backfilled by SKU from current products) and two audit event types. Additive.
 
 When changing collections or plugins, generate migrations with the **same** storage configuration as production, and check for drift with `npm run migrate:create -- check --skip-empty` both with and without the `SUPABASE_*` variables: no file should be created.
 
@@ -78,7 +81,7 @@ Verified against the configured Supabase development database (2026-11-13): afte
 
 `next.config.ts` derives `images.remotePatterns` from `SUPABASE_URL` and `SUPABASE_STORAGE_BUCKET`: HTTPS only, that host only, path `/storage/v1/object/public/<bucket>/**` (other hosts and buckets are rejected by the image optimizer). `SUPABASE_URL` must therefore be an `https://` URL; restart the dev server after changing these values. Without storage configuration no remote image host is allowed.
 
-The Media collection stores the explicit object key (`brand/category/product/[color]/filename`) and uploads under that per-document prefix. Public image URLs point straight to `SUPABASE_URL/storage/v1/object/public/<bucket>/<key>`. Referenced media cannot be deleted.
+The Media collection stores the explicit object key (`brand/category/product/[color]/filename`) and uploads under that per-document prefix. New admin uploads go through `POST /api/media/product-upload`, which derives the key on the server; direct `POST /api/media` is refused. Public image URLs point straight to `SUPABASE_URL/storage/v1/object/public/<bucket>/<key>`. Referenced media cannot be deleted.
 
 ## Vercel
 

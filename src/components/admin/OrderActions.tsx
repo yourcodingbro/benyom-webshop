@@ -11,6 +11,8 @@ type OrderSummary = {
   fulfillmentStatus: string
   priceApprovalStatus: string
   isDemo: boolean
+  paymentStatus: string
+  receivedByCustomerAt: string | null
   lines: OrderLine[]
 }
 
@@ -30,6 +32,8 @@ type OrderDocResponse = {
   fulfillmentStatus?: string
   priceApprovalStatus?: string
   isDemo?: boolean | null
+  paymentStatus?: string
+  receivedByCustomerAt?: string | null
   items?: { lineId?: string | null; productName?: string | null; sku?: string | null; quantity?: number | null }[] | null
   agreed?: { lines?: { lineId: string; unitPrice: number }[] } | null
 }
@@ -74,6 +78,8 @@ export function OrderActions(): React.JSX.Element | null {
           fulfillmentStatus: doc.fulfillmentStatus ?? '',
           priceApprovalStatus: doc.priceApprovalStatus ?? '',
           isDemo: Boolean(doc.isDemo),
+          paymentStatus: doc.paymentStatus ?? '',
+          receivedByCustomerAt: doc.receivedByCustomerAt ?? null,
           lines: (doc.items ?? []).map((item) => ({
             lineId: item.lineId ?? '',
             productName: item.productName ?? '',
@@ -114,6 +120,16 @@ export function OrderActions(): React.JSX.Element | null {
     finish(ok, ok ? 'A rendelés törölve.' : String(data.error ?? 'A törlés nem sikerült.'))
   }
 
+  const handover = async (facts: { receipt: boolean; payment: boolean; complete: boolean }, question: string, done: string): Promise<void> => {
+    if (!window.confirm(question)) return
+    setBusy(true)
+    const { ok, data } = await post(`/api/orders/${id}/handover`, { ...facts, version: order.version })
+    finish(ok, ok ? done : String(data.error ?? 'A rögzítés nem sikerült.'))
+  }
+  const handedOver = order.fulfillmentStatus === 'ready_for_collection' || order.fulfillmentStatus === 'dispatched'
+  const received = order.receivedByCustomerAt !== null
+  const paid = order.paymentStatus === 'paid'
+
   const proposalBody = (): Record<string, unknown> => ({
     lines: order.lines.filter((line) => prices[line.lineId] !== undefined && prices[line.lineId] !== '').map((line) => ({ lineId: line.lineId, proposedUnitPrice: Number(prices[line.lineId]) })),
     explanation,
@@ -153,6 +169,40 @@ export function OrderActions(): React.JSX.Element | null {
         <p role={message.kind === 'error' ? 'alert' : 'status'} style={{ ...panel, color: message.kind === 'error' ? 'var(--theme-error-500)' : 'var(--theme-success-500)' }}>
           {message.text}
         </p>
+      ) : null}
+
+      {handedOver ? (
+        <div style={panel}>
+          <h3 style={{ marginTop: 0 }}>Átadás, fizetés és teljesítés</h3>
+          <p>
+            Átvétel: <strong>{received ? 'rögzítve' : 'nincs rögzítve'}</strong> · Fizetés: <strong>{paid ? 'kifizetve' : 'nincs rögzítve'}</strong>. A rendelés csak mindkettő után teljesíthető, és ekkor számít eladásnak (heti népszerűség).
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn--style-primary btn--size-medium"
+              disabled={busy || order.priceApprovalStatus === 'pending'}
+              onClick={() => handover({ receipt: true, payment: true, complete: true }, 'Rögzíti, hogy az ügyfél átvette és kifizette a rendelést, és teljesítettre állítja? Teljesítés után az átvétel és a fizetés nem módosítható.', 'Átvétel, fizetés és teljesítés rögzítve.')}
+            >
+              Átadva, kifizetve – teljesítés
+            </button>
+            {!received ? (
+              <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy} onClick={() => handover({ receipt: true, payment: false, complete: false }, 'Rögzíti, hogy az ügyfél átvette a terméke(ke)t?', 'Átvétel rögzítve.')}>
+                Csak átvétel rögzítése
+              </button>
+            ) : null}
+            {!paid ? (
+              <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy} onClick={() => handover({ receipt: false, payment: true, complete: false }, 'Rögzíti, hogy a fizetés megtörtént?', 'Fizetés rögzítve.')}>
+                Csak fizetés rögzítése
+              </button>
+            ) : null}
+            {received && paid ? (
+              <button type="button" className="btn btn--style-secondary btn--size-medium" disabled={busy || order.priceApprovalStatus === 'pending'} onClick={() => handover({ receipt: false, payment: false, complete: true }, 'Teljesítettre állítja a rendelést?', 'A rendelés teljesítve.')}>
+                Teljesítés
+              </button>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
       {!NO_PROPOSAL.has(order.fulfillmentStatus) ? (

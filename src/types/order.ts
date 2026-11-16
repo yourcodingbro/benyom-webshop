@@ -41,6 +41,9 @@ export type OrderLineSnapshot = {
   productName: string
   productSlug: string
   brandName: string
+  /** Attribution for sales statistics, fixed at submission (absent in snapshots older than this field). */
+  brandId?: string | null
+  categoryIds?: string[]
   sku: string
   attributes: VariantAttributes
   unitPrice: HufAmount
@@ -82,6 +85,8 @@ export type AgreedPricing = {
 
 export type OrderEventType =
   | 'submitted'
+  | 'receipt_recorded'
+  | 'sale_recorded'
   | 'imported'
   | 'status_changed'
   | 'payment_changed'
@@ -147,6 +152,8 @@ export type Order = {
   events: OrderEvent[]
   notifications: NotificationRecord[]
   cancellation: { reason: CancellationReason; note: string | null; at: IsoDateTime } | null
+  /** Explicit handover facts; a sale counts only once all are recorded (saleRecordedAt). */
+  handover: { receivedByCustomerAt: IsoDateTime | null; paidAt: IsoDateTime | null; completedAt: IsoDateTime | null; saleRecordedAt: IsoDateTime | null }
   /** Optimistic-concurrency version; incremented on every update. */
   version: number
   createdAt: IsoDateTime
@@ -174,6 +181,8 @@ export type OrderPatch = {
   /** Audit entries written in the same transaction as the change. */
   appendEvents?: AuditEventInput[]
   appendAdminNotes?: { at: IsoDateTime; text: string }[]
+  /** Explicit record that the customer received the goods. */
+  receivedByCustomerAt?: IsoDateTime
   /** Proposal-driven cancellations send their own required emails instead of the per-status one. */
   skipStatusNotification?: boolean
 }

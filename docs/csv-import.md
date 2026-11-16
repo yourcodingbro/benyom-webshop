@@ -7,13 +7,13 @@ Example file: [`public/minta/termekimport-minta.csv`](../public/minta/termekimpo
 ## Format
 
 - UTF-8 (a BOM is accepted), **semicolon (`;`) delimiter** (Hungarian Excel default), RFC 4180 quoting (`"…"`, `""` inside quotes), CRLF or LF. Max 1 MB.
-- First row is the header. `product_id` and `sku` are required. Unknown columns reject the file. **Columns you omit are never touched.**
-- One row = one variant. Rows with the same `product_id` are grouped into one product.
+- First row is the header. `sku` is required. Unknown columns reject the file. **Columns you omit are never touched.**
+- One row = one variant. Rows with the same `product_id` are grouped into one product; rows without `product_id` are grouped by `product_slug` (or, when that is empty too, by the slug derived from `product_name`), so give every row of such a product the same slug or name.
 
 | Column | Level | Notes |
 | --- | --- | --- |
-| `product_id` | product | Stable id, `[a-z0-9-]`, e.g. `prod-pixel-10`. Identity for create/update. |
-| `product_slug`, `product_name` | product | Required when creating. |
+| `product_id` | product | Optional. Existing id (e.g. `prod-pixel-10` or a UUID) identifies the product and is never regenerated. Empty: the product with the same slug is updated, otherwise a new product is created with a server-generated UUID. A new, non-empty id is used as given. |
+| `product_slug`, `product_name` | product | Name required when creating. Without a slug it is derived from the name. |
 | `model`, `description` | product | |
 | `brand_slug` (+ `brand_name`) | product | Unknown slug + name → brand created. Unknown slug without name → error. |
 | `category_slugs` (+ `category_names`) | product | `\|`-separated, names aligned by position. Unknown without name → error. |
@@ -31,7 +31,7 @@ Product-level values may appear on any row of the group. Conflicting non-empty v
 
 ## Rules
 
-- **Create** a product when `product_id` is new, and a variant when its SKU is new.
+- **Create** a product when `product_id` is new (or empty with an unknown slug), and a variant when its SKU is new.
 - **Update** only the provided non-empty cells. Empty cells and omitted columns keep their stored values.
 - **Skip** when nothing would change, which makes re-importing the same file idempotent (all "kihagyva").
 - **Never delete** products or variants that are absent from the file.

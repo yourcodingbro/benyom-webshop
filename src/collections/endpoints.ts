@@ -32,7 +32,7 @@ async function respond(work: () => Promise<unknown>): Promise<Response> {
     return Response.json(await work())
   } catch (error: unknown) {
     if (isAppError(error)) {
-      const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'FORBIDDEN' ? 403 : error.code === 'CONFLICT' || error.code === 'INVALID_STATE' ? 409 : 400
+      const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'FORBIDDEN' ? 403 : error.code === 'UNAVAILABLE' ? 503 : error.code === 'CONFLICT' || error.code === 'INVALID_STATE' ? 409 : 400
       return Response.json({ error: error.message, fieldErrors: error.fieldErrors ?? null }, { status })
     }
     console.error('[ADMIN VÉGPONT HIBA]', error instanceof Error ? error.name : 'ismeretlen')
@@ -56,6 +56,24 @@ export const orderEndpoints: Endpoint[] = [
       return respond(async () => {
         const order = await orderService.cancelOrder({ orderId: idParam(req), note: String(body.reason ?? ''), expectedVersion: Number(body.version) }, auth)
         return { ok: true, reference: order.reference }
+      })
+    },
+  },
+  {
+    // Body: { receipt, payment, complete, version }. The combined action sends all three as true.
+    path: '/:id/handover',
+    method: 'post',
+    handler: async (req: PayloadRequest): Promise<Response> => {
+      const auth = adminAuth(req)
+      if (!auth) return forbidden()
+      const body = await readJson(req)
+      const { orderService } = await import('@/services/orderService')
+      return respond(async () => {
+        const order = await orderService.recordHandover(
+          { orderId: idParam(req), receipt: body.receipt === true, payment: body.payment === true, complete: body.complete === true, expectedVersion: Number(body.version) },
+          auth,
+        )
+        return { ok: true, fulfillmentStatus: order.fulfillmentStatus, handover: order.handover }
       })
     },
   },
@@ -153,6 +171,39 @@ export const userEndpoints: Endpoint[] = [
         await adminAccountService.changeTemporaryPassword(userId, body)
         return { ok: true }
       })
+    },
+  },
+]
+
+const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+
+export const mediaEndpoints: Endpoint[] = [
+  {
+    // Multipart: `file` plus `_payload` (JSON with the product form context). The storage path is derived on the server.
+    path: '/product-upload',
+    method: 'post',
+    handler: async (req: PayloadRequest): Promise<Response> => {
+      const auth = adminAuth(req)
+      if (!auth) return forbidden()
+      const body = await readJson(req)
+      const file = req.file ? { data: req.file.data, mimetype: req.file.mimetype, name: req.file.name, size: req.file.size } : null
+      const { mediaUploadService } = await import('@/services/mediaUploadService')
+      return respond(async () =>
+        mediaUploadService.uploadProductImage(
+          {
+            productId: text(body.productId) || null,
+            name: text(body.name),
+            slug: text(body.slug) || null,
+            brandId: text(body.brandId),
+            categoryId: text(body.categoryId),
+            variantColorHex: text(body.variantColorHex) || null,
+            isVariantImage: body.isVariantImage === true,
+            colorLabel: text(body.colorLabel) || null,
+          },
+          file,
+          auth,
+        ),
+      )
     },
   },
 ]

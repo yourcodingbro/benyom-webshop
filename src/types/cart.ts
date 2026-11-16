@@ -11,6 +11,8 @@ export type QuotedLine = {
   productName: string
   productSlug: string | null
   brandName: string
+  brandId: string | null
+  categoryIds: string[]
   attributes: VariantAttributes | null
   imageUrl: string | null
   imageAlt: string
