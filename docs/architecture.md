@@ -13,14 +13,14 @@ DTO functions (src/dto/*.ts)               data access, authorization context, a
    │
    ▼
 Payload Local API (src/dto/payload.ts) → @payloadcms/db-postgres → Supabase PostgreSQL
-   collection hooks (src/collections/hooks/): audit trail, per-status email policy, edit rules
+   collection lifecycle hooks (src/collections/hooks/): audit trail, sales, per-status email policy, edit rules, slug/id defaults
 ```
 
 - **Pages** are server components. They read through DTO functions or services. Client components (`'use client'`) are kept small: Reveal, cart provider/drawer, product card (compact preview with quick add), variant configurator and options, checkout form, mobile nav, CSV form. Variant-selection rules live once in `src/lib/variant-selection.ts` and are used through `useVariantSelection` by both the product page and the product card.
 - **Client components never import `src/dto` or `src/services`.** They call server actions (`quoteCartAction`, `placeOrderAction`, dev actions). An architecture test enforces this.
 - **Services** are plain objects (`orderService.placeOrder(input)`) with an explicit contract type. They contain no persistence code.
 - **DTO functions** are the only code that touches stored data (an architecture test enforces it). They map Payload documents to application types, run multi-step changes in transactions, and check the `AuthorizationContext`.
-- **Payload admin** custom views/components (`src/components/admin/`) only collect input and call admin endpoints (`src/collections/endpoints.ts`), which delegate to services.
+- **Payload admin** custom views/components (`src/components/admin/`) only collect input and call admin endpoints (`src/collections/utils/endpoints.ts`), which delegate to services.
 
 ## Main entry points
 

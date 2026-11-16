@@ -30,7 +30,7 @@ Local secrets go in `.env.local` (git-ignored). `npm run dev`, `npm run migrate*
 
 - **Runtime** uses `DATABASE_URL`. Serverless functions open many short-lived connections, so Supabase recommends the transaction-mode pooler. The shared pooler does not support prepared statements in transaction mode; node-postgres (used by Payload's adapter) sends unnamed queries, so nothing is prepared across pooled transactions. Keep `DATABASE_POOL_MAX` low.
 - **Migrations and the initial import** set `PAYLOAD_DB_TARGET=migration` (in the npm scripts) and use `DATABASE_MIGRATION_URL`: a direct connection (IPv6 by default; IPv4 needs Supabase's add-on) or the session-mode pooler on port 5432 from IPv4-only networks.
-- Workflows that must be atomic (order changes with their audit entries and queued emails, proposal decisions, email job claims, import progress) run in explicit Payload transactions with `SELECT … FOR UPDATE` row locks through Payload's own adapter session (`src/dto/payload.ts`, `src/collections/hooks/db.ts`). There is no parallel database client.
+- Workflows that must be atomic (order changes with their audit entries and queued emails, proposal decisions, email job claims, import progress) run in explicit Payload transactions with `SELECT … FOR UPDATE` row locks through Payload's own adapter session (`src/dto/payload.ts`, `src/collections/utils/db.ts`). There is no parallel database client.
 
 ## Schema migrations
 

@@ -1,8 +1,9 @@
 import type { CollectionConfig, Field } from 'payload'
 
-import { adminOnly, nobody, serverOnly } from '@/collections/access'
-import { hufField, options, totalsGroup } from '@/collections/fields'
+import { adminOnly, nobody, serverOnly } from '@/collections/utils/access'
+import { hufField, options, totalsGroup } from '@/collections/utils/fields'
 import { PROPOSAL_STATUS_LABELS } from '@/config/labels'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 const dispatchGroup = (name: string, label: string): Field => ({
   name,
@@ -29,7 +30,7 @@ export const PriceChangeProposals: CollectionConfig = {
   labels: { singular: 'Árváltozási ajánlat', plural: 'Árváltozási ajánlatok' },
   admin: {
     useAsTitle: 'id',
-    group: 'Rendelések',
+    group: NAV_GROUPS.ORDERS,
     defaultColumns: ['id', 'orderReference', 'status', 'proposedTotals.grandTotal', 'isDemo', 'createdAt'],
     listSearchableFields: ['id', 'orderReference'],
     description: 'Új ajánlat a rendelés oldaláról indítható. Elfogadni vagy elutasítani csak az ügyfél tudja.',

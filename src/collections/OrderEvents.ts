@@ -1,6 +1,7 @@
 import { APIError, type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionConfig } from 'payload'
 
-import { adminOnly, serverOnly } from '@/collections/access'
+import { adminOnly, serverOnly } from '@/collections/utils/access'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 const appendOnly: CollectionBeforeChangeHook = ({ operation, data }) => {
   if (operation !== 'create') throw new APIError('A rendelési napló nem módosítható.', 403)
@@ -46,7 +47,7 @@ export const OrderEvents: CollectionConfig = {
   labels: { singular: 'Naplóbejegyzés', plural: 'Rendelési napló' },
   admin: {
     useAsTitle: 'message',
-    group: 'Rendelések',
+    group: NAV_GROUPS.ORDERS,
     defaultColumns: ['at', 'orderReference', 'type', 'actorLabel', 'message'],
     listSearchableFields: ['orderReference', 'message', 'actorLabel'],
   },

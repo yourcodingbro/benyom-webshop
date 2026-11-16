@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto'
 
 import { APIError, type CollectionAfterChangeHook, type CollectionBeforeValidateHook, type CollectionConfig, type Field, type FilterOptions, type PayloadRequest, ValidationError } from 'payload'
 
-import { adminOnly, publishedOrAdmin } from '@/collections/access'
-import { isReservedProductSlug, reserveProductSlug } from '@/collections/hooks/slugs'
-import { hexColorField, hufField, ORDERABILITY_OPTIONS, procurementGroup, SKU_PATTERN, slugField, stableIdField } from '@/collections/fields'
+import { adminOnly, publishedOrAdmin } from '@/collections/utils/access'
+import { isReservedProductSlug, reserveProductSlug } from '@/collections/utils/slugs'
+import { hexColorField, hufField, ORDERABILITY_OPTIONS, procurementGroup, SKU_PATTERN, slugField, stableIdField } from '@/collections/utils/fields'
 import { clock } from '@/lib/clock'
 import { slugify } from '@/lib/slug'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 type VariantRow = { sku?: string | null }
 
@@ -133,10 +134,10 @@ export const Products: CollectionConfig = {
   labels: { singular: 'Termék', plural: 'Termékek' },
   admin: {
     useAsTitle: 'name',
-    group: 'Katalógus',
+    group: NAV_GROUPS.STORE,
     defaultColumns: ['name', 'brand', 'orderability', 'featured', '_status'],
     listSearchableFields: ['name', 'model', 'slug', 'variants.sku'],
-    description: 'Kézi termékkezelés. Tömeges felvitelhez használja a Termékimport (CSV) oldalt.',
+    description: 'Kézi termékkezelés. Tömeges felvitelhez használja a Termékimportok menüpontot.',
   },
   // Native drafts provide the draft/published status.
   versions: { drafts: true, maxPerDoc: 20 },

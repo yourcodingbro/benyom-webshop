@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
-import { adminOnly, serverOnly } from '@/collections/access'
+import { adminOnly, serverOnly } from '@/collections/utils/access'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 /**
  * Completed sales, one row per order line and attributed brand/category (a product in several
@@ -12,7 +13,7 @@ export const SaleEntries: CollectionConfig = {
   slug: 'sale-entries',
   labels: { singular: 'Eladási tétel', plural: 'Eladási napló' },
   admin: {
-    group: 'Rendelések',
+    group: NAV_GROUPS.ORDERS,
     useAsTitle: 'orderReference',
     defaultColumns: ['soldAt', 'orderReference', 'sku', 'dimension', 'key', 'quantity'],
     description: 'Csak olvasható. Átvett, kifizetett és teljesített rendelések tételei; ebből számolódik a heti népszerűség.',

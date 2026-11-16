@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { SCHEDULER_AUTH } from '@/lib/authorization'
-import { SLUG_RESERVATION_TTL_MS } from '@/collections/hooks/slugs'
+import { SLUG_RESERVATION_TTL_MS } from '@/collections/utils/slugs'
 import { deleteAbandonedProductMedia, deleteExpiredSlugReservations } from '@/dto/media'
 import { clock } from '@/lib/clock'
 import { emailService, type ProcessReport } from '@/services/emailService'

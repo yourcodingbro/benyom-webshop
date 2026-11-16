@@ -1,10 +1,11 @@
 import type { CollectionConfig, Field } from 'payload'
 
-import { adminOnly, serverOnly } from '@/collections/access'
-import { hexColorField, hufField, options, totalsGroup } from '@/collections/fields'
-import { orderEndpoints } from '@/collections/endpoints'
+import { adminOnly, serverOnly } from '@/collections/utils/access'
+import { hexColorField, hufField, options, totalsGroup } from '@/collections/utils/fields'
+import { orderEndpoints } from '@/collections/utils/endpoints'
 import { auditOrderChange, protectOrder } from '@/collections/hooks/orderHooks'
 import { FULFILLMENT_LABELS, PAYMENT_LABELS, PRICE_APPROVAL_LABELS } from '@/config/labels'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 /** Snapshot fields are read-only in the admin UI; protectOrder enforces it for every API. */
 function readOnly<T extends Field>(field: T): T {
@@ -28,7 +29,7 @@ export const Orders: CollectionConfig = {
   labels: { singular: 'Rendelés', plural: 'Rendelések' },
   admin: {
     useAsTitle: 'reference',
-    group: 'Rendelések',
+    group: NAV_GROUPS.ORDERS,
     defaultColumns: ['reference', 'customer.name', 'fulfillmentStatus', 'priceApprovalStatus', 'agreedTotals.grandTotal', 'isDemo', 'createdAt'],
     listSearchableFields: ['reference', 'customer.name', 'customer.email', 'customer.phone'],
     description: 'Keresés azonosító, név, e-mail vagy telefon alapján; szűrés állapotra, dátumra, demó jelölésre.',

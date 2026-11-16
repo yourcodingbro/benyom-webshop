@@ -2,8 +2,8 @@ import 'server-only'
 
 import type { PayloadRequest } from 'payload'
 
-import { lockRow } from '@/collections/hooks/db'
-import { type EmailJobRef, enqueueEmailJob, type NewEmailJob } from '@/collections/hooks/emailJobs'
+import { lockRow } from '@/collections/utils/db'
+import { type EmailJobRef, enqueueEmailJob, type NewEmailJob } from '@/collections/utils/emailJobs'
 import { writeAuditEvents } from '@/collections/hooks/orderHooks'
 import { isUniqueViolation, payloadClient, relationId, withTransaction } from '@/dto/payload'
 import { assertAdminOrSystem } from '@/lib/authorization'

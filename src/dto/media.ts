@@ -2,7 +2,7 @@ import 'server-only'
 
 import type { Where } from 'payload'
 
-import { isReservedProductSlug, reserveProductSlug, tryReserveProductSlug } from '@/collections/hooks/slugs'
+import { isReservedProductSlug, reserveProductSlug, tryReserveProductSlug } from '@/collections/utils/slugs'
 import { payloadClient } from '@/dto/payload'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import { AppError } from '@/lib/errors'

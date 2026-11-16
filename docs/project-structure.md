@@ -32,13 +32,14 @@ src/
 │   ├── home/                PopularSelector (homepage popular brands/categories)
 │   ├── contact/             ContactForm
 │   ├── info/                InfoPageLayout (shared frame for all information pages), InfoPageView (settings page paragraphs), FaqAccordion (standalone FAQ content + shadcn Accordion)
-│   ├── admin/               Payload admin components: OrderActions, EmailPreview, CsvImportView/Client, AdminNavLinks
+│   ├── admin/               Payload admin components: OrderActions, EmailPreview, ImportJobView/Client (Termékimportok create + detail), ProductSlugField, ProductImagesField, ClickableListRows, …
 │   ├── shadcn/              shadcn/ui primitives (alias "ui" → @/components/shadcn)
 │   ├── Logo.tsx, Breadcrumbs.tsx
 │   └── Reveal.tsx           framer-motion reveal
-├── hooks/                   useCart, useVariantSelection, useDebouncedSearchParam (live search), useListingFilters, useListingUrl, useListingTransition
-├── collections/             Payload collections and globals, access helpers, shared fields, admin endpoints
-│   └── hooks/               order edit rules + audit + per-status email policy, email job enqueue, row locks
+├── hooks/                   React hooks: useCart, useVariantSelection, useDebouncedSearchParam (live search), useListingFilters, useListingUrl, useListingTransition
+├── collections/             Payload collection and global definitions (one file each)
+│   ├── hooks/               Payload lifecycle hooks shared by collections: orderHooks (edit rules, audit, sales, status emails), taxonomyHooks (brand/category slug + id)
+│   └── utils/               helpers: access.ts, fields.ts (field factories, validators), endpoints.ts (admin endpoints), nav-groups.ts (sidebar groups + order), db.ts (row locks), emailJobs.ts, slugs.ts
 ├── dto/                     data access on the Payload Local API (the only database path), transactions
 ├── services/                business services (order, priceChange, email, notification, import, scheduler, contact, …)
 ├── types/                   shared, browser-safe application types

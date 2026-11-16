@@ -1,10 +1,11 @@
 import { APIError, type CollectionBeforeChangeHook, type CollectionBeforeDeleteHook, type CollectionBeforeValidateHook, type CollectionConfig } from 'payload'
 
-import { adminOnly, publicRead, serverOnly } from '@/collections/access'
-import { mediaEndpoints } from '@/collections/endpoints'
-import { hexColorField, SLUG_PATTERN } from '@/collections/fields'
+import { adminOnly, publicRead, serverOnly } from '@/collections/utils/access'
+import { mediaEndpoints } from '@/collections/utils/endpoints'
+import { hexColorField, SLUG_PATTERN } from '@/collections/utils/fields'
 import { getServerEnv, getStorageEnv } from '@/config/env'
 import { hexToPathSegment, normalizeHexColor } from '@/lib/hex'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 /** Media referenced by any product (or variant) can never be deleted. */
 const preventReferencedDelete: CollectionBeforeDeleteHook = async ({ req, id }) => {
@@ -57,7 +58,7 @@ const slugText = (name: string, label: string) =>
 export const Media: CollectionConfig = {
   slug: 'media',
   labels: { singular: 'Média', plural: 'Médiatár' },
-  admin: { useAsTitle: 'alt', group: 'Katalógus', defaultColumns: ['filename', 'alt', 'objectKey'] },
+  admin: { useAsTitle: 'alt', group: NAV_GROUPS.STORE, defaultColumns: ['filename', 'alt', 'objectKey'] },
   // New files are uploaded only from the product form (POST /api/media/product-upload), which derives the
   // storage path on the server; there is no free-form upload with a user-chosen destination.
   access: { read: publicRead, create: serverOnly, update: adminOnly, delete: adminOnly },

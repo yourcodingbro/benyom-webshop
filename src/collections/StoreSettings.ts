@@ -1,12 +1,13 @@
 import type { GlobalConfig } from 'payload'
 
-import { adminOnly } from '@/collections/access'
+import { adminOnly } from '@/collections/utils/access'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 /** Store-wide settings (contact, collection point, delivery methods and fees, legal versions, SEO, homepage, info pages). */
 export const StoreSettings: GlobalConfig = {
   slug: 'store-settings',
   label: 'Áruház beállításai',
-  admin: { group: 'Beállítások' },
+  admin: { group: NAV_GROUPS.SETTINGS },
   access: { read: () => true, update: adminOnly },
   fields: [
     { name: 'storeName', label: 'Áruház neve', type: 'text', required: true },

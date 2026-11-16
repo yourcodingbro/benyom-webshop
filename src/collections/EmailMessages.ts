@@ -1,7 +1,8 @@
 import type { CollectionConfig } from 'payload'
 
-import { adminOnly, serverOnly } from '@/collections/access'
-import { emailEndpoints } from '@/collections/endpoints'
+import { adminOnly, serverOnly } from '@/collections/utils/access'
+import { emailEndpoints } from '@/collections/utils/endpoints'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 export const EMAIL_STATUS_LABELS: Record<string, string> = {
   queued: 'Sorban áll',
@@ -40,7 +41,7 @@ export const EmailMessages: CollectionConfig = {
   labels: { singular: 'E-mail', plural: 'E-mail előzmények' },
   admin: {
     useAsTitle: 'subject',
-    group: 'E-mail',
+    group: NAV_GROUPS.NOTIFICATIONS,
     defaultColumns: ['queuedAt', 'templateId', 'to', 'orderReference', 'status', 'attempts'],
     listSearchableFields: ['to', 'subject', 'orderReference', 'providerMessageId'],
     description: 'Minden alkalmazás által küldött (vagy kihagyott) e-mail. A „Kézbesítve” állapotot csak a Resend webhook állítja be; a szolgáltató általi átvétel nem kézbesítés.',

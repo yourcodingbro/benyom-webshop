@@ -61,8 +61,8 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
             </Link>
           </li>
           <li>
-            <Link className="underline" href="/admin/termekimport">
-              Termékimport (CSV)
+            <Link className="underline" href="/admin/collections/import-jobs/create">
+              Termékimportok (CSV)
             </Link>
           </li>
           <li>

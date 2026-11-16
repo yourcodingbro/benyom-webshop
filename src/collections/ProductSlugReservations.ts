@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { serverOnly } from '@/collections/access'
+import { serverOnly } from '@/collections/utils/access'
 
 /**
  * Product slugs held by product forms that are not saved yet (an image was uploaded before the first

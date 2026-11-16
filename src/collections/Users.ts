@@ -11,9 +11,10 @@ import {
   isAdminRequest,
   isSignedInAdmin,
   nobody,
-} from "@/collections/access";
-import { userEndpoints } from "@/collections/endpoints";
+} from "@/collections/utils/access";
+import { userEndpoints } from "@/collections/utils/endpoints";
 import { clock } from "@/lib/clock";
+import { NAV_GROUPS } from "@/collections/utils/nav-groups";
 
 /** Admins see everyone; an admin who must still change the temporary password sees only themself ("me"). */
 const readUsers: Access = ({ req }): boolean | Where => {
@@ -55,7 +56,7 @@ export const Users: CollectionConfig = {
   labels: { singular: "Felhasználó", plural: "Felhasználók" },
   admin: {
     useAsTitle: "email",
-    group: "Rendszer",
+    group: NAV_GROUPS.SYSTEM,
     defaultColumns: [
       "email",
       "mustChangePassword",

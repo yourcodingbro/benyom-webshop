@@ -1,12 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
-import { adminOnly, serverOnly } from '@/collections/access'
+import { adminOnly, serverOnly } from '@/collections/utils/access'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 /** Contact-form messages. Stored idempotently by `submissionKey`; forwarded to the store by email. */
 export const ContactMessages: CollectionConfig = {
   slug: 'contact-messages',
   labels: { singular: 'Kapcsolati üzenet', plural: 'Kapcsolati üzenetek' },
-  admin: { useAsTitle: 'subject', group: 'E-mail', defaultColumns: ['receivedAt', 'name', 'email', 'subject', 'notificationStatus'], listSearchableFields: ['name', 'email', 'subject'] },
+  admin: { useAsTitle: 'subject', group: NAV_GROUPS.NOTIFICATIONS, defaultColumns: ['receivedAt', 'name', 'email', 'subject', 'notificationStatus'], listSearchableFields: ['name', 'email', 'subject'] },
   access: { read: adminOnly, create: serverOnly, update: serverOnly, delete: adminOnly },
   defaultSort: '-receivedAt',
   fields: [

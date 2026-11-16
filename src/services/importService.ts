@@ -38,6 +38,8 @@ type ImportService = {
   createJob: (fileName: string, csv: string, auth: AuthorizationContext) => Promise<ImportJobView>
   /** Applies the job in time-boxed batches; call again until `completed`. Resumes after interruptions. */
   runJob: (id: number, auth: AuthorizationContext) => Promise<ImportJobView>
+  /** The job as shown on its detail view. */
+  getJob: (id: number, auth: AuthorizationContext) => Promise<ImportJobView | null>
 }
 
 type RowFields = {
@@ -469,6 +471,11 @@ export const importService: ImportService = {
     return toView(job, new Set(preview.actions.map((action: ImportAction) => action.productId)).size)
   },
 
+  async getJob(id: number, auth: AuthorizationContext): Promise<ImportJobView | null> {
+    const job = await getImportJob(id, auth)
+    return job ? toView(job, null) : null
+  },
+
   async runJob(id: number, auth: AuthorizationContext): Promise<ImportJobView> {
     const startedAt = Date.now()
     const now = clock.nowIso()
@@ -479,7 +486,7 @@ export const importService: ImportService = {
       if (!current) throw new AppError('NOT_FOUND', 'Az importfeladat nem található.')
       return toView(current, null)
     }
-    if (claimed.status === 'completed' || claimed.status === 'failed') return toView(claimed, null)
+    if (claimed.status === 'completed') return toView(claimed, null)
     try {
       // Re-planned against current data: groups finished earlier are skipped via the recorded results.
       const importPlan = await plan(claimed.csv, false, auth)

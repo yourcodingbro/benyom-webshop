@@ -1,6 +1,6 @@
 # CSV import
 
-Admin-only, in the Payload admin at **Termékimport (CSV)** (`/admin/termekimport`): template download, upload, server-side **dry run** with row-level errors, then an explicit **apply**. Entry points: `importService.createJob` / `runJob` (persisted jobs), plus `previewImport` / `applyImport` for scripts and tests.
+Admin-only, in the Payload admin under **Termékimportok** (`/admin/collections/import-jobs`): the list is the history; *Új létrehozása* offers the template download, upload and server-side **dry run** with row-level errors; the record's detail view shows the reports and the explicit **apply** (see [admin-operations.md](admin-operations.md#csv-import-termékimportok)). Entry points: `importService.createJob` / `runJob` (persisted jobs), plus `previewImport` / `applyImport` for scripts and tests.
 
 Example file: [`public/minta/termekimport-minta.csv`](../public/minta/termekimport-minta.csv).
 
@@ -43,6 +43,6 @@ Product-level values may appear on any row of the group. Conflicting non-empty v
 ## Persisted jobs, limits and resumption
 
 - Each upload becomes an `import-jobs` record with the CSV, the dry-run report, status, per-group results and the final report.
-- Applying processes product groups in batches of at most ~20 seconds per request (Vercel function limits); the admin page calls the next batch until the job is `completed`. Every finished product group is recorded immediately, so an interrupted run resumes without redoing or losing work (a job whose heartbeat is older than 2 minutes can be taken over).
-- A failed group is recorded with its error and the rest continues. Re-running a completed job changes nothing; importing the same file again reports everything as unchanged.
+- Applying processes product groups in batches of at most ~20 seconds per request (Vercel function limits); the detail view calls the next batch until the job is `completed`. Every finished product group is recorded immediately, so an interrupted run resumes without redoing or losing work (a job whose heartbeat is older than 2 minutes can be taken over).
+- A failed group is recorded with its error and the rest continues. A job that failed as a whole (unexpected error) can be retried from its detail view: it resumes and skips the groups recorded before the failure. Re-running a completed job changes nothing; importing the same file again reports everything as unchanged.
 - Images: `image_keys` must reference media already uploaded for that product (Médiatár). Remote URLs are rejected, so there is no server-side download (no SSRF surface).

@@ -1,12 +1,14 @@
 import type { CollectionConfig } from 'payload'
 
-import { adminOnly, publicRead } from '@/collections/access'
-import { autoSlugAndId, slugField, stableIdField } from '@/collections/fields'
+import { adminOnly, publicRead } from '@/collections/utils/access'
+import { autoSlugAndId } from '@/collections/hooks/taxonomyHooks'
+import { slugField, stableIdField } from '@/collections/utils/fields'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 export const Brands: CollectionConfig = {
   slug: 'brands',
   labels: { singular: 'Márka', plural: 'Márkák' },
-  admin: { useAsTitle: 'name', group: 'Katalógus', defaultColumns: ['name', 'slug'], description: 'A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.' },
+  admin: { useAsTitle: 'name', group: NAV_GROUPS.STORE, defaultColumns: ['name', 'slug'], description: 'A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.' },
   // Manual order: Payload's native orderable list (fractional `_order` keys, only the moved row is written).
   orderable: true,
   defaultSort: '_order',

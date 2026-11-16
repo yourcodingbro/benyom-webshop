@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
-import { adminOnly } from '@/collections/access'
+import { adminOnly } from '@/collections/utils/access'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 const statusSwitch = (name: string, label: string, defaultValue: boolean) =>
   ({ name, label, type: 'checkbox', defaultValue }) as const
@@ -15,7 +16,7 @@ export const NotificationSettings: GlobalConfig = {
   slug: 'notification-settings',
   label: 'Értesítési beállítások',
   admin: {
-    group: 'Beállítások',
+    group: NAV_GROUPS.SETTINGS,
     description: 'Automatikus ügyfél e-mail állapotváltáskor. A módosítás csak a későbbi állapotváltásokra hat; korábbi értesítést nem küld újra.',
   },
   access: { read: adminOnly, update: adminOnly },

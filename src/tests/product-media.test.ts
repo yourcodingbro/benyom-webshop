@@ -1,7 +1,7 @@
 import { sql } from '@payloadcms/db-postgres'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { reserveProductSlug, slugCandidate } from '@/collections/hooks/slugs'
+import { reserveProductSlug, slugCandidate } from '@/collections/utils/slugs'
 import { createProductMedia, deleteAbandonedProductMedia } from '@/dto/media'
 import { getAllProducts } from '@/dto/products'
 import { clock, HOUR_MS } from '@/lib/clock'

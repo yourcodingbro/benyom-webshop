@@ -2,7 +2,7 @@ import 'server-only'
 
 import type { PayloadRequest } from 'payload'
 
-import { lockRow } from '@/collections/hooks/db'
+import { lockRow } from '@/collections/utils/db'
 import { payloadClient, withTransaction } from '@/dto/payload'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import { AppError } from '@/lib/errors'
@@ -44,6 +44,7 @@ export async function createImportJob(input: { fileName: string; csv: string; pr
       createdByLabel: auth.kind === 'admin' ? (auth.label ?? auth.adminId) : auth.kind,
     },
     overrideAccess: true,
+    context: { importJobFromPreview: true },
   })
   return toJob(doc)
 }
@@ -58,7 +59,8 @@ export async function getImportJob(id: number, auth: AuthorizationContext): Prom
 
 /**
  * Claims a job for one processing batch. A job that is already running is only taken over when its
- * heartbeat is stale (an interrupted run), so two batches never process the same job at once.
+ * heartbeat is stale (an interrupted run), so two batches never process the same job at once. A failed
+ * job can be claimed again (retry): groups recorded earlier are skipped, so nothing is applied twice.
  */
 export async function claimImportJob(id: number, now: IsoDateTime, staleBefore: IsoDateTime, auth: AuthorizationContext): Promise<ImportJob | null> {
   assertAdminOrSystem(auth)
@@ -67,7 +69,7 @@ export async function claimImportJob(id: number, now: IsoDateTime, staleBefore: 
     const result = await req.payload.find({ collection: 'import-jobs', where: { id: { equals: id } }, limit: 1, depth: 0, overrideAccess: true, req })
     const doc = result.docs[0]
     if (!doc) throw new AppError('NOT_FOUND', 'Az importfeladat nem található.')
-    if (doc.status === 'completed' || doc.status === 'failed') return toJob(doc)
+    if (doc.status === 'completed') return toJob(doc)
     if (doc.status === 'running' && doc.heartbeatAt && doc.heartbeatAt > staleBefore) return null
     const updated = await req.payload.update({
       collection: 'import-jobs',

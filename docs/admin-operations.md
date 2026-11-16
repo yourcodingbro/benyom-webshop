@@ -2,6 +2,10 @@
 
 Everything operational happens in Payload's native admin, with Hungarian labels. Every operation requires an authenticated user with the `admin` role; custom actions call admin-only endpoints that re-check the session and delegate to the same services the storefront and scheduler use. Business rules live in the services, never in admin components.
 
+## Sidebar groups
+
+Groups, in this order: *Rendelések* (orders, audit log, proposals, sales log), *Bolt* (media, brands, categories, products, imports), *Értesítések* (email history, delivery events, contact messages), *Rendszer* (users), *Beállítások* (store and notification settings). Labels and order live in `src/collections/utils/nav-groups.ts` (`NAV_GROUPS`, `NAV_GROUP_ORDER`); every collection and global references them. Payload has no group-order option, so `admin.components.Nav` (`OrderedNav`) renders Payload's own `DefaultNav` with the collections and globals sorted by group: appearance, collapse state, access-based visibility, active links and the mobile menu are native, and order inside a group stays the registration order. Limitation: Payload groups collections before globals, so a group containing only globals cannot be placed before groups with collections (true today: *Beállítások* is last); `src/tests/admin-nav.test.ts` checks the order.
+
 ## Orders (*Rendelések*)
 
 - **List**: search by reference, customer name, email or phone; filter by fulfillment status, price-approval status, date and the *DEMÓ* flag; newest first.
@@ -50,9 +54,19 @@ Manual create/edit with drafts and publishing. Validation is shared with the CSV
 - **Images.** *Képek* and each variant's *Változat képei* choose existing media natively, or upload new files with *Új kép feltöltése*. The server derives the path `brand-slug/primary-category-slug/product-slug/[color-hex]/name-<random>.ext` from the stored brand and category records and the product's stored slug (or, before the first save, the slug reserved by the first upload, which the form then keeps and saves). Upload is disabled, with the reason shown, until brand, category and name are set; variant uploads also need a valid HEX color. The server checks the same, accepts WebP/JPEG/PNG/AVIF up to 10 MB (extension from the actual type) and never takes a path from the browser. Free-form creation in the *Médiatár* is closed; storage fields are read-only.
 - **After upload** files are never moved or renamed: renaming the product or changing brand, category or color affects only later uploads. Media used by a product cannot be deleted. Product-form uploads that no product or saved version references are removed by the scheduler after 7 days (the slug reservation period); imported or shared media are never cleaned up.
 
-## CSV import (*Termékimport (CSV)*, `/admin/termekimport`)
+## CSV import (*Termékimportok*)
 
-Download the template, upload a file, review the **dry run** (row-level errors, created/updated/skipped/failed counts) and apply. The job is persisted (*Termékimportok*): applying runs in time-boxed batches and records every finished product group, so a timeout or closed tab can be resumed without redoing or losing work. Details: [csv-import.md](csv-import.md).
+One collection, one menu entry (*Bolt → Termékimportok*):
+
+- **List**: the import history with status (*Előnézet kész*, *Folyamatban*, *Befejezve*, *Sikertelen*), file, who started it and when it finished.
+- **Új létrehozása**: download the template, upload the CSV and run the **dry run**. The dry run is stored as a new record and opens its detail view; nothing else changes.
+- **Detail**: status and progress, the preview report and (after applying) the result report with counts and row-level errors. The only way to apply is the explicit *Import megerősítése és alkalmazása* (with a confirmation). An interrupted run shows *Folytatás*, a failed one *Újrapróbálás*; both skip the product groups already recorded, so nothing is applied twice.
+
+There is no editable form: both views are the collection's `views.edit.root` component, and the collection refuses any create that does not come from the dry run (a form save or `POST /api/import-jobs` cannot start or fake an import). Details: [csv-import.md](csv-import.md).
+
+## List views
+
+In every collection list, clicking the empty or plain-text area of a row opens that record, exactly like the link in the first column (Ctrl/⌘/Shift-click or middle-click: new tab). Checkboxes, bulk actions, links, buttons, drag handles and other controls keep their own action, selecting text does not navigate, and keyboard users use the first-column link (rows add no tab stops). Read-only collections open their protected, read-only detail view. One shared admin provider (`ClickableListRows`) does this for all lists; lists inside drawers are not affected.
 
 ## Notification settings (*Értesítési beállítások*)
 

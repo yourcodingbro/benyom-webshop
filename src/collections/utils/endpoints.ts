@@ -1,6 +1,6 @@
 import { addDataAndFileToRequest, type Endpoint, type PayloadRequest } from 'payload'
 
-import { isAdminRequest } from '@/collections/access'
+import { isAdminRequest } from '@/collections/utils/access'
 import type { AuthorizationContext } from '@/types/auth'
 
 /*

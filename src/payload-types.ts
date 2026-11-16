@@ -67,7 +67,6 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    users: User;
     media: Media;
     brands: Brand;
     categories: Category;
@@ -78,10 +77,11 @@ export interface Config {
     'email-messages': EmailMessage;
     'email-events': EmailEvent;
     'contact-messages': ContactMessage;
-    'import-jobs': ImportJob;
     'product-slug-reservations': ProductSlugReservation;
     'product-slug-history': ProductSlugHistory;
     'sale-entries': SaleEntry;
+    users: User;
+    'import-jobs': ImportJob;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -95,7 +95,6 @@ export interface Config {
     };
   };
   collectionsSelect: {
-    users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     brands: BrandsSelect<false> | BrandsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
@@ -106,10 +105,11 @@ export interface Config {
     'email-messages': EmailMessagesSelect<false> | EmailMessagesSelect<true>;
     'email-events': EmailEventsSelect<false> | EmailEventsSelect<true>;
     'contact-messages': ContactMessagesSelect<false> | ContactMessagesSelect<true>;
-    'import-jobs': ImportJobsSelect<false> | ImportJobsSelect<true>;
     'product-slug-reservations': ProductSlugReservationsSelect<false> | ProductSlugReservationsSelect<true>;
     'product-slug-history': ProductSlugHistorySelect<false> | ProductSlugHistorySelect<true>;
     'sale-entries': SaleEntriesSelect<false> | SaleEntriesSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
+    'import-jobs': ImportJobsSelect<false> | ImportJobsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -157,98 +157,178 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
+ * via the `definition` "media".
  */
-export interface User {
+export interface Media {
   id: number;
-  roles: 'admin'[];
-  mustChangePassword?: boolean | null;
-  temporaryPasswordExpiresAt?: string | null;
-  temporaryPasswordFingerprint?: string | null;
-  lastInvitationEmail?: (number | null) | EmailMessage;
+  alt: string;
+  brandSlug: string;
+  categorySlug: string;
+  productSlug: string;
+  /**
+   * Hat számjegyű HEX kód, pl. #1C1C1E. Mentéskor nagybetűsre normalizáljuk.
+   */
+  colorHex?: string | null;
+  /**
+   * márka/kategória/termék/[szín]/fájlnév
+   */
+  objectKey?: string | null;
+  uploadOrigin?: 'product-form' | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  resetPasswordRequestedAt?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-  collection: 'users';
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    card?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
 }
 /**
- * Minden alkalmazás által küldött (vagy kihagyott) e-mail. A „Kézbesítve” állapotot csak a Resend webhook állítja be; a szolgáltató általi átvétel nem kézbesítés.
+ * A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.
  *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "email-messages".
+ * via the `definition` "brands".
  */
-export interface EmailMessage {
-  id: number;
-  templateId:
-    | 'order-received'
-    | 'store-new-order'
-    | 'price-change-proposal'
-    | 'price-change-reminder'
-    | 'price-change-accepted'
-    | 'cancelled-after-rejection'
-    | 'cancelled-after-timeout'
-    | 'cancelled-by-store'
-    | 'fulfillment-update'
-    | 'contact-message'
-    | 'admin-invitation';
-  category: 'customer' | 'store' | 'contact' | 'admin';
-  status:
-    'queued' | 'submitted' | 'delivered' | 'failed' | 'bounced' | 'suppressed' | 'cancelled' | 'skipped' | 'simulated';
-  idempotencyKey: string;
-  to: string;
-  from?: string | null;
-  replyTo?: string | null;
-  subject?: string | null;
-  mode?: ('resend' | 'log' | 'invalid') | null;
-  order?: (number | null) | Order;
-  orderReference?: string | null;
-  proposal?: (string | null) | PriceChangeProposal;
-  contactMessage?: (string | null) | ContactMessage;
-  isDemo?: boolean | null;
-  attempts?: number | null;
-  queuedAt?: string | null;
-  nextAttemptAt?: string | null;
-  claimedAt?: string | null;
-  firstAttemptAt?: string | null;
-  lastAttemptAt?: string | null;
-  submittedAt?: string | null;
-  deliveredAt?: string | null;
-  providerMessageId?: string | null;
-  lastEventType?: string | null;
-  lastEventAt?: string | null;
-  lastError?: string | null;
-  skipReason?: string | null;
+export interface Brand {
+  _order?: string | null;
   /**
-   * Csak azonosítók (rendelés, ajánlat, állapot). Tokent vagy linket nem tárolunk.
+   * Üresen hagyva a slugból képezzük (brand-…). Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
    */
-  templateRef?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  previewHtml?: string | null;
-  previewText?: string | null;
+  id: string;
+  name: string;
+  /**
+   * Üresen hagyva a névből képezzük (egyedi utótaggal, ha foglalt). A név későbbi módosítása nem változtatja meg.
+   */
+  slug: string;
+  description?: string | null;
+  sortOrder?: number | null;
+  popularityRank: number;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  _order?: string | null;
+  /**
+   * Üresen hagyva a slugból képezzük (cat-…). Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
+   */
+  id: string;
+  name: string;
+  /**
+   * Üresen hagyva a névből képezzük (egyedi utótaggal, ha foglalt). A név későbbi módosítása nem változtatja meg.
+   */
+  slug: string;
+  description?: string | null;
+  sortOrder?: number | null;
+  popularityRank: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Kézi termékkezelés. Tömeges felvitelhez használja a Termékimportok menüpontot.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "products".
+ */
+export interface Product {
+  /**
+   * Automatikusan generált UUID.
+   */
+  id: string;
+  name: string;
+  slug: string;
+  slugAuto?: boolean | null;
+  model: string;
+  brand: string | Brand;
+  categories: (string | Category)[];
+  /**
+   * Ez a kategória határozza meg a képek tárolási útvonalát (márka/kategória/termék/…). Üresen hagyva az első kiválasztott kategória.
+   */
+  primaryCategory?: (string | null) | Category;
+  description?: string | null;
+  featured?: boolean | null;
+  /**
+   * Felülírja a változatok rendelhetőségét, ha nem „Előrendelhető”. Készletet nem kezelünk.
+   */
+  orderability: 'preorderable' | 'temporarily_unavailable' | 'discontinued';
+  procurementEstimate?: {
+    minDays?: number | null;
+    maxDays?: number | null;
+  };
+  images?: (number | Media)[] | null;
+  specifications?:
+    | {
+        title: string;
+        items?:
+          | {
+              label: string;
+              value: string;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Minden változat saját cikkszámmal, árral és rendelhetőséggel rendelkezik. A katalógusár módosítása nem változtatja meg a már leadott rendeléseket.
+   */
+  variants: {
+    sku: string;
+    /**
+     * Hat számjegyű HEX kód, pl. #1C1C1E. Mentéskor nagybetűsre normalizáljuk.
+     */
+    colorHex?: string | null;
+    colorLabel?: string | null;
+    storageGb?: number | null;
+    ramGb?: number | null;
+    caseSizeMm?: number | null;
+    /**
+     * Bruttó ár egész forintban (HUF).
+     */
+    price: number;
+    orderability: 'preorderable' | 'temporarily_unavailable' | 'discontinued';
+    procurementEstimate?: {
+      minDays?: number | null;
+      maxDays?: number | null;
+    };
+    images?: (number | Media)[] | null;
+    id?: string | null;
+  }[];
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * Keresés azonosító, név, e-mail vagy telefon alapján; szűrés állapotra, dátumra, demó jelölésre.
@@ -504,6 +584,101 @@ export interface OrderEvent {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  roles: 'admin'[];
+  mustChangePassword?: boolean | null;
+  temporaryPasswordExpiresAt?: string | null;
+  temporaryPasswordFingerprint?: string | null;
+  lastInvitationEmail?: (number | null) | EmailMessage;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'users';
+}
+/**
+ * Minden alkalmazás által küldött (vagy kihagyott) e-mail. A „Kézbesítve” állapotot csak a Resend webhook állítja be; a szolgáltató általi átvétel nem kézbesítés.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-messages".
+ */
+export interface EmailMessage {
+  id: number;
+  templateId:
+    | 'order-received'
+    | 'store-new-order'
+    | 'price-change-proposal'
+    | 'price-change-reminder'
+    | 'price-change-accepted'
+    | 'cancelled-after-rejection'
+    | 'cancelled-after-timeout'
+    | 'cancelled-by-store'
+    | 'fulfillment-update'
+    | 'contact-message'
+    | 'admin-invitation';
+  category: 'customer' | 'store' | 'contact' | 'admin';
+  status:
+    'queued' | 'submitted' | 'delivered' | 'failed' | 'bounced' | 'suppressed' | 'cancelled' | 'skipped' | 'simulated';
+  idempotencyKey: string;
+  to: string;
+  from?: string | null;
+  replyTo?: string | null;
+  subject?: string | null;
+  mode?: ('resend' | 'log' | 'invalid') | null;
+  order?: (number | null) | Order;
+  orderReference?: string | null;
+  proposal?: (string | null) | PriceChangeProposal;
+  contactMessage?: (string | null) | ContactMessage;
+  isDemo?: boolean | null;
+  attempts?: number | null;
+  queuedAt?: string | null;
+  nextAttemptAt?: string | null;
+  claimedAt?: string | null;
+  firstAttemptAt?: string | null;
+  lastAttemptAt?: string | null;
+  submittedAt?: string | null;
+  deliveredAt?: string | null;
+  providerMessageId?: string | null;
+  lastEventType?: string | null;
+  lastEventAt?: string | null;
+  lastError?: string | null;
+  skipReason?: string | null;
+  /**
+   * Csak azonosítók (rendelés, ajánlat, állapot). Tokent vagy linket nem tárolunk.
+   */
+  templateRef?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  previewHtml?: string | null;
+  previewText?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Új ajánlat a rendelés oldaláról indítható. Elfogadni vagy elutasítani csak az ügyfél tudja.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -613,181 +788,6 @@ export interface ContactMessage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt: string;
-  brandSlug: string;
-  categorySlug: string;
-  productSlug: string;
-  /**
-   * Hat számjegyű HEX kód, pl. #1C1C1E. Mentéskor nagybetűsre normalizáljuk.
-   */
-  colorHex?: string | null;
-  /**
-   * márka/kategória/termék/[szín]/fájlnév
-   */
-  objectKey?: string | null;
-  uploadOrigin?: 'product-form' | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-  sizes?: {
-    thumbnail?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    card?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-  };
-}
-/**
- * A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "brands".
- */
-export interface Brand {
-  _order?: string | null;
-  /**
-   * Üresen hagyva a slugból képezzük (brand-…). Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
-   */
-  id: string;
-  name: string;
-  /**
-   * Üresen hagyva a névből képezzük (egyedi utótaggal, ha foglalt). A név későbbi módosítása nem változtatja meg.
-   */
-  slug: string;
-  description?: string | null;
-  sortOrder?: number | null;
-  popularityRank: number;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  _order?: string | null;
-  /**
-   * Üresen hagyva a slugból képezzük (cat-…). Létrehozás után nem módosítható; a CSV-import ezzel azonosít.
-   */
-  id: string;
-  name: string;
-  /**
-   * Üresen hagyva a névből képezzük (egyedi utótaggal, ha foglalt). A név későbbi módosítása nem változtatja meg.
-   */
-  slug: string;
-  description?: string | null;
-  sortOrder?: number | null;
-  popularityRank: number;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Kézi termékkezelés. Tömeges felvitelhez használja a Termékimport (CSV) oldalt.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "products".
- */
-export interface Product {
-  /**
-   * Automatikusan generált UUID.
-   */
-  id: string;
-  name: string;
-  slug: string;
-  slugAuto?: boolean | null;
-  model: string;
-  brand: string | Brand;
-  categories: (string | Category)[];
-  /**
-   * Ez a kategória határozza meg a képek tárolási útvonalát (márka/kategória/termék/…). Üresen hagyva az első kiválasztott kategória.
-   */
-  primaryCategory?: (string | null) | Category;
-  description?: string | null;
-  featured?: boolean | null;
-  /**
-   * Felülírja a változatok rendelhetőségét, ha nem „Előrendelhető”. Készletet nem kezelünk.
-   */
-  orderability: 'preorderable' | 'temporarily_unavailable' | 'discontinued';
-  procurementEstimate?: {
-    minDays?: number | null;
-    maxDays?: number | null;
-  };
-  images?: (number | Media)[] | null;
-  specifications?:
-    | {
-        title: string;
-        items?:
-          | {
-              label: string;
-              value: string;
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Minden változat saját cikkszámmal, árral és rendelhetőséggel rendelkezik. A katalógusár módosítása nem változtatja meg a már leadott rendeléseket.
-   */
-  variants: {
-    sku: string;
-    /**
-     * Hat számjegyű HEX kód, pl. #1C1C1E. Mentéskor nagybetűsre normalizáljuk.
-     */
-    colorHex?: string | null;
-    colorLabel?: string | null;
-    storageGb?: number | null;
-    ramGb?: number | null;
-    caseSizeMm?: number | null;
-    /**
-     * Bruttó ár egész forintban (HUF).
-     */
-    price: number;
-    orderability: 'preorderable' | 'temporarily_unavailable' | 'discontinued';
-    procurementEstimate?: {
-      minDays?: number | null;
-      maxDays?: number | null;
-    };
-    images?: (number | Media)[] | null;
-    id?: string | null;
-  }[];
-  seo?: {
-    title?: string | null;
-    description?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "email-events".
  */
 export interface EmailEvent {
@@ -804,7 +804,49 @@ export interface EmailEvent {
   createdAt: string;
 }
 /**
- * Új import a „Termékimport (CSV)” oldalon indítható.
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-slug-reservations".
+ */
+export interface ProductSlugReservation {
+  id: number;
+  slug: string;
+  expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "product-slug-history".
+ */
+export interface ProductSlugHistory {
+  id: number;
+  slug: string;
+  product?: (string | null) | Product;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Csak olvasható. Átvett, kifizetett és teljesített rendelések tételei; ebből számolódik a heti népszerűség.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sale-entries".
+ */
+export interface SaleEntry {
+  id: number;
+  entryKey: string;
+  order: number | Order;
+  orderReference?: string | null;
+  lineId?: string | null;
+  sku?: string | null;
+  dimension: 'brand' | 'category';
+  key: string;
+  quantity: number;
+  soldAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * CSV-termékimportok előzményei. Új import: „Új létrehozása” → feltöltés, próbafuttatás, majd megerősítés.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "import-jobs".
@@ -852,48 +894,6 @@ export interface ImportJob {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "product-slug-reservations".
- */
-export interface ProductSlugReservation {
-  id: number;
-  slug: string;
-  expiresAt: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "product-slug-history".
- */
-export interface ProductSlugHistory {
-  id: number;
-  slug: string;
-  product?: (string | null) | Product;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Csak olvasható. Átvett, kifizetett és teljesített rendelések tételei; ebből számolódik a heti népszerűség.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sale-entries".
- */
-export interface SaleEntry {
-  id: number;
-  entryKey: string;
-  order: number | Order;
-  orderReference?: string | null;
-  lineId?: string | null;
-  sku?: string | null;
-  dimension: 'brand' | 'category';
-  key: string;
-  quantity: number;
-  soldAt: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -916,10 +916,6 @@ export interface PayloadKv {
 export interface PayloadLockedDocument {
   id: number;
   document?:
-    | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
     | ({
         relationTo: 'media';
         value: number | Media;
@@ -961,10 +957,6 @@ export interface PayloadLockedDocument {
         value: string | ContactMessage;
       } | null)
     | ({
-        relationTo: 'import-jobs';
-        value: number | ImportJob;
-      } | null)
-    | ({
         relationTo: 'product-slug-reservations';
         value: number | ProductSlugReservation;
       } | null)
@@ -975,6 +967,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'sale-entries';
         value: number | SaleEntry;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null)
+    | ({
+        relationTo: 'import-jobs';
+        value: number | ImportJob;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1017,34 +1017,6 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  roles?: T;
-  mustChangePassword?: T;
-  temporaryPasswordExpiresAt?: T;
-  temporaryPasswordFingerprint?: T;
-  lastInvitationEmail?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  resetPasswordRequestedAt?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1469,26 +1441,6 @@ export interface ContactMessagesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "import-jobs_select".
- */
-export interface ImportJobsSelect<T extends boolean = true> {
-  fileName?: T;
-  status?: T;
-  createdBy?: T;
-  createdByLabel?: T;
-  startedAt?: T;
-  heartbeatAt?: T;
-  finishedAt?: T;
-  error?: T;
-  previewReport?: T;
-  results?: T;
-  finalReport?: T;
-  csv?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "product-slug-reservations_select".
  */
 export interface ProductSlugReservationsSelect<T extends boolean = true> {
@@ -1521,6 +1473,54 @@ export interface SaleEntriesSelect<T extends boolean = true> {
   key?: T;
   quantity?: T;
   soldAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  roles?: T;
+  mustChangePassword?: T;
+  temporaryPasswordExpiresAt?: T;
+  temporaryPasswordFingerprint?: T;
+  lastInvitationEmail?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  resetPasswordRequestedAt?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "import-jobs_select".
+ */
+export interface ImportJobsSelect<T extends boolean = true> {
+  fileName?: T;
+  status?: T;
+  createdBy?: T;
+  createdByLabel?: T;
+  startedAt?: T;
+  heartbeatAt?: T;
+  finishedAt?: T;
+  error?: T;
+  previewReport?: T;
+  results?: T;
+  finalReport?: T;
+  csv?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
-import { adminOnly, serverOnly } from '@/collections/access'
+import { adminOnly, serverOnly } from '@/collections/utils/access'
+import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 /**
  * Verified Resend webhook events. The unique `eventId` (svix-id) makes duplicate deliveries no-ops;
@@ -9,7 +10,7 @@ import { adminOnly, serverOnly } from '@/collections/access'
 export const EmailEvents: CollectionConfig = {
   slug: 'email-events',
   labels: { singular: 'Kézbesítési esemény', plural: 'Kézbesítési események' },
-  admin: { useAsTitle: 'type', group: 'E-mail', defaultColumns: ['receivedAt', 'type', 'providerMessageId', 'applied'] },
+  admin: { useAsTitle: 'type', group: NAV_GROUPS.NOTIFICATIONS, defaultColumns: ['receivedAt', 'type', 'providerMessageId', 'applied'] },
   access: { read: adminOnly, create: serverOnly, update: serverOnly, delete: serverOnly },
   defaultSort: '-receivedAt',
   fields: [

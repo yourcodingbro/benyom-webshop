@@ -18,6 +18,8 @@ type QuantitySelectorProps = {
   label: string
   disabled?: boolean
   compact?: boolean
+  /** Stretch the pill to the container width (minus/plus at the ends, the number in between). */
+  fullWidth?: boolean
   className?: string
 }
 
@@ -55,7 +57,7 @@ export function QuantitySelector(props: QuantitySelectorProps): React.JSX.Elemen
   const buttonSize = props.compact ? 'icon-xs' : 'icon-sm'
   return (
     <div className={cn('space-y-1', props.className)}>
-      <div role="group" aria-label={props.label} className={cn('inline-flex items-center rounded-full border border-input bg-background px-0.5', props.compact ? 'h-9' : 'h-10', props.disabled && 'opacity-50')}>
+      <div role="group" aria-label={props.label} className={cn('items-center rounded-full border border-input bg-background px-0.5', props.fullWidth ? 'flex w-full' : 'inline-flex', props.compact ? 'h-9' : 'h-10', props.disabled && 'opacity-50')}>
         <Button type="button" variant="ghost" size={buttonSize} aria-label="Mennyiség csökkentése" disabled={props.disabled || current <= 1} onClick={() => commit(current - 1)}>
           <MinusIcon aria-hidden="true" />
         </Button>
@@ -76,7 +78,8 @@ export function QuantitySelector(props: QuantitySelectorProps): React.JSX.Elemen
           onKeyDown={onKeyDown}
           className={cn(
             'rounded-full bg-transparent text-center font-semibold tabular-nums outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:text-destructive',
-            props.compact ? 'h-7 w-7 text-xs' : 'h-9 w-11 text-sm',
+            props.compact ? 'h-7 text-xs' : 'h-9 text-sm',
+            props.fullWidth ? 'min-w-0 flex-1' : props.compact ? 'w-7' : 'w-11',
           )}
         />
         <Button type="button" variant="ghost" size={buttonSize} aria-label="Mennyiség növelése" disabled={props.disabled || current >= props.max} onClick={() => commit(current + 1)}>

@@ -75,7 +75,7 @@ It is repeatable: existing records are skipped (never overwritten or deleted), r
 | Audit history (append-only, chronological, actor and reason) | order → *Előzmények*; *Rendelési napló* |
 | Price-change proposals: edit prices → review → send | order → *Árváltozási ajánlat* |
 | Manual product management (drafts, variants, HEX, media) | *Termékek*, *Médiatár* |
-| CSV import with template, dry run, persisted jobs | *Termékimport (CSV)* (`/admin/termekimport`), *Termékimportok* |
+| CSV import with template, dry run, history, resume/retry | *Termékimportok* (list = history, *Új létrehozása* = upload) |
 | Brand/category order (drag and drop, keyboard accessible) | *Márkák*, *Kategóriák* |
 | Record receipt, payment, completion (counts as a sale for weekly popularity) | order → *Átadás, fizetés és teljesítés*; *Eladási napló* |
 | Per-status customer email switches | *Értesítési beállítások* |

@@ -2,7 +2,7 @@ import 'server-only'
 
 import type { PayloadRequest, Where } from 'payload'
 
-import { lockRow } from '@/collections/hooks/db'
+import { lockRow } from '@/collections/utils/db'
 import { isUniqueViolation, orderWriteContext, payloadClient, relationId, withTransaction } from '@/dto/payload'
 import { assertAdminOrSystem, isAdminOrSystem } from '@/lib/authorization'
 import { randomReference } from '@/lib/crypto'

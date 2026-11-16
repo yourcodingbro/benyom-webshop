@@ -108,8 +108,8 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
         {/* z-10 lifts the controls above the stretched link overlay. */}
         <div className="relative z-10 mt-auto space-y-2 pt-1">
           <VariantOptions product={product} selection={variants} onChoose={choose} compact />
-          {/* Container query: in narrow cards (2-column phone grid) the button shows only its icon. */}
-          <div className="@container flex items-start gap-2">
+          {/* Stacked at every width: quantity on top, full-width "Kosárba" below. */}
+          <div className="flex flex-col gap-2">
             <QuantitySelector
               value={quantity}
               onChange={(value: number | null) => {
@@ -120,19 +120,19 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
               label={`${product.name} mennyisége`}
               disabled={orderability !== 'preorderable'}
               compact
-              className="shrink-0"
+              fullWidth
             />
             <Button
               type="button"
               size="sm"
-              className="min-w-0 flex-1 gap-1 px-2 has-[>svg]:px-2"
+              className="w-full gap-1"
               loading={adding}
               disabled={!cart.hydrated || orderability !== 'preorderable'}
               onClick={() => void addToCart()}
               aria-label={orderability !== 'preorderable' ? 'Nem rendelhető' : `${product.name} kosárba`}
             >
               {adding ? null : <ShoppingCartIcon aria-hidden="true" />}
-              <span className="hidden truncate @[12rem]:inline">{orderability !== 'preorderable' ? 'Nem rendelhető' : adding ? 'Hozzáadás…' : 'Kosárba'}</span>
+              <span className="truncate">{orderability !== 'preorderable' ? 'Nem rendelhető' : adding ? 'Hozzáadás…' : 'Kosárba'}</span>
             </Button>
           </div>
           <p className="min-h-4 text-xs" role={feedback?.kind === 'error' ? 'alert' : 'status'}>

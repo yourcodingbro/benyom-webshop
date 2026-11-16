@@ -1,8 +1,8 @@
 import { APIError, type CollectionAfterChangeHook, type CollectionBeforeChangeHook, type PayloadRequest } from 'payload'
 
-import { isAdminRequest } from '@/collections/access'
-import { lockRow } from '@/collections/hooks/db'
-import { enqueueEmailJob } from '@/collections/hooks/emailJobs'
+import { isAdminRequest } from '@/collections/utils/access'
+import { lockRow } from '@/collections/utils/db'
+import { enqueueEmailJob } from '@/collections/utils/emailJobs'
 import { FULFILLMENT_LABELS, isFulfillmentStatus, PAYMENT_LABELS } from '@/config/labels'
 import { FULFILLMENT_TRANSITIONS } from '@/config/order-rules'
 import { clock } from '@/lib/clock'

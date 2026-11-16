@@ -4,7 +4,7 @@ import { getBrands } from '@/dto/brands'
 import { getImportJob } from '@/dto/import-jobs'
 import { getAllProducts } from '@/dto/products'
 import { importService } from '@/services/importService'
-import { ADMIN, resetWorld } from '@/tests/helpers'
+import { ADMIN, adminUser, resetWorld, testPayload } from '@/tests/helpers'
 
 beforeEach(resetWorld)
 
@@ -85,6 +85,29 @@ describe('CSV import (persistent)', () => {
     // A new job with the same file reports everything as unchanged.
     const second = await importService.runJob((await importService.createJob('teszt.csv', CSV, ADMIN)).id, ADMIN)
     expect(second.finalReport?.products).toEqual({ created: 0, updated: 0, skipped: 1, failed: 0 })
+  })
+
+  it('creates jobs only through the dry run, never from a form save or API create', async () => {
+    const payload = await testPayload()
+    await expect(payload.create({ collection: 'import-jobs', data: { fileName: 'x.csv', csv: CSV, status: 'previewed' }, user: await adminUser(), overrideAccess: false })).rejects.toThrow(/próbafuttatással/)
+    // A dry run creates the record but applies nothing until the explicit run.
+    const job = await importService.createJob('teszt.csv', CSV, ADMIN)
+    expect(job.status).toBe('previewed')
+    expect((await getAllProducts(ADMIN)).some((item) => item.id === 'prod-nothing-phone-3')).toBe(false)
+    expect(await importService.getJob(job.id, ADMIN)).toMatchObject({ id: job.id, status: 'previewed', fileName: 'teszt.csv' })
+  })
+
+  it('retries a failed job safely: groups finished before the failure are not applied again', async () => {
+    const job = await importService.createJob('teszt.csv', CSV, ADMIN)
+    const done = await importService.runJob(job.id, ADMIN)
+    expect(done.status).toBe('completed')
+    // Simulate a run that failed after this group was recorded.
+    const payload = await testPayload()
+    await payload.update({ collection: 'import-jobs', id: job.id, data: { status: 'failed', error: 'megszakadt', finalReport: null }, overrideAccess: true })
+    const retried = await importService.runJob(job.id, ADMIN)
+    expect(retried).toMatchObject({ status: 'completed', error: null, processedGroups: 1 })
+    expect(retried.finalReport?.products).toEqual(done.finalReport?.products)
+    expect((await getAllProducts(ADMIN)).filter((item) => item.id === 'prod-nothing-phone-3')).toHaveLength(1)
   })
 
   it('rejects unknown columns, duplicate SKUs in a file and non-admin callers', async () => {
