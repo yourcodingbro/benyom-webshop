@@ -21,8 +21,17 @@ import type { StoreSettings } from "@/types/settings";
  */
 
 /** Historical demo order as authored in the dataset (events become audit entries on import). */
-export type SeedOrder = Omit<Order, "events" | "notifications" | "isDemo" | "handover"> & {
-  events: { id: string; at: string; type: OrderEventType; actor: "customer" | "admin" | "system"; message: string }[];
+export type SeedOrder = Omit<
+  Order,
+  "events" | "notifications" | "isDemo" | "handover"
+> & {
+  events: {
+    id: string;
+    at: string;
+    type: OrderEventType;
+    actor: "customer" | "admin" | "system";
+    message: string;
+  }[];
   notifications: never[];
 };
 
@@ -1009,7 +1018,7 @@ const settings: StoreSettings = {
       description:
         "Előkészítés alatt – a díj még nincs meghatározva, ezért nem választható.",
       enabled: true,
-      fee: { kind: "unknown" },
+      fee: { kind: "free" },
     },
   ],
   legal: {

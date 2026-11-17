@@ -1603,7 +1603,7 @@ export interface StoreSetting {
         name: string;
         description?: string | null;
         enabled?: boolean | null;
-        feeKind: 'unknown' | 'free' | 'fixed';
+        feeKind: 'free' | 'fixed';
         feeAmount?: number | null;
         id?: string | null;
       }[]
