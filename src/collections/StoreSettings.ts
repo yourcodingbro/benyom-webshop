@@ -115,12 +115,8 @@ export const StoreSettings: GlobalConfig = {
           label: "Díj típusa",
           type: "select",
           required: true,
-          defaultValue: "unknown",
+          defaultValue: "free",
           options: [
-            {
-              label: "Még nincs meghatározva (nem rendelhető)",
-              value: "unknown",
-            },
             { label: "Ingyenes", value: "free" },
             { label: "Fix díj", value: "fixed" },
           ],
