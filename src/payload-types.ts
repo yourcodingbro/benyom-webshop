@@ -1603,9 +1603,6 @@ export interface StoreSetting {
         name: string;
         description?: string | null;
         enabled?: boolean | null;
-        /**
-         * Az ismeretlen díj soha nem számít nullának; ilyen módszerrel nem adható le rendelés.
-         */
         feeKind: 'unknown' | 'free' | 'fixed';
         feeAmount?: number | null;
         id?: string | null;

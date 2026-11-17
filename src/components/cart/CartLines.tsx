@@ -14,6 +14,7 @@ import { useCart } from '@/hooks/useCart'
 import { describeAttributes } from '@/lib/catalog'
 import { formatHuf } from '@/lib/format'
 import type { QuotedLine } from '@/types/cart'
+import { Skeleton } from '@/components/shadcn/skeleton'
 
 type CartLinesProps = {
   /** Read-only lines (checkout review) hide the quantity controls. */
@@ -29,7 +30,13 @@ export function CartLines(props: CartLinesProps): React.JSX.Element {
     return <p className="py-8 text-center text-muted-foreground">A kosár üres.</p>
   }
   if (!cart.quote) {
-    return <p className="py-8 text-center text-muted-foreground" role="status">Árak betöltése…</p>
+    // Keep the shape of the lines while prices are quoted (row count is known from the stored cart).
+    return (
+      <div role="status">
+        <span className="sr-only">Árak betöltése…</span>
+        <CartLinesSkeleton rows={Math.min(Math.max(cart.lines.length, 1), 4)} />
+      </div>
+    )
   }
 
   return (
@@ -80,6 +87,30 @@ export function CartLines(props: CartLinesProps): React.JSX.Element {
                 {line.status === 'ok' ? formatHuf(line.lineTotal) : '–'}
                 {line.status === 'ok' && line.quantity > 1 ? <span className="block text-xs font-normal text-muted-foreground">{formatHuf(line.unitPrice)} / db</span> : null}
               </span>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+type CartLinesSkeletonProps = { rows: number }
+
+/** CartLines placeholder while prices are quoted: per line a thumbnail, name, SKU, quantity control and price. */
+export function CartLinesSkeleton(props: CartLinesSkeletonProps): React.JSX.Element {
+  return (
+    <ul className="divide-y" aria-hidden="true">
+      {Array.from({ length: props.rows }, (_: unknown, index: number) => (
+        <li key={index} className="flex gap-3 py-4">
+          <Skeleton className="size-20 shrink-0 rounded-lg" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-5 w-3/5" />
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-24" />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <Skeleton className="h-9 w-28 rounded-full" />
+              <Skeleton className="h-5 w-20" />
             </div>
           </div>
         </li>

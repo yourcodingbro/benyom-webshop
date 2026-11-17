@@ -18,6 +18,7 @@ import { describeAttributes, effectiveOrderability } from '@/lib/catalog'
 import { formatHuf } from '@/lib/format'
 import type { VariantDimension } from '@/lib/variant-selection'
 import type { Product } from '@/types/catalog'
+import { Skeleton } from '@/components/shadcn/skeleton'
 
 type ProductConfiguratorProps = {
   product: Product
@@ -103,6 +104,38 @@ export function ProductConfigurator(props: ProductConfiguratorProps): React.JSX.
           {message?.kind === 'success' ? <CheckIcon className="size-4" aria-hidden="true" /> : null}
           {message?.text}
         </p>
+      </div>
+    </div>
+  )
+}
+
+/** ProductConfigurator placeholder: square gallery, then name, meta line, price, variant options and the add-to-cart row. */
+export function ProductConfiguratorSkeleton(): React.JSX.Element {
+  return (
+    <div className="grid gap-8 md:grid-cols-2" aria-hidden="true">
+      <Skeleton className="aspect-square w-full rounded-lg" />
+      <div>
+        <Skeleton className="h-9 w-3/4 sm:h-10" />
+        <Skeleton className="mt-2 h-4 w-40" />
+        <Skeleton className="mt-4 h-9 w-36" />
+        <Skeleton className="mt-2 h-4 w-full max-w-md" />
+        <div className="mt-6 space-y-3">
+          <Skeleton className="h-4 w-20" />
+          <div className="flex gap-2">
+            <Skeleton className="size-10 rounded-full" />
+            <Skeleton className="size-10 rounded-full" />
+            <Skeleton className="size-10 rounded-full" />
+          </div>
+          <Skeleton className="h-4 w-24" />
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-20 rounded-full" />
+            <Skeleton className="h-9 w-20 rounded-full" />
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap items-end gap-3">
+          <Skeleton className="h-10 w-32 rounded-full" />
+          <Skeleton className="h-11 w-52 rounded-full" />
+        </div>
       </div>
     </div>
   )

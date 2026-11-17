@@ -197,7 +197,7 @@ async function send(config: EmailConfig, job: EmailJob, rendered: RenderedEmail)
 function toResult(job: EmailJob): SendEmailResult {
   if (job.status === 'submitted' || job.status === 'delivered') return { status: 'sent', messageId: job.providerMessageId ?? '', sentAt: job.submittedAt ?? clock.nowIso() }
   if (job.status === 'simulated') return { status: 'sent_simulated', messageId: job.providerMessageId ?? '', sentAt: job.submittedAt ?? clock.nowIso() }
-  return { status: 'failed', attemptedAt: clock.nowIso(), error: job.lastError ?? job.skipReason ?? `Az e-mail állapota: ${job.status}.` }
+  return { status: 'failed', attemptedAt: clock.nowIso(), error: job.lastError ?? job.skipReason ?? `Az e-mail állapota: ${job.status}.`, willRetry: job.status === 'queued' }
 }
 
 /** Email content that is sent once from memory (never rebuilt from storage) with its secrets redacted from history. */
@@ -209,23 +209,39 @@ function redactSecrets(value: string, secrets: string[]): string {
   return secrets.filter((secret: string) => secret.length > 0).reduce((text: string, secret: string) => text.split(secret).join(SECRET_PLACEHOLDER), value)
 }
 
+/** Where a delivery attempt stopped (server diagnostics). */
+type DeliveryStage = 'template' | 'settings' | 'render' | 'config' | 'recipient' | 'provider'
+
+/** "j***@example.com": enough to tell recipients apart in logs without exposing the address. */
+function maskAddress(address: string): string {
+  const at = address.lastIndexOf('@')
+  return at > 0 ? `${address[0]}***${address.slice(at)}` : address === UNSET_STORE_RECIPIENT ? address : '***'
+}
+
 async function deliverJob(id: number, oneShot?: OneShotContent): Promise<EmailJobStatus | 'busy'> {
   const now = clock.now()
   const staleBefore = new Date(now.getTime() - EMAIL_CLAIM_STALE_MINUTES * 60_000).toISOString()
   const job = await claimEmailJob(id, now.toISOString(), staleBefore)
   if (!job) return (await getEmailJob(id))?.status ?? 'busy'
+  // Correlates this attempt across the server log and the email history (job id + attempt number; the claim already counted it).
+  const correlationId = `eml-${job.id}-${job.attempts}`
+  let stage: DeliveryStage = 'template'
 
   try {
     const built = oneShot ? { template: oneShot.template } : await buildTemplate(job)
     if ('cancel' in built) return (await completeEmailJob(id, { kind: 'cancelled', at: clock.nowIso(), reason: built.cancel }, null)).status
     // Sender and store recipient come from the current store settings (no redeploy needed).
+    stage = 'settings'
     const settings = await getStoreSettings()
     const config = getEmailConfig(settings)
+    stage = 'render'
     const rendered = await renderEmail(built.template, settings)
+    stage = config.mode === 'invalid' ? 'config' : 'provider'
     // A store notification created before "Kapcsolati e-mail" was set takes the address configured now.
     const to = job.to === UNSET_STORE_RECIPIENT ? getStoreRecipient(settings) : job.to
     const sent: EmailJobOutcome =
       to === UNSET_STORE_RECIPIENT ? { kind: 'failed', at: clock.nowIso(), error: MISSING_STORE_RECIPIENT, retryAt: retryAt(job.attempts, clock.now()) } : await send(config, { ...job, to }, rendered)
+    if (to === UNSET_STORE_RECIPIENT) stage = 'recipient'
     // One-shot content cannot be rebuilt later, so its failure is final (no scheduled retry).
     const outcome: EmailJobOutcome = oneShot && sent.kind === 'failed' ? { ...sent, retryAt: null } : sent
     const secrets = oneShot?.secrets ?? []
@@ -257,14 +273,27 @@ async function deliverJob(id: number, oneShot?: OneShotContent): Promise<EmailJo
       const status = completed.status === 'submitted' ? 'sent' : completed.status === 'simulated' ? 'sent_simulated' : 'failed'
       await updateContactMessageStatus(job.template.contactMessageId, status, EMAIL_AUTH)
     }
-    const log = completed.status === 'queued' || completed.status === 'failed' ? console.error : console.info
-    // Metadata only: never bodies, links, tokens, reply-to addresses or credentials.
-    log('[EMAIL]', { mode: config.mode, status: completed.status, template: job.template.id, to: job.to, orderReference: job.orderReference, proposalId: job.proposalId, attempts: completed.attempts, messageId: completed.providerMessageId })
+    const failed = completed.status === 'queued' || completed.status === 'failed'
+    // Metadata only: never bodies, links, tokens, reply-to addresses or credentials; the recipient is masked.
+    ;(failed ? console.error : console.info)('[EMAIL]', {
+      correlationId,
+      stage: failed ? stage : 'done',
+      mode: config.mode,
+      status: completed.status,
+      template: job.template.id,
+      to: maskAddress(to),
+      orderReference: job.orderReference,
+      attempts: completed.attempts,
+      retryScheduled: completed.status === 'queued',
+      messageId: completed.providerMessageId,
+      ...(failed ? { error: completed.lastError } : {}),
+    })
     return completed.status
   } catch (error: unknown) {
     // Unexpected error (e.g. database): release the claim with a scheduled retry; never lose the job.
     const message = redactForLog(error instanceof Error ? error.message : 'ismeretlen hiba')
-    const completed = await completeEmailJob(id, { kind: 'failed', at: clock.nowIso(), error: `Belső hiba: ${message}`, retryAt: retryAt(job.attempts, clock.now()) }, null)
+    console.error('[EMAIL]', { correlationId, stage, status: 'error', template: job.template.id, attempts: job.attempts, error: `${error instanceof Error ? error.name : 'Error'}: ${message}` })
+    const completed = await completeEmailJob(id, { kind: 'failed', at: clock.nowIso(), error: `Belső hiba (${stage}, ${correlationId}): ${message}`, retryAt: retryAt(job.attempts, clock.now()) }, null)
     return completed.status
   }
 }
@@ -284,6 +313,12 @@ export const emailService: EmailService = {
       skipReason: null,
     })
     await deliverJob(ref.id, input.secrets?.length ? { template: input.template, secrets: input.secrets } : undefined)
+    // Opt-in: a transient failure is retried once more right now (awaited, same job and idempotency key),
+    // so the notification does not wait for the scheduler. Permanent rejections are never retried here.
+    if (input.retryTransientOnce && (await getEmailJob(ref.id))?.status === 'queued') {
+      await requeueEmailJob(ref.id, clock.nowIso(), EMAIL_AUTH)
+      await deliverJob(ref.id)
+    }
     const job = await getEmailJob(ref.id)
     if (!job) throw new AppError('NOT_FOUND', 'Az e-mail nem található.')
     return toResult(job)

@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { addressSchema, customerSchema } from '@/schemas/checkout'
 import type { FieldErrors } from '@/types/common'
 import type { DeliveryMethod } from '@/types/settings'
+import { Skeleton } from '@/components/shadcn/skeleton'
 
 type CheckoutFormProps = {
   deliveryMethods: DeliveryMethod[]
@@ -513,6 +514,34 @@ export function CheckoutForm(props: CheckoutFormProps): React.JSX.Element {
         </div>
         <p className="text-xs text-muted-foreground">Az árakat és a díjat a szerver a beküldéskor ellenőrzi.</p>
       </aside>
+    </div>
+  )
+}
+
+/** CheckoutForm placeholder: step heading, the first step's field grid and the order summary aside. */
+export function CheckoutFormSkeleton(): React.JSX.Element {
+  return (
+    <div className="grid gap-8 lg:grid-cols-[1fr_340px]" aria-hidden="true">
+      <div>
+        <Skeleton className="mb-4 h-7 w-56" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((field: number) => (
+            <div key={field} className="space-y-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex justify-end">
+          <Skeleton className="h-11 w-40 rounded-full" />
+        </div>
+      </div>
+      <div className="h-fit space-y-3 rounded-xl bg-muted p-5">
+        <Skeleton className="h-6 w-32 bg-background/70" />
+        <Skeleton className="h-4 w-full bg-background/70" />
+        <Skeleton className="h-4 w-full bg-background/70" />
+        <Skeleton className="h-6 w-2/3 bg-background/70" />
+      </div>
     </div>
   )
 }

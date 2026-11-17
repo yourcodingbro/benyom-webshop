@@ -1,9 +1,14 @@
 import type React from 'react'
 
-export default function Loading(): React.JSX.Element {
+/**
+ * Generic product-grid placeholder (LoadingSkeleton). Used only for product loading: the product listings
+ * (termékek, kategória, márka) have no loading boundary of their own and fall back to this one; every
+ * other route has a skeleton matching its own components.
+ */
+export default function LoadingSkeleton(): React.JSX.Element {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6" role="status" aria-live="polite">
-      <span className="sr-only">Betöltés…</span>
+      <span className="sr-only">Termékek betöltése…</span>
       <div className="h-9 w-64 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }, (_: unknown, index: number) => (

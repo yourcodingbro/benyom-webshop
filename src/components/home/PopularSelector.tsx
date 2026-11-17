@@ -4,6 +4,7 @@ import type React from 'react'
 
 import { Reveal } from '@/components/Reveal'
 import { Button } from '@/components/shadcn/button'
+import { Skeleton } from '@/components/shadcn/skeleton'
 
 export type PopularSelectorItem = {
   key: string
@@ -49,5 +50,25 @@ export function PopularSelector(props: PopularSelectorProps): React.JSX.Element 
         </Link>
       </Button>
     </section>
+  )
+}
+
+/** PopularSelector placeholder: heading, three ranked rows (name + description) and the "all" button. */
+export function PopularSelectorSkeleton(): React.JSX.Element {
+  return (
+    <div className="flex h-full flex-col rounded-2xl border bg-card p-5 sm:p-6" aria-hidden="true">
+      <Skeleton className="h-7 w-48 sm:h-8" />
+      <div className="mt-5 flex-1 space-y-3">
+        {[0, 1, 2].map((row: number) => (
+          <div key={row} className="flex items-center gap-3 rounded-xl bg-muted p-4">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-5 w-32 bg-background/70" />
+              <Skeleton className="h-4 w-3/4 bg-background/70" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <Skeleton className="mt-5 h-10 w-40 rounded-full" />
+    </div>
   )
 }

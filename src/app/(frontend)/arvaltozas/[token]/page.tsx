@@ -3,8 +3,8 @@ import type { Metadata } from 'next'
 import type React from 'react'
 
 import { decideAction } from '@/app/(frontend)/arvaltozas/[token]/actions'
+import { PendingSubmitButton } from '@/components/PendingSubmitButton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/shadcn/alert'
-import { Button } from '@/components/shadcn/button'
 import { PROPOSAL_STATUS_LABELS } from '@/config/labels'
 import { formatDateTime, formatHuf } from '@/lib/format'
 import { priceChangeService } from '@/services/priceChangeService'
@@ -98,10 +98,10 @@ export default async function DecisionPage(props: DecisionPageProps): Promise<Re
               <input type="hidden" name="token" value={token} />
               <input type="hidden" name="decision" value="accept" />
               <p className="mb-3 text-sm">Elfogadom az új árat ({formatHuf(view.proposedTotals.grandTotal)}).</p>
-              <Button type="submit" className="w-full">
+              <PendingSubmitButton className="w-full" pendingLabel="Elfogadás…">
                 <CheckIcon aria-hidden="true" />
                 Elfogadom
-              </Button>
+              </PendingSubmitButton>
             </form>
             <form action={decideAction} className="rounded-xl border border-destructive/40 p-4">
               <input type="hidden" name="token" value={token} />
@@ -111,10 +111,10 @@ export default async function DecisionPage(props: DecisionPageProps): Promise<Re
                 <span>Tudomásul veszem, hogy elutasítás esetén a teljes rendelés törlődik.</span>
               </label>
               {needsConfirmation ? <p className="mb-2 text-sm text-destructive">Az elutasításhoz jelölje be a megerősítést.</p> : null}
-              <Button type="submit" variant="destructive" className="w-full">
+              <PendingSubmitButton variant="destructive" className="w-full" pendingLabel="Elutasítás…">
                 <XIcon aria-hidden="true" />
                 Elutasítom, a rendelés törlődjön
-              </Button>
+              </PendingSubmitButton>
             </form>
           </div>
         </>

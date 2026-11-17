@@ -41,6 +41,8 @@ export type SendEmailInput = {
    * storage, so a failed delivery is final and must be re-issued by the workflow that created it.
    */
   secrets?: string[]
+  /** Retry a transient failure once more immediately (awaited) before returning; used by the contact form. */
+  retryTransientOnce?: boolean
 }
 
 export type SendEmailResult =
@@ -48,7 +50,8 @@ export type SendEmailResult =
   | { status: 'sent'; messageId: string; sentAt: IsoDateTime }
   /** EMAIL_MODE=log: rendered and logged, not sent. */
   | { status: 'sent_simulated'; messageId: string; sentAt: IsoDateTime }
-  | { status: 'failed'; attemptedAt: IsoDateTime; error: string }
+  /** willRetry: the scheduler tries again (transient error); false = final until an admin acts. */
+  | { status: 'failed'; attemptedAt: IsoDateTime; error: string; willRetry: boolean }
 
 export type RenderedEmail = {
   subject: string

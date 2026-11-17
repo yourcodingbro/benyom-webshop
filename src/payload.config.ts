@@ -85,6 +85,10 @@ export default buildConfig({
       // Native nav with the sidebar groups in NAV_GROUP_ORDER (collections/utils/nav-groups.ts).
       Nav: "@/components/admin/OrderedNav#OrderedNav",
       views: {
+        // Native login form, plus a "Bejelentkezés…" pending state (components/admin/AdminLoginView.tsx).
+        login: {
+          Component: "@/components/admin/AdminLoginView#AdminLoginView",
+        },
         changePassword: {
           Component: "@/components/admin/ChangePasswordView#ChangePasswordView",
           path: "/jelszocsere",

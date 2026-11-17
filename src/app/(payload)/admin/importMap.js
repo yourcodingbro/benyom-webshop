@@ -9,6 +9,7 @@ import { ImportJobView as ImportJobView_4f1ad6bb832dcbaf806c98b3ccc371fc } from 
 import { OrderedNav as OrderedNav_f0cd2a7f98979214735494ecc7ac5497 } from '@/components/admin/OrderedNav'
 import { MustChangePasswordGate as MustChangePasswordGate_daf2dde71dcc88e9704b93b54ab0a1d6 } from '@/components/admin/MustChangePasswordGate'
 import { ClickableListRows as ClickableListRows_23417c0427e9960134bf65079a873f1e } from '@/components/admin/ClickableListRows'
+import { AdminLoginView as AdminLoginView_06cbb52549f30d042ac86e71b4846f12 } from '@/components/admin/AdminLoginView'
 import { ChangePasswordView as ChangePasswordView_1df2e6e12fd92054767cf0e411cb1120 } from '@/components/admin/ChangePasswordView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
@@ -26,6 +27,7 @@ export const importMap = {
   "@/components/admin/OrderedNav#OrderedNav": OrderedNav_f0cd2a7f98979214735494ecc7ac5497,
   "@/components/admin/MustChangePasswordGate#MustChangePasswordGate": MustChangePasswordGate_daf2dde71dcc88e9704b93b54ab0a1d6,
   "@/components/admin/ClickableListRows#ClickableListRows": ClickableListRows_23417c0427e9960134bf65079a873f1e,
+  "@/components/admin/AdminLoginView#AdminLoginView": AdminLoginView_06cbb52549f30d042ac86e71b4846f12,
   "@/components/admin/ChangePasswordView#ChangePasswordView": ChangePasswordView_1df2e6e12fd92054767cf0e411cb1120,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24

@@ -66,6 +66,8 @@ There is no editable form: both views are the collection's `views.edit.root` com
 
 ## Pending actions
 
+**Login:** `admin.components.views.login` (`AdminLoginView`) renders Payload's own Form, fields and submit button with a *Bejelentkezés…* spinner while the request runs; repeated clicks are dropped (a duplicate would count toward the lockout), and Payload's error toasts, inline validation and redirect are unchanged.
+
 Custom admin actions (inviting an admin, new temporary password, password change, order cancellation, handover/payment/completion, price-change review and send, email retry, CSV upload/dry run and import runs, media upload) share one pattern: the button shows Payload's spinner with a specific label (*Küldés…*, *Rögzítés…*, *Importálás…*), is disabled with `aria-busy` while the request runs, ignores repeated clicks (`useAsyncAction`), keeps entered values, is restored after success or failure, and the outcome is announced (`role=status` / `role=alert`). A lost connection is reported as such instead of leaving a spinner. Other controls stay usable. Imports show the persisted state (*Előnézet kész* → *Indítás…* → processed groups → *Befejezve*); email jobs show *Sorban áll* (scheduler sends it), *Átadva*, *Kézbesítve* or *Sikertelen* with the reason and whether another automatic attempt is scheduled. Native Payload operations (saving documents and settings, drag-and-drop ordering) keep Payload's own loading feedback.
 
 ## List views

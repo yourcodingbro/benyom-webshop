@@ -5,6 +5,7 @@ import { FULFILLMENT_LABELS, PAYMENT_LABELS } from '@/config/labels'
 import { describeAttributes } from '@/lib/catalog'
 import { formatDateTime, formatHuf } from '@/lib/format'
 import type { Order } from '@/types/order'
+import { Skeleton } from '@/components/shadcn/skeleton'
 
 type OrderSummaryProps = {
   order: Order
@@ -65,6 +66,34 @@ export function OrderSummary(props: OrderSummaryProps): React.JSX.Element {
           <dd>{formatHuf(agreed.totals.grandTotal)}</dd>
         </div>
       </dl>
+    </div>
+  )
+}
+
+/** OrderSummary placeholder: the reference / date / status strip, two item lines and the totals. */
+export function OrderSummarySkeleton(): React.JSX.Element {
+  return (
+    <div className="space-y-6" aria-hidden="true">
+      <div className="grid gap-3 rounded-xl bg-muted p-4 sm:grid-cols-3">
+        {[0, 1, 2].map((cell: number) => (
+          <div key={cell} className="space-y-1.5">
+            <Skeleton className="h-4 w-24 bg-background/70" />
+            <Skeleton className="h-6 w-32 bg-background/70" />
+          </div>
+        ))}
+      </div>
+      <div className="divide-y rounded-xl border px-4">
+        {[0, 1].map((line: number) => (
+          <div key={line} className="flex justify-between gap-2 py-3">
+            <div className="space-y-1.5">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="h-5 w-20" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="ml-auto h-6 w-40" />
     </div>
   )
 }

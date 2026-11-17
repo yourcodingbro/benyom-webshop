@@ -18,6 +18,7 @@ import { describeAttributes, effectiveOrderability } from '@/lib/catalog'
 import { formatHuf } from '@/lib/format'
 import type { VariantDimension } from '@/lib/variant-selection'
 import type { Orderability, Product } from '@/types/catalog'
+import { Skeleton } from '@/components/shadcn/skeleton'
 
 type ProductCardProps = {
   product: Product
@@ -146,5 +147,31 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
         </div>
       </div>
     </article>
+  )
+}
+
+/** ProductCard placeholder: square image, brand, name, price, colour dots and the stacked quantity / "Kosárba" controls. */
+export function ProductCardSkeleton(): React.JSX.Element {
+  return (
+    <div className="flex h-full flex-col rounded-xl border bg-card p-3" aria-hidden="true">
+      <Skeleton className="aspect-square w-full rounded-lg" />
+      <div className="mt-3 flex flex-1 flex-col gap-2">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-5 w-4/5" />
+        <Skeleton className="h-6 w-24" />
+        <div className="mt-auto space-y-2 pt-1">
+          <div className="flex gap-1.5">
+            <Skeleton className="size-6 rounded-full" />
+            <Skeleton className="size-6 rounded-full" />
+            <Skeleton className="size-6 rounded-full" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-9 w-full rounded-full" />
+            <Skeleton className="h-9 w-full rounded-full" />
+          </div>
+          <div className="min-h-4" />
+        </div>
+      </div>
+    </div>
   )
 }

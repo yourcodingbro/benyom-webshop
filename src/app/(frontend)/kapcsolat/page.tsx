@@ -1,8 +1,8 @@
-import { MailIcon, MapPinIcon, PhoneIcon } from 'lucide-react'
 import type { Metadata } from 'next'
 import type React from 'react'
 
 import { Breadcrumbs } from '@/components/Breadcrumbs'
+import { ContactDetails } from '@/components/contact/ContactDetails'
 import { ContactForm } from '@/components/contact/ContactForm'
 import { Reveal } from '@/components/Reveal'
 import { getStoreSettings } from '@/dto/settings'
@@ -28,32 +28,7 @@ export default async function ContactPage(): Promise<React.JSX.Element> {
           <ContactForm formToken={createFormToken(CONTACT_FORM_PURPOSE)} />
         </section>
         <Reveal delay={0.08}>
-          <aside className="space-y-4 rounded-xl bg-muted p-5 text-sm" aria-labelledby="elerhetosegek">
-            <h2 id="elerhetosegek" className="text-base font-bold">
-              Elérhetőségek
-            </h2>
-            <p className="flex items-start gap-2">
-              <MailIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>
-                <span className="sr-only">E-mail: </span>
-                {settings.contact.email}
-              </span>
-            </p>
-            <p className="flex items-start gap-2">
-              <PhoneIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>
-                <span className="sr-only">Telefon: </span>
-                {settings.contact.phone}
-              </span>
-            </p>
-            <p className="flex items-start gap-2">
-              <MapPinIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <span>
-                <span className="sr-only">Cím: </span>
-                {settings.contact.address}
-              </span>
-            </p>
-          </aside>
+          <ContactDetails contact={settings.contact} />
         </Reveal>
       </div>
     </div>

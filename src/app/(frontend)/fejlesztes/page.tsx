@@ -5,7 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import type React from 'react'
 
 import { runSchedulerAction } from '@/app/(frontend)/fejlesztes/actions'
-import { Button } from '@/components/shadcn/button'
+import { PendingSubmitButton } from '@/components/PendingSubmitButton'
 import { getEmailConfig } from '@/config/email'
 import { getStoreSettings } from '@/dto/settings'
 import { getAppEnv } from '@/config/env'
@@ -50,7 +50,7 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
           Ugyanaz a feldolgozás, amit élesben a Vercel cron percenként futtat: esedékes e-mailek (újrapróbálással), árváltozási emlékeztetők és lejáratok. A demó adatokat nem érinti.
         </p>
         <form action={runSchedulerAction}>
-          <Button type="submit">Ütemező futtatása most</Button>
+          <PendingSubmitButton pendingLabel="Futtatás…">Ütemező futtatása most</PendingSubmitButton>
         </form>
       </section>
       <section className="rounded-xl border p-5">

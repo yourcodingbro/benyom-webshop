@@ -56,6 +56,16 @@ Admins can retry `failed` (or stuck `queued`) emails from the email detail view.
 - Email history, contact messages and webhook events are readable only by admins and cannot be created or changed through any API.
 - There is no separate store of sensitive transport data: everything needed to retry is re-derived. Contact-message content stays in `contact-messages` (admin-only); delete messages there when they are no longer needed.
 
+## Contact form
+
+`/kapcsolat` → `contactFormAction` (server action) → `contactService.submitContactMessage` (validation, anti-spam token, idempotent store in `contact-messages`) → `emailService.sendEmail` (`contact-message` React Email template, sender and store recipient from the store settings, visitor address as `replyTo`) → Resend → email history.
+
+- **Progressive enhancement:** the form's `action` is the server action, so a submit before the page's JavaScript is ready (slow device, slow dev compile) still posts to the server. Before this, such a submit fell back to a plain GET: the message never reached the server and the visitor's data ended up in the URL. With JavaScript the handler calls the action directly (spinner, *Küldés…*, duplicate clicks ignored, values and consent kept on failure).
+- **Immediate delivery:** the email is sent inside the submission. A transient provider failure is retried once more right away (awaited, same job and idempotency key); only if that also fails does the job wait for the scheduler. A permanent rejection (Resend 4xx, e.g. the testing-domain restriction) is not retried. Resubmitting the same message retries the same job and never creates a second message or email.
+- **Honeypot:** the hidden anti-spam field is named `hp_kapcsolat` and marked for password managers to ignore. It used to be called `website`, which browsers and password managers autofill; a real message was then treated as spam, dropped before storing, and the form wrongly showed the log-mode notice. A filled honeypot now stores and sends nothing and says so (*spamszűrő visszatartotta*); the log-mode notice appears only for a real `EMAIL_MODE=log` result.
+- **Honest result:** *elküldtük* only after Resend accepted the email (not inbox delivery); *rögzítettük, a továbbítás folyamatban* when a retry is scheduled; *rögzítettük – e-mail nem ment ki* in log mode; a stored message with a final failure says so and that it need not be resent.
+- **Diagnostics:** `[KAPCSOLAT] { correlationId: contact-<submission key prefix>, stage: validation | honeypot | form-token | email, outcome }` and `[EMAIL] { correlationId: eml-<job id>-<attempt>, stage: template | settings | render | config | recipient | provider, status, template, to: masked, attempts, retryScheduled, messageId, error }`. Never the API key, message bodies, passwords or decision tokens; recipients are masked.
+
 ## Sender and store address (store settings)
 
 *Beállítások → Áruház beállításai → E-mail küldés*, admin-only (the public settings read never returns them):

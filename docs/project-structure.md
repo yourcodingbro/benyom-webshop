@@ -62,6 +62,8 @@ Root-level exceptions: `package.json`, `next.config.ts`, `tsconfig.json`, `eslin
 
 ## Conventions
 
+- **Loading states.** Content loading uses component-specific skeletons kept in the same file as their component (`ProductCardSkeleton` in `ProductCard.tsx`, `ContactDetailsSkeleton` in `ContactDetails.tsx`, …), built from the shadcn `Skeleton` primitive and composed by the route's `loading.tsx`, which announces the loading state. The generic product-grid placeholder (`(frontend)/loading.tsx`, `LoadingSkeleton`) is used only for the product listings. Mutations show a local spinner with a Hungarian pending label and disable only their own trigger (shadcn `Button loading`, `PendingSubmitButton` for server-action forms; `BusyButton` in the admin). Refreshes keep the existing content (no skeleton flash).
+
 - Components are PascalCase function declarations with a single typed `props` object and an explicit return type. Component-specific types stay in the component file.
 - Buttons and button-styled links always use `components/shadcn/button.tsx`: pill-shaped (`rounded-full`), variants `default` (primary), `secondary`, `outline`, `ghost`, `ghostInverse` (on the dark header), `destructive`, `link`; sizes `xs`/`sm`/`default`/`lg` and circular `icon-*`; `loading` shows a spinner and blocks repeat clicks. Links use `<Button asChild>`. Color swatches stay square; inputs keep their own geometry.
 - Single light theme: `globals.css` binds Tailwind's `dark:` variant to a `.dark` class that is never set, so shadcn primitives keep the light styling even when the OS prefers dark mode.
