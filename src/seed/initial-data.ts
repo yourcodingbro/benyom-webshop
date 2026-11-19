@@ -1016,7 +1016,7 @@ const settings: StoreSettings = {
       kind: "delivery",
       name: "Csomagautomata",
       description:
-        "Előkészítés alatt – a díj még nincs meghatározva, ezért nem választható.",
+        "Kiszállítás a kiválasztott csomagautomatába, fizetés átvételkor.",
       enabled: true,
       fee: { kind: "free" },
     },

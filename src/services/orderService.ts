@@ -1,96 +1,134 @@
-import 'server-only'
+import "server-only";
 
-import type { PayloadRequest } from 'payload'
+import type { PayloadRequest } from "payload";
 
-import { FULFILLMENT_LABELS, PAYMENT_LABELS } from '@/config/labels'
-import { FULFILLMENT_TRANSITIONS } from '@/config/order-rules'
-import { getDueEmailJobIds } from '@/dto/email-log'
-import { addOrder, getOrder, getOrderById, updateOrder } from '@/dto/orders'
-import { getActiveProposal, resolveProposal } from '@/dto/price-change-proposals'
-import { getStoreSettings } from '@/dto/settings'
-import { actorOf } from '@/lib/audit'
-import { assertAdminOrSystem } from '@/lib/authorization'
-import { clock } from '@/lib/clock'
-import { canonicalJson, sha256 } from '@/lib/crypto'
-import { AppError } from '@/lib/errors'
-import { sumHuf } from '@/lib/money'
-import { createOrderAccessToken } from '@/lib/order-access'
-import { checkoutSchema } from '@/schemas/checkout'
-import { notificationService } from '@/services/notificationService'
-import { quoteService } from '@/services/quoteService'
-import type { AuthorizationContext } from '@/types/auth'
-import type { QuotedLine } from '@/types/cart'
-import type { FieldErrors, HufAmount } from '@/types/common'
-import type { FulfillmentStatus, Order, OrderLineSnapshot, OrderPatch, OrderTotals } from '@/types/order'
-import type { DeliveryMethod } from '@/types/settings'
-import type { AuditEventInput } from '@/types/workflow'
+import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/config/labels";
+import { FULFILLMENT_TRANSITIONS } from "@/config/order-rules";
+import { getDueEmailJobIds } from "@/dto/email-log";
+import { addOrder, getOrder, getOrderById, updateOrder } from "@/dto/orders";
+import {
+  getActiveProposal,
+  resolveProposal,
+} from "@/dto/price-change-proposals";
+import { getStoreSettings } from "@/dto/settings";
+import { actorOf } from "@/lib/audit";
+import { assertAdminOrSystem } from "@/lib/authorization";
+import { clock } from "@/lib/clock";
+import { canonicalJson, sha256 } from "@/lib/crypto";
+import { AppError } from "@/lib/errors";
+import { sumHuf } from "@/lib/money";
+import { createOrderAccessToken } from "@/lib/order-access";
+import { checkoutSchema } from "@/schemas/checkout";
+import { notificationService } from "@/services/notificationService";
+import { quoteService } from "@/services/quoteService";
+import type { AuthorizationContext } from "@/types/auth";
+import type { QuotedLine } from "@/types/cart";
+import type { FieldErrors, HufAmount } from "@/types/common";
+import type {
+  FulfillmentStatus,
+  Order,
+  OrderLineSnapshot,
+  OrderPatch,
+  OrderTotals,
+} from "@/types/order";
+import type { DeliveryMethod } from "@/types/settings";
+import type { AuditEventInput } from "@/types/workflow";
 
 export type PlaceOrderResult =
   | { ok: true; reference: string; accessToken: string; created: boolean }
-  | { ok: false; message: string; fieldErrors: FieldErrors }
+  | { ok: false; message: string; fieldErrors: FieldErrors };
 
 export type UpdateStatusInput = {
-  reference: string
-  status: FulfillmentStatus
-  expectedVersion: number
-}
+  reference: string;
+  status: FulfillmentStatus;
+  expectedVersion: number;
+};
 
 /** Identify the order by public reference or (admin UI) by Payload id. */
 /** Explicit handover facts recorded by the admin; `complete` alone works only when both are already recorded. */
 export type HandoverInput = {
-  orderId: string
-  receipt: boolean
-  payment: boolean
-  complete: boolean
-  expectedVersion: number
-}
+  orderId: string;
+  receipt: boolean;
+  payment: boolean;
+  complete: boolean;
+  expectedVersion: number;
+};
 
 export type CancelOrderInput = {
-  reference?: string
-  orderId?: string
+  reference?: string;
+  orderId?: string;
   /** Required reason, stored on the order and in the audit trail. */
-  note: string
-  expectedVersion: number
-}
+  note: string;
+  expectedVersion: number;
+};
 
 type OrderService = {
-  placeOrder: (input: unknown) => Promise<PlaceOrderResult>
-  getOrderForCustomer: (reference: string, accessToken: string) => Promise<Order | null>
-  updateFulfillmentStatus: (input: UpdateStatusInput, auth: AuthorizationContext) => Promise<Order>
-  cancelOrder: (input: CancelOrderInput, auth: AuthorizationContext) => Promise<Order>
-  recordHandover: (input: HandoverInput, auth: AuthorizationContext) => Promise<Order>
-  addAdminNote: (reference: string, text: string, auth: AuthorizationContext) => Promise<Order>
-}
+  placeOrder: (input: unknown) => Promise<PlaceOrderResult>;
+  getOrderForCustomer: (
+    reference: string,
+    accessToken: string
+  ) => Promise<Order | null>;
+  updateFulfillmentStatus: (
+    input: UpdateStatusInput,
+    auth: AuthorizationContext
+  ) => Promise<Order>;
+  cancelOrder: (
+    input: CancelOrderInput,
+    auth: AuthorizationContext
+  ) => Promise<Order>;
+  recordHandover: (
+    input: HandoverInput,
+    auth: AuthorizationContext
+  ) => Promise<Order>;
+  addAdminNote: (
+    reference: string,
+    text: string,
+    auth: AuthorizationContext
+  ) => Promise<Order>;
+};
 
-const MIN_REASON_LENGTH: number = 3
+const MIN_REASON_LENGTH: number = 3;
 
-/** Throws unless the method can be ordered right now; unknown fees are never treated as zero. */
-export function resolveDeliveryFee(method: DeliveryMethod | undefined): HufAmount {
-  if (!method || !method.enabled) throw new AppError('VALIDATION', 'A választott szállítási mód nem elérhető.', { deliveryMethodId: 'Válasszon elérhető szállítási módot.' })
+/** Throws unless the method can be ordered right now. */
+export function resolveDeliveryFee(
+  method: DeliveryMethod | undefined
+): HufAmount {
+  if (!method || !method.enabled)
+    throw new AppError(
+      "VALIDATION",
+      "A választott szállítási mód nem elérhető.",
+      { deliveryMethodId: "Válasszon elérhető szállítási módot." }
+    );
   switch (method.fee.kind) {
-    case 'free':
-      return 0
-    case 'fixed':
-      return method.fee.amount
-    case 'unknown':
-      throw new AppError('VALIDATION', 'Ennek a szállítási módnak még nincs meghatározott díja, ezért nem választható.', {
-        deliveryMethodId: 'Ennek a szállítási módnak még nincs meghatározott díja.',
-      })
+    case "free":
+      return 0;
+    case "fixed":
+      return method.fee.amount;
   }
 }
 
-function toFieldErrors(issues: { path: PropertyKey[]; message: string }[]): FieldErrors {
-  const errors: FieldErrors = {}
+function toFieldErrors(
+  issues: { path: PropertyKey[]; message: string }[]
+): FieldErrors {
+  const errors: FieldErrors = {};
   for (const issue of issues) {
-    const key = issue.path.map(String).join('.') || 'form'
-    errors[key] ??= issue.message
+    const key = issue.path.map(String).join(".") || "form";
+    errors[key] ??= issue.message;
   }
-  return errors
+  return errors;
 }
 
 function snapshotLine(line: QuotedLine, index: number): OrderLineSnapshot {
-  if (line.status !== 'ok' || !line.productId || !line.productSlug || !line.attributes) {
-    throw new AppError('VALIDATION', `A(z) ${line.sku} termék jelenleg nem rendelhető. Távolítsa el a kosárból.`)
+  if (
+    line.status !== "ok" ||
+    !line.productId ||
+    !line.productSlug ||
+    !line.attributes
+  ) {
+    throw new AppError(
+      "VALIDATION",
+      `A(z) ${line.sku} termék jelenleg nem rendelhető. Távolítsa el a kosárból.`
+    );
   }
   return {
     lineId: `line-${index + 1}`,
@@ -107,18 +145,27 @@ function snapshotLine(line: QuotedLine, index: number): OrderLineSnapshot {
     lineTotal: line.lineTotal,
     catalogUnitPrice: line.catalogUnitPrice,
     priceSource: line.priceSource,
-  }
+  };
 }
 
 /** Sends this order's queued emails right after commit; anything that fails stays queued for the scheduler. */
 async function deliverQueued(reference: string): Promise<void> {
-  await notificationService.deliver(await getDueEmailJobIds(clock.nowIso(), 10, reference))
+  await notificationService.deliver(
+    await getDueEmailJobIds(clock.nowIso(), 10, reference)
+  );
 }
 
-async function requireOrder(input: { reference?: string; orderId?: string }, auth: AuthorizationContext): Promise<Order> {
-  const order = input.orderId ? await getOrderById(input.orderId, auth) : input.reference ? await getOrder(input.reference, auth) : null
-  if (!order) throw new AppError('NOT_FOUND', 'A rendelés nem található.')
-  return order
+async function requireOrder(
+  input: { reference?: string; orderId?: string },
+  auth: AuthorizationContext
+): Promise<Order> {
+  const order = input.orderId
+    ? await getOrderById(input.orderId, auth)
+    : input.reference
+      ? await getOrder(input.reference, auth)
+      : null;
+  if (!order) throw new AppError("NOT_FOUND", "A rendelés nem található.");
+  return order;
 }
 
 export const orderService: OrderService = {
@@ -128,36 +175,76 @@ export const orderService: OrderService = {
    * transaction), then attempts delivery. No payment is taken or simulated.
    */
   async placeOrder(input: unknown): Promise<PlaceOrderResult> {
-    const parsed = checkoutSchema.safeParse(input)
+    const parsed = checkoutSchema.safeParse(input);
     if (!parsed.success) {
-      return { ok: false, message: 'Kérjük, javítsa a megjelölt mezőket.', fieldErrors: toFieldErrors(parsed.error.issues) }
+      return {
+        ok: false,
+        message: "Kérjük, javítsa a megjelölt mezőket.",
+        fieldErrors: toFieldErrors(parsed.error.issues),
+      };
     }
-    const data = parsed.data
-    if (new Set(data.lines.map((line) => line.sku)).size !== data.lines.length) {
-      return { ok: false, message: 'Egy termékváltozat csak egyszer szerepelhet a kosárban.', fieldErrors: {} }
+    const data = parsed.data;
+    if (
+      new Set(data.lines.map((line) => line.sku)).size !== data.lines.length
+    ) {
+      return {
+        ok: false,
+        message: "Egy termékváltozat csak egyszer szerepelhet a kosárban.",
+        fieldErrors: {},
+      };
     }
 
     try {
-      const settings = await getStoreSettings()
-      const method = settings.deliveryMethods.find((item: DeliveryMethod) => item.id === data.deliveryMethodId)
-      const deliveryFee = resolveDeliveryFee(method)
-      if (!method) throw new AppError('VALIDATION', 'Ismeretlen szállítási mód.')
-      if (method.kind === 'delivery' && !data.shippingAddress) {
-        return { ok: false, message: 'Házhozszállításhoz adja meg a szállítási címet.', fieldErrors: { 'shippingAddress.street': 'Adja meg a szállítási címet.' } }
+      const settings = await getStoreSettings();
+      const method = settings.deliveryMethods.find(
+        (item: DeliveryMethod) => item.id === data.deliveryMethodId
+      );
+      const deliveryFee = resolveDeliveryFee(method);
+      if (!method)
+        throw new AppError("VALIDATION", "Ismeretlen szállítási mód.");
+      if (method.kind === "delivery" && !data.shippingAddress) {
+        return {
+          ok: false,
+          message: "Házhozszállításhoz adja meg a szállítási címet.",
+          fieldErrors: {
+            "shippingAddress.street": "Adja meg a szállítási címet.",
+          },
+        };
       }
 
-      const quote = await quoteService.quoteCart(data.lines)
-      const lines = quote.lines.map(snapshotLine)
-      const itemsTotal = sumHuf(lines.map((line: OrderLineSnapshot) => line.lineTotal))
-      const totals: OrderTotals = { itemsTotal, deliveryFee, grandTotal: sumHuf([itemsTotal, deliveryFee]), currency: 'HUF' }
-      const needsPriceReview = lines.some((line: OrderLineSnapshot) => line.unitPrice < line.catalogUnitPrice)
-      const now = clock.nowIso()
-      const { idempotencyKey, ...hashable } = data
+      const quote = await quoteService.quoteCart(data.lines);
+      const lines = quote.lines.map(snapshotLine);
+      const itemsTotal = sumHuf(
+        lines.map((line: OrderLineSnapshot) => line.lineTotal)
+      );
+      const totals: OrderTotals = {
+        itemsTotal,
+        deliveryFee,
+        grandTotal: sumHuf([itemsTotal, deliveryFee]),
+        currency: "HUF",
+      };
+      const needsPriceReview = lines.some(
+        (line: OrderLineSnapshot) => line.unitPrice < line.catalogUnitPrice
+      );
+      const now = clock.nowIso();
+      const { idempotencyKey, ...hashable } = data;
 
-      const customer = { type: 'customer', label: 'ügyfél (webshop)' } as const
-      const auditEvents: AuditEventInput[] = [{ type: 'submitted', actor: customer, message: 'Előrendelés leadva.', newValue: { status: 'received', grandTotal: totals.grandTotal } }]
+      const customer = { type: "customer", label: "ügyfél (webshop)" } as const;
+      const auditEvents: AuditEventInput[] = [
+        {
+          type: "submitted",
+          actor: customer,
+          message: "Előrendelés leadva.",
+          newValue: { status: "received", grandTotal: totals.grandTotal },
+        },
+      ];
       if (needsPriceReview) {
-        auditEvents.push({ type: 'price_review_flagged', actor: { type: 'system', label: 'árellenőrzés' }, message: 'Érvényes ajánlati ár alacsonyabb a jelenlegi katalógusárnál – árellenőrzés javasolt.' })
+        auditEvents.push({
+          type: "price_review_flagged",
+          actor: { type: "system", label: "árellenőrzés" },
+          message:
+            "Érvényes ajánlati ár alacsonyabb a jelenlegi katalógusárnál – árellenőrzés javasolt.",
+        });
       }
 
       const { order, created } = await addOrder(
@@ -167,24 +254,38 @@ export const orderService: OrderService = {
           submission: {
             submittedAt: now,
             lines,
-            delivery: { methodId: method.id, kind: method.kind, name: method.name, fee: deliveryFee },
+            delivery: {
+              methodId: method.id,
+              kind: method.kind,
+              name: method.name,
+              fee: deliveryFee,
+            },
             totals,
             customer: data.customer,
             billingAddress: data.billingAddress,
-            shippingAddress: method.kind === 'delivery' ? data.shippingAddress : null,
+            shippingAddress:
+              method.kind === "delivery" ? data.shippingAddress : null,
             note: data.note,
-            terms: { termsVersion: settings.legal.termsVersion, privacyVersion: settings.legal.privacyVersion, acceptedAt: now },
+            terms: {
+              termsVersion: settings.legal.termsVersion,
+              privacyVersion: settings.legal.privacyVersion,
+              acceptedAt: now,
+            },
           },
           agreed: {
-            lines: lines.map((line: OrderLineSnapshot) => ({ lineId: line.lineId, unitPrice: line.unitPrice, lineTotal: line.lineTotal })),
+            lines: lines.map((line: OrderLineSnapshot) => ({
+              lineId: line.lineId,
+              unitPrice: line.unitPrice,
+              lineTotal: line.lineTotal,
+            })),
             totals,
-            source: 'submission',
+            source: "submission",
             proposalId: null,
             agreedAt: now,
           },
-          fulfillmentStatus: 'received',
-          paymentStatus: 'unpaid',
-          priceApprovalStatus: 'not_required',
+          fulfillmentStatus: "received",
+          paymentStatus: "unpaid",
+          priceApprovalStatus: "not_required",
           needsPriceReview,
           adminNotes: [],
           auditEvents,
@@ -193,100 +294,230 @@ export const orderService: OrderService = {
         },
         async (req: PayloadRequest, saved): Promise<void> => {
           // Queued in the order's transaction: the order is never stored without its notifications.
-          const target = { ...saved, customerEmail: data.customer.email }
-          await notificationService.queue({ order: target, templateId: 'order-received', recipientRole: 'customer', settings, proposalId: null, status: null }, req)
-          await notificationService.queue({ order: target, templateId: 'store-new-order', recipientRole: 'store', settings, proposalId: null, status: null }, req)
-        },
-      )
+          const target = { ...saved, customerEmail: data.customer.email };
+          await notificationService.queue(
+            {
+              order: target,
+              templateId: "order-received",
+              recipientRole: "customer",
+              settings,
+              proposalId: null,
+              status: null,
+            },
+            req
+          );
+          await notificationService.queue(
+            {
+              order: target,
+              templateId: "store-new-order",
+              recipientRole: "store",
+              settings,
+              proposalId: null,
+              status: null,
+            },
+            req
+          );
+        }
+      );
       // The order is committed; a failed email is retried later and never undoes it.
-      if (created) await deliverQueued(order.reference)
-      return { ok: true, reference: order.reference, accessToken: createOrderAccessToken(order.reference), created }
+      if (created) await deliverQueued(order.reference);
+      return {
+        ok: true,
+        reference: order.reference,
+        accessToken: createOrderAccessToken(order.reference),
+        created,
+      };
     } catch (error: unknown) {
-      if (error instanceof AppError && (error.code === 'VALIDATION' || error.code === 'CONFLICT')) {
-        return { ok: false, message: error.message, fieldErrors: error.fieldErrors ?? {} }
+      if (
+        error instanceof AppError &&
+        (error.code === "VALIDATION" || error.code === "CONFLICT")
+      ) {
+        return {
+          ok: false,
+          message: error.message,
+          fieldErrors: error.fieldErrors ?? {},
+        };
       }
-      throw error
+      throw error;
     }
   },
 
-  async getOrderForCustomer(reference: string, accessToken: string): Promise<Order | null> {
-    return getOrder(reference, { kind: 'order-access', reference, accessToken })
+  async getOrderForCustomer(
+    reference: string,
+    accessToken: string
+  ): Promise<Order | null> {
+    return getOrder(reference, {
+      kind: "order-access",
+      reference,
+      accessToken,
+    });
   },
 
   /** Status change with audit entry; the per-status email policy is applied by the Orders hook. */
-  async updateFulfillmentStatus(input: UpdateStatusInput, auth: AuthorizationContext): Promise<Order> {
-    assertAdminOrSystem(auth)
-    const order = await requireOrder({ reference: input.reference }, auth)
-    if (order.isDemo) throw new AppError('INVALID_STATE', 'Demó (történeti) rendelés nem módosítható.')
-    if (order.priceApprovalStatus === 'pending') {
-      throw new AppError('INVALID_STATE', 'A teljesítés szünetel, amíg az ügyfél nem döntött az árváltozásról.')
+  async updateFulfillmentStatus(
+    input: UpdateStatusInput,
+    auth: AuthorizationContext
+  ): Promise<Order> {
+    assertAdminOrSystem(auth);
+    const order = await requireOrder({ reference: input.reference }, auth);
+    if (order.isDemo)
+      throw new AppError(
+        "INVALID_STATE",
+        "Demó (történeti) rendelés nem módosítható."
+      );
+    if (order.priceApprovalStatus === "pending") {
+      throw new AppError(
+        "INVALID_STATE",
+        "A teljesítés szünetel, amíg az ügyfél nem döntött az árváltozásról."
+      );
     }
-    if (!FULFILLMENT_TRANSITIONS[order.fulfillmentStatus].includes(input.status)) {
-      throw new AppError('INVALID_STATE', `Nem engedélyezett állapotváltás: ${FULFILLMENT_LABELS[order.fulfillmentStatus]} → ${FULFILLMENT_LABELS[input.status]}.`)
+    if (
+      !FULFILLMENT_TRANSITIONS[order.fulfillmentStatus].includes(input.status)
+    ) {
+      throw new AppError(
+        "INVALID_STATE",
+        `Nem engedélyezett állapotváltás: ${FULFILLMENT_LABELS[order.fulfillmentStatus]} → ${FULFILLMENT_LABELS[input.status]}.`
+      );
     }
-    if (input.status === 'ready_for_collection' && order.submission.delivery.kind !== 'collection') {
-      throw new AppError('INVALID_STATE', 'Kiszállításos rendelés nem állítható „Átvehető” állapotba.')
+    if (
+      input.status === "ready_for_collection" &&
+      order.submission.delivery.kind !== "collection"
+    ) {
+      throw new AppError(
+        "INVALID_STATE",
+        "Kiszállításos rendelés nem állítható „Átvehető” állapotba."
+      );
     }
-    if (input.status === 'dispatched' && order.submission.delivery.kind !== 'delivery') {
-      throw new AppError('INVALID_STATE', 'Személyes átvételes rendelés nem állítható „Kiszállítás alatt” állapotba.')
+    if (
+      input.status === "dispatched" &&
+      order.submission.delivery.kind !== "delivery"
+    ) {
+      throw new AppError(
+        "INVALID_STATE",
+        "Személyes átvételes rendelés nem állítható „Kiszállítás alatt” állapotba."
+      );
     }
-    if (input.status === 'completed' && (order.handover.receivedByCustomerAt === null || order.paymentStatus !== 'paid')) {
-      throw new AppError('VALIDATION', 'Teljesítéshez előbb rögzíteni kell az ügyfél általi átvételt és a fizetést (recordHandover).')
+    if (
+      input.status === "completed" &&
+      (order.handover.receivedByCustomerAt === null ||
+        order.paymentStatus !== "paid")
+    ) {
+      throw new AppError(
+        "VALIDATION",
+        "Teljesítéshez előbb rögzíteni kell az ügyfél általi átvételt és a fizetést (recordHandover)."
+      );
     }
     const updated = await updateOrder(
       order.reference,
       input.expectedVersion,
       {
         fulfillmentStatus: input.status,
-        appendEvents: [{ type: 'status_changed', actor: actorOf(auth), message: `Állapot: ${FULFILLMENT_LABELS[input.status]}.`, previousValue: order.fulfillmentStatus, newValue: input.status }],
+        appendEvents: [
+          {
+            type: "status_changed",
+            actor: actorOf(auth),
+            message: `Állapot: ${FULFILLMENT_LABELS[input.status]}.`,
+            previousValue: order.fulfillmentStatus,
+            newValue: input.status,
+          },
+        ],
       },
-      auth,
-    )
-    await deliverQueued(updated.reference)
-    return (await getOrder(updated.reference, auth)) ?? updated
+      auth
+    );
+    await deliverQueued(updated.reference);
+    return (await getOrder(updated.reference, auth)) ?? updated;
   },
 
   /**
    * Store cancellation with a mandatory reason. A pending price proposal is withdrawn in the same
    * transaction (competing atomically with a customer decision).
    */
-  async cancelOrder(input: CancelOrderInput, auth: AuthorizationContext): Promise<Order> {
-    assertAdminOrSystem(auth)
-    const reason = input.note.trim()
-    if (reason.length < MIN_REASON_LENGTH) throw new AppError('VALIDATION', 'A törlés indoklása kötelező (legalább 3 karakter).', { reason: 'Adja meg a törlés okát.' })
-    const order = await requireOrder(input, auth)
-    if (order.isDemo) throw new AppError('INVALID_STATE', 'Demó (történeti) rendelés nem módosítható.')
-    if (order.fulfillmentStatus === 'completed' || order.fulfillmentStatus === 'cancelled') {
-      throw new AppError('INVALID_STATE', 'Teljesített vagy törölt rendelés nem törölhető.')
+  async cancelOrder(
+    input: CancelOrderInput,
+    auth: AuthorizationContext
+  ): Promise<Order> {
+    assertAdminOrSystem(auth);
+    const reason = input.note.trim();
+    if (reason.length < MIN_REASON_LENGTH)
+      throw new AppError(
+        "VALIDATION",
+        "A törlés indoklása kötelező (legalább 3 karakter).",
+        { reason: "Adja meg a törlés okát." }
+      );
+    const order = await requireOrder(input, auth);
+    if (order.isDemo)
+      throw new AppError(
+        "INVALID_STATE",
+        "Demó (történeti) rendelés nem módosítható."
+      );
+    if (
+      order.fulfillmentStatus === "completed" ||
+      order.fulfillmentStatus === "cancelled"
+    ) {
+      throw new AppError(
+        "INVALID_STATE",
+        "Teljesített vagy törölt rendelés nem törölhető."
+      );
     }
-    if (Number.isFinite(input.expectedVersion) && order.version !== input.expectedVersion) {
-      throw new AppError('CONFLICT', 'A rendelést időközben módosították. Frissítse az oldalt, és próbálja újra.')
+    if (
+      Number.isFinite(input.expectedVersion) &&
+      order.version !== input.expectedVersion
+    ) {
+      throw new AppError(
+        "CONFLICT",
+        "A rendelést időközben módosították. Frissítse az oldalt, és próbálja újra."
+      );
     }
-    const now = clock.nowIso()
-    const actor = actorOf(auth)
+    const now = clock.nowIso();
+    const actor = actorOf(auth);
     const patch: OrderPatch = {
-      fulfillmentStatus: 'cancelled',
-      paymentStatus: 'void',
-      cancellation: { reason: 'admin', note: reason.slice(0, 2000), at: now },
-      appendEvents: [{ type: 'cancelled', actor, message: 'A rendelést a bolt törölte.', previousValue: order.fulfillmentStatus, newValue: 'cancelled', reason: reason.slice(0, 2000) }],
-    }
-    const active = await getActiveProposal(order.reference, auth)
+      fulfillmentStatus: "cancelled",
+      paymentStatus: "void",
+      cancellation: { reason: "admin", note: reason.slice(0, 2000), at: now },
+      appendEvents: [
+        {
+          type: "cancelled",
+          actor,
+          message: "A rendelést a bolt törölte.",
+          previousValue: order.fulfillmentStatus,
+          newValue: "cancelled",
+          reason: reason.slice(0, 2000),
+        },
+      ],
+    };
+    const active = await getActiveProposal(order.reference, auth);
     if (active) {
       const result = await resolveProposal(
         {
           proposalId: active.id,
-          outcome: 'withdrawn',
+          outcome: "withdrawn",
           at: now,
-          orderPatch: { ...patch, appendEvents: [{ type: 'proposal_withdrawn', actor, message: 'Az árváltozási ajánlat a rendelés törlése miatt visszavonva.', reason }, ...(patch.appendEvents ?? [])] },
+          orderPatch: {
+            ...patch,
+            appendEvents: [
+              {
+                type: "proposal_withdrawn",
+                actor,
+                message:
+                  "Az árváltozási ajánlat a rendelés törlése miatt visszavonva.",
+                reason,
+              },
+              ...(patch.appendEvents ?? []),
+            ],
+          },
         },
-        auth,
-      )
-      if (!result.won) throw new AppError('CONFLICT', 'Az ügyfél időközben döntött az ajánlatról. Frissítse az oldalt.')
+        auth
+      );
+      if (!result.won)
+        throw new AppError(
+          "CONFLICT",
+          "Az ügyfél időközben döntött az ajánlatról. Frissítse az oldalt."
+        );
     } else {
-      await updateOrder(order.reference, order.version, patch, auth)
+      await updateOrder(order.reference, order.version, patch, auth);
     }
-    await deliverQueued(order.reference)
-    return requireOrder({ reference: order.reference }, auth)
+    await deliverQueued(order.reference);
+    return requireOrder({ reference: order.reference }, auth);
   },
 
   /**
@@ -295,52 +526,123 @@ export const orderService: OrderService = {
    * for the weekly popularity; the Orders hook enforces the same rules for every other write path.
    * Completing an already completed order changes nothing, so a sale is never counted twice.
    */
-  async recordHandover(input: HandoverInput, auth: AuthorizationContext): Promise<Order> {
-    assertAdminOrSystem(auth)
-    const order = await requireOrder({ orderId: input.orderId }, auth)
-    if (order.isDemo) throw new AppError('INVALID_STATE', 'Demó (történeti) rendelés nem módosítható.')
-    if (order.fulfillmentStatus === 'completed') return order
-    if (order.fulfillmentStatus === 'cancelled') throw new AppError('INVALID_STATE', 'Törölt rendelésnél nem rögzíthető átvétel vagy fizetés.')
-    if (!input.receipt && !input.payment && !input.complete) throw new AppError('VALIDATION', 'Válassza ki, mit rögzít (átvétel, fizetés, teljesítés).')
-    if (order.fulfillmentStatus !== 'ready_for_collection' && order.fulfillmentStatus !== 'dispatched') {
-      throw new AppError('INVALID_STATE', 'Átvétel és fizetés csak „Átvehető” vagy „Kiszállítás alatt” állapotú rendelésnél rögzíthető.')
+  async recordHandover(
+    input: HandoverInput,
+    auth: AuthorizationContext
+  ): Promise<Order> {
+    assertAdminOrSystem(auth);
+    const order = await requireOrder({ orderId: input.orderId }, auth);
+    if (order.isDemo)
+      throw new AppError(
+        "INVALID_STATE",
+        "Demó (történeti) rendelés nem módosítható."
+      );
+    if (order.fulfillmentStatus === "completed") return order;
+    if (order.fulfillmentStatus === "cancelled")
+      throw new AppError(
+        "INVALID_STATE",
+        "Törölt rendelésnél nem rögzíthető átvétel vagy fizetés."
+      );
+    if (!input.receipt && !input.payment && !input.complete)
+      throw new AppError(
+        "VALIDATION",
+        "Válassza ki, mit rögzít (átvétel, fizetés, teljesítés)."
+      );
+    if (
+      order.fulfillmentStatus !== "ready_for_collection" &&
+      order.fulfillmentStatus !== "dispatched"
+    ) {
+      throw new AppError(
+        "INVALID_STATE",
+        "Átvétel és fizetés csak „Átvehető” vagy „Kiszállítás alatt” állapotú rendelésnél rögzíthető."
+      );
     }
-    if (input.complete && order.priceApprovalStatus === 'pending') throw new AppError('INVALID_STATE', 'A teljesítés szünetel, amíg az ügyfél nem döntött az árváltozásról.')
-    const received = input.receipt || order.handover.receivedByCustomerAt !== null
-    const paid = input.payment || order.paymentStatus === 'paid'
+    if (input.complete && order.priceApprovalStatus === "pending")
+      throw new AppError(
+        "INVALID_STATE",
+        "A teljesítés szünetel, amíg az ügyfél nem döntött az árváltozásról."
+      );
+    const received =
+      input.receipt || order.handover.receivedByCustomerAt !== null;
+    const paid = input.payment || order.paymentStatus === "paid";
     if (input.complete && (!received || !paid)) {
-      throw new AppError('VALIDATION', 'Teljesítéshez rögzíteni kell az ügyfél általi átvételt és a fizetést is.')
+      throw new AppError(
+        "VALIDATION",
+        "Teljesítéshez rögzíteni kell az ügyfél általi átvételt és a fizetést is."
+      );
     }
-    if (order.version !== input.expectedVersion) throw new AppError('CONFLICT', 'A rendelést időközben módosították. Frissítse az oldalt, és próbálja újra.')
-    const now = clock.nowIso()
-    const actor = actorOf(auth)
-    const patch: OrderPatch = { appendEvents: [] }
+    if (order.version !== input.expectedVersion)
+      throw new AppError(
+        "CONFLICT",
+        "A rendelést időközben módosították. Frissítse az oldalt, és próbálja újra."
+      );
+    const now = clock.nowIso();
+    const actor = actorOf(auth);
+    const patch: OrderPatch = { appendEvents: [] };
     if (input.receipt && !order.handover.receivedByCustomerAt) {
-      patch.receivedByCustomerAt = now
-      patch.appendEvents?.push({ type: 'receipt_recorded', actor, message: 'Az ügyfél átvette a terméke(ke)t.', newValue: now })
+      patch.receivedByCustomerAt = now;
+      patch.appendEvents?.push({
+        type: "receipt_recorded",
+        actor,
+        message: "Az ügyfél átvette a terméke(ke)t.",
+        newValue: now,
+      });
     }
-    if (input.payment && order.paymentStatus !== 'paid') {
-      patch.paymentStatus = 'paid'
-      patch.appendEvents?.push({ type: 'payment_changed', actor, message: `Fizetés: ${PAYMENT_LABELS.paid}.`, previousValue: order.paymentStatus, newValue: 'paid' })
+    if (input.payment && order.paymentStatus !== "paid") {
+      patch.paymentStatus = "paid";
+      patch.appendEvents?.push({
+        type: "payment_changed",
+        actor,
+        message: `Fizetés: ${PAYMENT_LABELS.paid}.`,
+        previousValue: order.paymentStatus,
+        newValue: "paid",
+      });
     }
     if (input.complete) {
-      patch.fulfillmentStatus = 'completed'
-      patch.appendEvents?.push({ type: 'status_changed', actor, message: `Állapot: ${FULFILLMENT_LABELS.completed}.`, previousValue: order.fulfillmentStatus, newValue: 'completed' })
+      patch.fulfillmentStatus = "completed";
+      patch.appendEvents?.push({
+        type: "status_changed",
+        actor,
+        message: `Állapot: ${FULFILLMENT_LABELS.completed}.`,
+        previousValue: order.fulfillmentStatus,
+        newValue: "completed",
+      });
     }
-    const updated = await updateOrder(order.reference, input.expectedVersion, patch, auth)
-    await deliverQueued(updated.reference)
-    return (await getOrder(updated.reference, auth)) ?? updated
+    const updated = await updateOrder(
+      order.reference,
+      input.expectedVersion,
+      patch,
+      auth
+    );
+    await deliverQueued(updated.reference);
+    return (await getOrder(updated.reference, auth)) ?? updated;
   },
 
-  async addAdminNote(reference: string, text: string, auth: AuthorizationContext): Promise<Order> {
-    assertAdminOrSystem(auth)
-    const trimmed = text.trim()
-    if (!trimmed) throw new AppError('VALIDATION', 'A megjegyzés nem lehet üres.')
+  async addAdminNote(
+    reference: string,
+    text: string,
+    auth: AuthorizationContext
+  ): Promise<Order> {
+    assertAdminOrSystem(auth);
+    const trimmed = text.trim();
+    if (!trimmed)
+      throw new AppError("VALIDATION", "A megjegyzés nem lehet üres.");
     return updateOrder(
       reference,
       null,
-      { appendAdminNotes: [{ at: clock.nowIso(), text: trimmed.slice(0, 2000) }], appendEvents: [{ type: 'note_added', actor: actorOf(auth), message: 'Belső megjegyzés hozzáadva.' }] },
-      auth,
-    )
+      {
+        appendAdminNotes: [
+          { at: clock.nowIso(), text: trimmed.slice(0, 2000) },
+        ],
+        appendEvents: [
+          {
+            type: "note_added",
+            actor: actorOf(auth),
+            message: "Belső megjegyzés hozzáadva.",
+          },
+        ],
+      },
+      auth
+    );
   },
-}
+};

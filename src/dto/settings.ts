@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { payloadClient } from '@/dto/payload'
+import { AppError } from '@/lib/errors'
 import type { StoreSetting } from '@/payload-types'
 import type { DeliveryFee, DeliveryMethod, InfoPage, StoreSettings } from '@/types/settings'
 
@@ -8,9 +9,11 @@ type DeliveryRow = NonNullable<StoreSetting['deliveryMethods']>[number]
 
 function toFee(row: DeliveryRow): DeliveryFee {
   if (row.feeKind === 'free') return { kind: 'free' }
-  if (row.feeKind === 'fixed' && typeof row.feeAmount === 'number') return { kind: 'fixed', amount: row.feeAmount }
-  // An unknown or incomplete fee is never treated as zero.
-  return { kind: 'unknown' }
+  // Payload validation and a database constraint require the amount; a fixed fee is never read as free.
+  if (typeof row.feeAmount !== 'number' || !Number.isSafeInteger(row.feeAmount) || row.feeAmount < 0) {
+    throw new AppError('INVALID_STATE', `A(z) „${row.methodId}” szállítási mód fix díja hiányzik vagy érvénytelen.`)
+  }
+  return { kind: 'fixed', amount: row.feeAmount }
 }
 
 function toSettings(doc: StoreSetting): StoreSettings {

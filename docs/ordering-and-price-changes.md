@@ -15,7 +15,7 @@ Preorder only: cart → contact/billing → collection or delivery → review �
 
 `orderService.placeOrder(input: unknown)`:
 1. Validates with `checkoutSchema` (Hungarian messages). Prices are not part of the payload; any extra browser fields are stripped.
-2. Delivery method: must exist and be enabled. Fee `unknown` → rejected ("nincs meghatározott díja"). `free` → 0. `fixed` → amount. Unknown is never treated as zero.
+2. Delivery method: must exist and be enabled. Fee `free` → 0 Ft. `fixed` → the configured amount (a whole, non-negative forint amount; Payload validation and a database constraint reject a missing or invalid amount, which is never read as free). The fee is copied into the order, so a later settings change never alters an existing order.
 3. Delivery requires a shipping address. Collection ignores and does not store one.
 4. Re-quotes every line on the server. Any line that is not orderable rejects the order.
 5. Builds the immutable snapshot and inserts it with `addOrder` (idempotent). The order, its *submitted* audit entry and the `order-received` (customer) and `store-new-order` (store) email jobs commit in **one transaction**.

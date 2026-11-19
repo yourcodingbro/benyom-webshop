@@ -6,7 +6,7 @@ import { HOUR_MS, clock } from '@/lib/clock'
 import { createOrderAccessToken } from '@/lib/order-access'
 import { orderService } from '@/services/orderService'
 import { quoteService } from '@/services/quoteService'
-import { ADMIN, buildCheckout, placeTestOrder, reload, resetWorld, enableResendMode } from '@/tests/helpers'
+import { ADMIN, buildCheckout, placeTestOrder, reload, resetWorld, enableResendMode, testPayload } from '@/tests/helpers'
 import { acceptAll, failNext } from '@/tests/resend-mock'
 
 vi.mock('resend', async (importOriginal) => (await import('@/tests/resend-mock')).mockResendModule(await importOriginal()))
@@ -74,15 +74,41 @@ describe('pricing and snapshot integrity (persistent)', () => {
 })
 
 describe('order validation and orderability', () => {
-  it('rejects unavailable variants, unknown fees and missing shipping address', async () => {
+  it('rejects unavailable variants and missing shipping address', async () => {
     expect((await orderService.placeOrder(await buildCheckout(['APL-IP17P-1TB-02']))).ok).toBe(false)
-    const unknownFee = await orderService.placeOrder(await buildCheckout(undefined, { deliveryMethodId: 'csomagautomata' }))
-    expect(unknownFee.ok).toBe(false)
-    if (!unknownFee.ok) expect(unknownFee.message).toMatch(/nincs meghatározott díja/)
     expect((await orderService.placeOrder(await buildCheckout(undefined, { deliveryMethodId: 'hazhozszallitas' }))).ok).toBe(false)
     const noTerms = await orderService.placeOrder(await buildCheckout(undefined, { termsAccepted: false }))
     expect(noTerms.ok).toBe(false)
     if (!noTerms.ok) expect(noTerms.fieldErrors.termsAccepted).toMatch(/ÁSZF/)
+  })
+
+  it('charges a fixed delivery fee and keeps it on the order when the setting changes later', async () => {
+    const address = { postalCode: '1111', city: 'Budapest', street: 'Teszt utca 1.', country: 'HU' }
+    const order = await placeTestOrder(undefined, { deliveryMethodId: 'hazhozszallitas', shippingAddress: address })
+    expect(order.submission.delivery.fee).toBe(2990)
+    expect(order.agreed.totals.deliveryFee).toBe(2990)
+    expect(order.agreed.totals.grandTotal).toBe(order.agreed.totals.itemsTotal + 2990)
+    const payload = await testPayload()
+    const settings = await payload.findGlobal({ slug: 'store-settings', overrideAccess: true })
+    const methods = (settings.deliveryMethods ?? []).map((method) => (method.methodId === 'hazhozszallitas' ? { ...method, feeAmount: 3990 } : method))
+    await payload.updateGlobal({ slug: 'store-settings', data: { deliveryMethods: methods }, overrideAccess: true })
+    const latest = await reload(order)
+    expect(latest.agreed.totals.deliveryFee).toBe(2990)
+    expect((await placeTestOrder(undefined, { deliveryMethodId: 'hazhozszallitas', shippingAddress: address })).agreed.totals.deliveryFee).toBe(3990)
+  })
+
+  it('validates fixed fees server-side: a missing, fractional or negative amount is rejected, never read as free', async () => {
+    const payload = await testPayload()
+    const settings = await payload.findGlobal({ slug: 'store-settings', overrideAccess: true })
+    for (const feeAmount of [null, 1.5, -1]) {
+      const methods = (settings.deliveryMethods ?? []).map((method) => (method.methodId === 'hazhozszallitas' ? { ...method, feeKind: 'fixed' as const, feeAmount } : method))
+      await expect(payload.updateGlobal({ slug: 'store-settings', data: { deliveryMethods: methods }, overrideAccess: true })).rejects.toThrow()
+    }
+    // Free is 0 Ft whatever amount is left in the hidden field.
+    const free = (settings.deliveryMethods ?? []).map((method) => (method.methodId === 'hazhozszallitas' ? { ...method, feeKind: 'free' as const, feeAmount: 2990 } : method))
+    await payload.updateGlobal({ slug: 'store-settings', data: { deliveryMethods: free }, overrideAccess: true })
+    const order = await placeTestOrder(undefined, { deliveryMethodId: 'hazhozszallitas', shippingAddress: { postalCode: '1111', city: 'Budapest', street: 'Teszt utca 1.', country: 'HU' } })
+    expect(order.agreed.totals.deliveryFee).toBe(0)
   })
 
   it('does not require or store a shipping address for collection', async () => {
