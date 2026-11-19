@@ -5,6 +5,7 @@ import type React from "react";
 import { ListingResults } from "@/components/product/ListingTransitionProvider";
 import { Pagination } from "@/components/product/Pagination";
 import { ProductCard } from "@/components/product/ProductCard";
+import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/shadcn/button";
 import { getProducts } from "@/dto/products";
 import { listingQueryToParams } from "@/schemas/listing";
@@ -82,16 +83,19 @@ export async function ProductCatalog(
           </div>
         </div>
       ) : (
-        // Not wrapped in Reveal: on a phone the one-column grid is far taller than the screen, so a viewport-share
-        // trigger never fired and the products stayed at opacity 0. Product cards are essential content.
+        // The grid itself is never animated: on a phone the one-column grid is far taller than the screen, and a
+        // viewport-share trigger on it never fired (products stayed at opacity 0). Each card animates on its own.
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
             {result.items.map((product: Product, index: number) => (
               <li key={product.id}>
-                <ProductCard
-                  product={product}
-                  brandName={brandsById.get(product.brandId)?.name ?? ""}
-                  priority={index < 4}
-                />
+                {/* Stable key: a card animates when it newly appears (filter, page), not on its own state changes. */}
+                <Reveal trigger="enter" index={index} className="h-full">
+                  <ProductCard
+                    product={product}
+                    brandName={brandsById.get(product.brandId)?.name ?? ""}
+                    priority={index < 4}
+                  />
+                </Reveal>
               </li>
             ))}
         </ul>

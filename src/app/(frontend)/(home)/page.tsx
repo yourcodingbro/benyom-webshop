@@ -100,15 +100,17 @@ export default async function HomePage(): Promise<React.JSX.Element> {
             </Link>
           </div>
         </Reveal>
-        {/* Product cards are essential content: rendered visible, not behind an entrance animation. */}
+        {/* The grid is never animated as a whole (see ProductCatalog); each card has its own short entrance. */}
         <ul className="mt-6 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {featured.items.map((product, index: number) => (
               <li key={product.id}>
-                <ProductCard
-                  product={product}
-                  brandName={brandsById.get(product.brandId)?.name ?? ""}
-                  priority={index < 4}
-                />
+                <Reveal trigger="enter" index={index} className="h-full">
+                  <ProductCard
+                    product={product}
+                    brandName={brandsById.get(product.brandId)?.name ?? ""}
+                    priority={index < 4}
+                  />
+                </Reveal>
               </li>
             ))}
         </ul>

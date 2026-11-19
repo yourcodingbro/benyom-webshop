@@ -100,10 +100,16 @@ export async function CatalogListing(
           {/* Structural top-left cell keeping the sidebar column: empty, never focusable, desktop only. */}
           <div aria-hidden="true" className="hidden lg:block" />
           <div className="min-w-0 space-y-3">
-            <ProductSearch
-              action={props.basePath}
-              preservedParams={paramsWithout({ search: undefined })}
-            />
+            {/*
+              Enters once with the page. Its place in the tree never changes, so typing, debounced updates, filtering
+              and URL changes keep the same element (no replay, no remount, focus kept).
+            */}
+            <Reveal trigger="enter">
+              <ProductSearch
+                action={props.basePath}
+                preservedParams={paramsWithout({ search: undefined })}
+              />
+            </Reveal>
             <ProductSort
               action={props.basePath}
               sort={props.query.sort ?? DEFAULT_PRODUCT_SORT}

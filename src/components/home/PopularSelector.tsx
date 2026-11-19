@@ -31,15 +31,18 @@ export function PopularSelector(props: PopularSelectorProps): React.JSX.Element 
         </h2>
       </Reveal>
       <ol className="mt-5 flex-1 space-y-3">
-        {props.items.map((item: PopularSelectorItem) => (
+        {props.items.map((item: PopularSelectorItem, index: number) => (
           <li key={item.key}>
-            <Link href={item.href} className="group flex items-center gap-3 rounded-xl bg-muted p-4 transition-colors hover:bg-secondary/70">
-              <span className="min-w-0 flex-1">
-                <span className="font-heading block font-bold text-ink">{item.label}</span>
-                <span className="block text-sm text-muted-foreground">{item.description}</span>
-              </span>
-              <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-            </Link>
+            {/* Each row enters on its own (same settings as the product cards); the list itself stays visible. */}
+            <Reveal trigger="enter" index={index}>
+              <Link href={item.href} className="group flex items-center gap-3 rounded-xl bg-muted p-4 transition-colors hover:bg-secondary/70">
+                <span className="min-w-0 flex-1">
+                  <span className="font-heading block font-bold text-ink">{item.label}</span>
+                  <span className="block text-sm text-muted-foreground">{item.description}</span>
+                </span>
+                <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+              </Link>
+            </Reveal>
           </li>
         ))}
       </ol>
