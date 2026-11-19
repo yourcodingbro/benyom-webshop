@@ -100,8 +100,8 @@ export default async function HomePage(): Promise<React.JSX.Element> {
             </Link>
           </div>
         </Reveal>
-        <Reveal>
-          <ul className="mt-6 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {/* Product cards are essential content: rendered visible, not behind an entrance animation. */}
+        <ul className="mt-6 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {featured.items.map((product, index: number) => (
               <li key={product.id}>
                 <ProductCard
@@ -111,8 +111,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                 />
               </li>
             ))}
-          </ul>
-        </Reveal>
+        </ul>
       </section>
 
       <section className="bg-muted" aria-labelledby="elonyok">

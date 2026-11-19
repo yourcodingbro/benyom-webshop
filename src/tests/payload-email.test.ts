@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { EmailMessage } from '@/payload-types'
 import { enableResendMode, resetWorld, TEST_SENDER, testPayload } from '@/tests/helpers'
 import { acceptAll, failNext, send } from '@/tests/resend-mock'
 
@@ -17,7 +18,7 @@ beforeEach(async () => {
 })
 afterEach(() => vi.restoreAllMocks())
 
-async function nativeJobs() {
+async function nativeJobs(): Promise<EmailMessage[]> {
   const payload = await testPayload()
   return (await payload.find({ collection: 'email-messages', where: { templateId: { equals: 'payload-native' } }, overrideAccess: true })).docs
 }

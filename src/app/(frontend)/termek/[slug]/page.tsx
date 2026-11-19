@@ -96,8 +96,7 @@ export default async function ProductPage(props: ProductPageProps): Promise<Reac
       <ProductConfigurator product={product} initialSku={initial.sku} />
 
       <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_380px]">
-        <Reveal>
-          <section aria-labelledby="leiras">
+        <section aria-labelledby="leiras">
             <h2 id="leiras" className="text-xl font-bold">
               Leírás
             </h2>
@@ -119,7 +118,6 @@ export default async function ProductPage(props: ProductPageProps): Promise<Reac
               ))}
             </div>
           </section>
-        </Reveal>
         <Reveal delay={0.1}>
           <aside className="rounded-xl bg-muted p-5 text-sm" aria-labelledby="menete">
             <h2 id="menete" className="text-base font-bold">

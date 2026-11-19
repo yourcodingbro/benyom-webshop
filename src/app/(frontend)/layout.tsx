@@ -75,12 +75,6 @@ export default async function FrontendLayout(props: FrontendLayoutProps): Promis
           {/* Reveal animations start hidden; keep content visible when JavaScript is unavailable. */}
           <style>{'[data-reveal]{opacity:1!important;transform:none!important}'}</style>
         </noscript>
-        {/*
-          JavaScript on but the page never hydrates (a blocked or failed script, a very slow phone): the server-rendered
-          opacity 0 would stay forever. Until MotionProvider marks the page hydrated, a CSS animation (which beats the
-          inline style) shows the content after a short delay; afterwards framer-motion's own animation applies.
-        */}
-        <style>{'html:not([data-hydrated]) [data-reveal]{animation:reveal-fallback .3s ease-out 1.2s forwards}@keyframes reveal-fallback{to{opacity:1;transform:none}}'}</style>
       </head>
       <body className="flex min-h-screen flex-col">
         <MotionProvider>

@@ -5,7 +5,6 @@ import type React from "react";
 import { ListingResults } from "@/components/product/ListingTransitionProvider";
 import { Pagination } from "@/components/product/Pagination";
 import { ProductCard } from "@/components/product/ProductCard";
-import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/shadcn/button";
 import { getProducts } from "@/dto/products";
 import { listingQueryToParams } from "@/schemas/listing";
@@ -83,8 +82,9 @@ export async function ProductCatalog(
           </div>
         </div>
       ) : (
-        <Reveal>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        // Not wrapped in Reveal: on a phone the one-column grid is far taller than the screen, so a viewport-share
+        // trigger never fired and the products stayed at opacity 0. Product cards are essential content.
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
             {result.items.map((product: Product, index: number) => (
               <li key={product.id}>
                 <ProductCard
@@ -94,8 +94,7 @@ export async function ProductCatalog(
                 />
               </li>
             ))}
-          </ul>
-        </Reveal>
+        </ul>
       )}
       <Pagination
         basePath={props.basePath}
