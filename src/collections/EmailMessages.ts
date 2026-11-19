@@ -17,6 +17,7 @@ export const EMAIL_TEMPLATE_LABELS: Record<string, string> = {
   'fulfillment-update': 'Állapotváltozás',
   'contact-message': 'Kapcsolati üzenet',
   'admin-invitation': 'Admin meghívó (ideiglenes jelszó)',
+  'payload-native': 'Payload rendszerüzenet (pl. jelszó-visszaállítás)',
 }
 
 /**

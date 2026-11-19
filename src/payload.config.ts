@@ -24,6 +24,7 @@ import { Products } from "./collections/Products";
 import { StoreSettings } from "./collections/StoreSettings";
 import { Users } from "./collections/Users";
 import { getServerEnv, getStorageEnv } from "./config/env";
+import { payloadEmailAdapter } from "./lib/payload-email-adapter";
 
 const filename: string = fileURLToPath(import.meta.url);
 const dirname: string = path.dirname(filename);
@@ -120,6 +121,8 @@ export default buildConfig({
   ],
   globals: [StoreSettings, NotificationSettings],
   secret: env.PAYLOAD_SECRET,
+  // Native Payload emails (e.g. forgot password) go through the app's emailService: EMAIL_MODE, store-settings sender, history.
+  email: payloadEmailAdapter,
   typescript: { outputFile: path.resolve(dirname, "payload-types.ts") },
   db: postgresAdapter({
     pool: {

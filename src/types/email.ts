@@ -19,6 +19,11 @@ export type EmailTemplate =
   | { id: 'contact-message'; message: ContactMessage }
   /** Contains a one-time secret: never re-rendered from storage, so it is not retried automatically. */
   | { id: 'admin-invitation'; email: string; temporaryPassword: string; loginUrl: string; expiresAt: IsoDateTime }
+  /**
+   * A message Payload built itself (e.g. the native forgot-password email), sent unchanged through the Payload
+   * email adapter (src/lib/payload-email-adapter.ts). It may contain a token, so it is one-shot like the invitation.
+   */
+  | { id: 'payload-native'; subject: string; html: string; text: string }
 
 export type EmailTemplateId = EmailTemplate['id']
 

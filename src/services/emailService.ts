@@ -84,7 +84,7 @@ function resendClient(apiKey: string): Resend {
 function categoryOf(template: EmailTemplate): EmailCategory {
   if (template.id === 'store-new-order') return 'store'
   if (template.id === 'contact-message') return 'contact'
-  if (template.id === 'admin-invitation') return 'admin'
+  if (template.id === 'admin-invitation' || template.id === 'payload-native') return 'admin'
   return 'customer'
 }
 
@@ -149,6 +149,9 @@ async function buildTemplate(job: EmailJob): Promise<{ template: EmailTemplate }
     case 'admin-invitation':
       // The temporary password is never stored, so this email cannot be rebuilt or retried from storage.
       return { cancel: 'Az ideiglenes jelszó nincs tárolva; használja az „Új ideiglenes jelszó és újraküldés” műveletet.' }
+    case 'payload-native':
+      // Payload's own message (e.g. a reset link) is never stored in full, so it cannot be rebuilt.
+      return { cancel: 'A Payload által készített üzenet nincs tárolva; indítsa újra a műveletet (pl. „Elfelejtette a jelszavát?”).' }
     default:
       return { cancel: 'Ismeretlen sablon.' }
   }
@@ -341,7 +344,11 @@ export const emailService: EmailService = {
 
   async retry(id: number, auth: AuthorizationContext): Promise<EmailJobStatus | 'busy'> {
     assertAdminOrSystem(auth)
-    if ((await getEmailJob(id))?.template.id === 'admin-invitation') {
+    const templateId = (await getEmailJob(id))?.template.id
+    if (templateId === 'payload-native') {
+      throw new AppError('INVALID_STATE', 'Ez az e-mail egyszer használatos hivatkozást tartalmazott, ezért nem küldhető újra. Indítsa újra a műveletet (pl. „Elfelejtette a jelszavát?”).')
+    }
+    if (templateId === 'admin-invitation') {
       throw new AppError('INVALID_STATE', 'Ez az e-mail ideiglenes jelszót tartalmazott, ezért nem küldhető újra. Használja a felhasználónál az „Új ideiglenes jelszó és újraküldés” műveletet.')
     }
     await requeueEmailJob(id, clock.nowIso(), auth)

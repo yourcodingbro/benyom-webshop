@@ -633,7 +633,8 @@ export interface EmailMessage {
     | 'cancelled-by-store'
     | 'fulfillment-update'
     | 'contact-message'
-    | 'admin-invitation';
+    | 'admin-invitation'
+    | 'payload-native';
   category: 'customer' | 'store' | 'contact' | 'admin';
   status:
     'queued' | 'submitted' | 'delivered' | 'failed' | 'bounced' | 'suppressed' | 'cancelled' | 'skipped' | 'simulated';

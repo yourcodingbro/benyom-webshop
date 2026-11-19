@@ -28,7 +28,18 @@ function supabaseImagePatterns(): NonNullable<NonNullable<NextConfig['images']>[
   return [{ protocol: 'https', hostname: url.hostname, pathname: `${url.pathname}/**` }]
 }
 
+/**
+ * Hosts (no scheme/port, e.g. "192.168.1.20") allowed to load the dev server's scripts in `next dev`, so a phone on
+ * the same network can open the site; Next blocks dev resources for any other origin. Dev only: Next ignores it in
+ * production, and it does not change NEXT_PUBLIC_SITE_URL (canonical and email links).
+ */
+const allowedDevOrigins: string[] = (process.env.DEV_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((host: string) => host.trim())
+  .filter(Boolean)
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins,
   // Decision links carry a secret token in the path; keep it out of the dev request log.
   logging: { incomingRequests: { ignore: [/\/arvaltozas\//] } },
   images: {

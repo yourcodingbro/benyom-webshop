@@ -56,6 +56,8 @@ To change the schema: edit collections, run `npm run migrate:create -- <name>` a
 
 **Production:** run `npm run migrate` from a trusted machine or CI with the production `DATABASE_MIGRATION_URL` **before** deploying code that needs the new schema (expand first, contract later). The build never touches the database.
 
+**Delivery fees (`20261119_194111_delivery_fee_free_or_fixed`):** only `free` and `fixed` remain. If a stored delivery method still has the removed `unknown` mode (or a fixed fee without a whole, non-negative amount), the migration stops without changing anything and lists those methods. Give each one an explicit replacement by `methodId`, then run it again: `DELIVERY_FEE_REPLACEMENTS='{"csomagautomata":{"kind":"fixed","amount":1990}}' npm run migrate` (or `{"kind":"free"}`). No fee is invented, and orders keep the fees and totals they were placed with. Deploy the new code only after this migration has run: with a leftover `unknown` row the settings can no longer be read.
+
 ## Initial data import
 
 ```bash

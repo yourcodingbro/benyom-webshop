@@ -28,7 +28,7 @@ import type { StoreSettings } from '@/types/settings'
 
 type EmailElement = { subject: string; element: React.ReactElement }
 
-function buildEmail(template: EmailTemplate, settings: StoreSettings): EmailElement {
+function buildEmail(template: Exclude<EmailTemplate, { id: 'payload-native' }>, settings: StoreSettings): EmailElement {
   switch (template.id) {
     case 'order-received':
       return { subject: orderReceivedSubject(template.order), element: <OrderReceivedEmail order={template.order} settings={settings} /> }
@@ -66,6 +66,8 @@ function buildEmail(template: EmailTemplate, settings: StoreSettings): EmailElem
 
 /** Renders any transactional template with React Email to Hungarian subject, HTML and plain text. */
 export async function renderEmail(template: EmailTemplate, settings: StoreSettings): Promise<RenderedEmail> {
+  // Payload rendered this one already (native auth email): sent as Payload built it.
+  if (template.id === 'payload-native') return { subject: template.subject, html: template.html, text: template.text }
   const { subject, element } = buildEmail(template, settings)
   const [html, text] = await Promise.all([render(element), render(element, { plainText: true })])
   return { subject, html, text }

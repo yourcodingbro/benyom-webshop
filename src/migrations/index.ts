@@ -7,6 +7,7 @@ import * as migration_20261116_170823_product_identity_and_media_uploads from '.
 import * as migration_20261116_175758_slug_history_ordering_and_sales from './20261116_175758_slug_history_ordering_and_sales';
 import * as migration_20261116_205853_email_settings_in_store from './20261116_205853_email_settings_in_store';
 import * as migration_20261119_194111_delivery_fee_free_or_fixed from './20261119_194111_delivery_fee_free_or_fixed';
+import * as migration_20261119_205652_payload_native_email_template from './20261119_205652_payload_native_email_template';
 
 export const migrations = [
   {
@@ -52,6 +53,11 @@ export const migrations = [
   {
     up: migration_20261119_194111_delivery_fee_free_or_fixed.up,
     down: migration_20261119_194111_delivery_fee_free_or_fixed.down,
-    name: '20261119_194111_delivery_fee_free_or_fixed'
+    name: '20261119_194111_delivery_fee_free_or_fixed',
+  },
+  {
+    up: migration_20261119_205652_payload_native_email_template.up,
+    down: migration_20261119_205652_payload_native_email_template.down,
+    name: '20261119_205652_payload_native_email_template'
   },
 ];
