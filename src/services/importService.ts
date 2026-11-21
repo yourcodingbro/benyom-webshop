@@ -10,12 +10,13 @@ import { canonicalJson } from '@/lib/crypto'
 import { parseCsv } from '@/lib/csv'
 import { normalizeHexColor } from '@/lib/hex'
 import { isValidSlug, slugify } from '@/lib/slug'
+import { specificationIssuePath, specificationsSchema } from '@/schemas/specifications'
 import type { AuthorizationContext } from '@/types/auth'
-import type { Brand, Category, Orderability, Product, ProductImage, ProductVariant, PublicationStatus } from '@/types/catalog'
+import type { Brand, Category, Orderability, Product, ProductImage, ProductVariant, PublicationStatus, SpecificationGroup } from '@/types/catalog'
 import { claimImportJob, createImportJob, finishImportJob, getImportJob, recordImportGroup } from '@/dto/import-jobs'
 import { clock } from '@/lib/clock'
 import { AppError } from '@/lib/errors'
-import type { ImportAction, ImportCounts, ImportGroupResult, ImportJob, ImportJobView, ImportReport, ImportRowError } from '@/types/import'
+import type { ImportAction, ImportCounts, ImportGroupResult, ImportJob, ImportJobView, ImportReport, ImportRowError, ImportSpecificationChange } from '@/types/import'
 
 export type { ImportJobView }
 
@@ -26,6 +27,7 @@ export const CSV_COLUMNS: readonly string[] = [
   'product_id', 'product_slug', 'product_name', 'model', 'brand_slug', 'brand_name', 'category_slugs', 'category_names',
   'status', 'featured', 'product_orderability', 'description', 'sku', 'color_hex', 'color_label', 'storage_gb', 'ram_gb',
   'case_size_mm', 'price_huf', 'variant_orderability', 'procurement_min_days', 'procurement_max_days', 'image_keys',
+  'specifications',
 ]
 
 
@@ -64,6 +66,8 @@ type RowFields = {
   procurementMin?: number
   procurementMax?: number
   imageKeys?: string[]
+  /** JSON cell; undefined = blank (keep stored), [] = clear. */
+  specifications?: SpecificationGroup[]
 }
 
 type ImportRow = { row: number; productId: string; sku: string; fields: RowFields }
@@ -155,7 +159,52 @@ function parseRow(cells: string[], header: string[], rowNumber: number, errors: 
   if (fields.imageKeys?.some((key: string) => /^[a-z]+:/i.test(key) || key.includes('..'))) {
     fail('image_keys', 'Csak meglévő médiakulcs adható meg; távoli URL letöltése nem támogatott.')
   }
+  const specsRaw = value('specifications')
+  if (specsRaw !== undefined) {
+    const specs = parseSpecifications(specsRaw)
+    if (typeof specs === 'string') fail('specifications', specs)
+    else fields.specifications = specs
+  }
   return { row: rowNumber, productId, sku, fields }
+}
+
+/** A `specifications` cell: validated groups, or a Hungarian error naming the first problem's location. */
+function parseSpecifications(raw: string): SpecificationGroup[] | string {
+  let json: unknown
+  try {
+    json = JSON.parse(raw)
+  } catch {
+    return 'Érvénytelen JSON. A cellát tegye idézőjelek közé, a JSON-on belüli idézőjeleket pedig duplázza ("" ).'
+  }
+  const parsed = specificationsSchema.safeParse(json)
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    const where = issue ? specificationIssuePath(issue.path) : ''
+    return `${where ? `${where}: ` : ''}${issue?.message ?? 'Érvénytelen specifikáció.'}`
+  }
+  // Groups and labels identify entries (preview, updates), so they must be unique.
+  const titles = parsed.data.map((group: SpecificationGroup) => group.title)
+  const duplicateTitle = titles.find((title: string, index: number) => titles.indexOf(title) !== index)
+  if (duplicateTitle) return `Ismétlődő csoport: „${duplicateTitle}”.`
+  for (const group of parsed.data) {
+    const labels = group.items.map((item) => item.label)
+    const duplicateLabel = labels.find((label: string, index: number) => labels.indexOf(label) !== index)
+    if (duplicateLabel) return `Ismétlődő tulajdonság a(z) „${group.title}” csoportban: „${duplicateLabel}”.`
+  }
+  return parsed.data
+}
+
+/** Added, changed and removed entries between the stored and the imported specifications. */
+function specificationChange(before: SpecificationGroup[], after: SpecificationGroup[]): Pick<ImportSpecificationChange, 'added' | 'updated' | 'removed'> {
+  const entries = (groups: SpecificationGroup[]): Map<string, string> =>
+    new Map(groups.flatMap((group: SpecificationGroup) => group.items.map((item) => [`${group.title} › ${item.label}`, item.value] as const)))
+  const old = entries(before)
+  const next = entries(after)
+  return {
+    added: [...next].filter(([key]) => !old.has(key)).map(([key, value]) => `${key}: ${value}`),
+    updated: [...next].filter(([key, value]) => old.has(key) && old.get(key) !== value).map(([key, value]) => `${key}: ${old.get(key)} → ${value}`),
+    removed: [...old.keys()].filter((key: string) => !next.has(key)),
+  }
 }
 
 /** First non-empty value across rows; a different non-empty value in another row is a conflict. */
@@ -186,7 +235,7 @@ async function planImport(csv: string, dryRun: boolean, auth: AuthorizationConte
   assertAdminOrSystem(auth)
   const report: ImportReport = {
     dryRun, delimiter: CSV_DELIMITER, rowCount: 0, products: emptyCounts(), variants: emptyCounts(),
-    brandsCreated: [], categoriesCreated: [], errors: [], actions: [],
+    brandsCreated: [], categoriesCreated: [], errors: [], actions: [], specificationChanges: [],
   }
   if (new TextEncoder().encode(csv).length > MAX_CSV_BYTES) {
     report.errors.push({ row: 0, column: null, message: 'A fájl túl nagy (legfeljebb 1 MB).' })
@@ -336,6 +385,12 @@ async function planImport(csv: string, dryRun: boolean, auth: AuthorizationConte
       else variants.push(next)
     }
 
+    // Picked before the error check, so a conflict between rows fails the group instead of being ignored.
+    const procurementMin = pick('procurementMin')
+    const procurementMax = pick('procurementMax')
+    // Replaces the whole list (never appended), so re-importing the same file changes nothing.
+    const specifications = pick('specifications')
+
     if (groupErrors.length > 0 || !slug || !name || !brandId || !categoryIds) {
       // Cell errors first; derived "missing field" errors only when no cell error explains them.
       report.errors.push(...(cellErrorCount > 0 ? groupErrors.slice(0, cellErrorCount) : groupErrors))
@@ -344,8 +399,6 @@ async function planImport(csv: string, dryRun: boolean, auth: AuthorizationConte
       report.variants.failed += groupRows.length
       continue
     }
-    const procurementMin = pick('procurementMin')
-    const procurementMax = pick('procurementMax')
     const next: Product = {
       id: productId,
       slug,
@@ -354,7 +407,7 @@ async function planImport(csv: string, dryRun: boolean, auth: AuthorizationConte
       brandId,
       categoryIds,
       description: pick('description') ?? existing?.description ?? '',
-      specifications: existing?.specifications ?? [],
+      specifications: specifications ?? existing?.specifications ?? [],
       images,
       variants,
       status: pick('status') ?? existing?.status ?? 'draft',
@@ -366,6 +419,11 @@ async function planImport(csv: string, dryRun: boolean, auth: AuthorizationConte
       updatedAt: existing?.updatedAt ?? '',
     }
     plans.push({ existing, next, rows: groupRows })
+    const before = existing?.specifications ?? []
+    if (specifications !== undefined && canonicalJson(before) !== canonicalJson(specifications)) {
+      const specRow = groupRows.find((row: ImportRow) => row.fields.specifications !== undefined)?.row ?? firstRow
+      report.specificationChanges?.push({ row: specRow, productId, productName: name, change: specifications.length === 0 ? 'clear' : 'replace', ...specificationChange(before, specifications) })
+    }
   }
 
   for (const plan of plans) {

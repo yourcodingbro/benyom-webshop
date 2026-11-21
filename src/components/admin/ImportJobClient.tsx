@@ -52,6 +52,29 @@ function ReportTable(props: ReportTableProps): React.JSX.Element {
       </table>
       {report.brandsCreated.length > 0 ? <p>Új márkák: {report.brandsCreated.join(', ')}</p> : null}
       {report.categoriesCreated.length > 0 ? <p>Új kategóriák: {report.categoriesCreated.join(', ')}</p> : null}
+      {report.specificationChanges?.length ? (
+        <>
+          <h4>Specifikáció változások</h4>
+          <ul>
+            {report.specificationChanges.map((change) => (
+              <li key={`${change.productId}-${change.row}`}>
+                <strong>{change.productName}</strong> ({change.row}. sor):{' '}
+                {change.change === 'clear' ? (
+                  'minden specifikáció törlődik.'
+                ) : change.added.length + change.updated.length + change.removed.length === 0 ? (
+                  'csak a sorrend vagy a csoportosítás változik.'
+                ) : (
+                  <ul>
+                    {change.added.map((entry) => <li key={`a-${entry}`}>Új: {entry}</li>)}
+                    {change.updated.map((entry) => <li key={`u-${entry}`}>Módosul: {entry}</li>)}
+                    {change.removed.map((entry) => <li key={`r-${entry}`}>Törlődik: {entry}</li>)}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
       {report.errors.length > 0 ? (
         <>
           <h4>Hibák (a hibás termékcsoport egésze kimarad)</h4>

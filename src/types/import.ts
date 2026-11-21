@@ -28,6 +28,24 @@ export type ImportReport = {
   categoriesCreated: string[]
   errors: ImportRowError[]
   actions: ImportAction[]
+  /** Per product whose `specifications` cell changes them. Absent in reports stored before the column existed. */
+  specificationChanges?: ImportSpecificationChange[]
+}
+
+/** What a `specifications` cell will do to one product, shown before the import is confirmed. */
+export type ImportSpecificationChange = {
+  /** Row that carries the specifications. */
+  row: number
+  productId: string
+  productName: string
+  /** "replace": the cell's groups become the product's specifications; "clear": `[]` removes them all. */
+  change: 'replace' | 'clear'
+  /** "Csoport › Megnevezés: érték" entries. */
+  added: string[]
+  /** "Csoport › Megnevezés: régi → új" entries. */
+  updated: string[]
+  /** "Csoport › Megnevezés" entries no longer present. */
+  removed: string[]
 }
 
 export type ImportJobStatus = 'previewed' | 'running' | 'completed' | 'failed'

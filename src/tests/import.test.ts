@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+
 
 import { getBrands } from '@/dto/brands'
 import { getImportJob } from '@/dto/import-jobs'
 import { getAllProducts } from '@/dto/products'
 import { importService } from '@/services/importService'
 import { ADMIN, adminUser, resetWorld, testPayload } from '@/tests/helpers'
+import type { SpecificationGroup } from '@/types/catalog'
 
 beforeEach(resetWorld)
 
@@ -116,5 +120,97 @@ describe('CSV import (persistent)', () => {
     expect(duplicate.errors.some((error) => /Duplikált/.test(error.message))).toBe(true)
     await expect(importService.previewImport(CSV, { kind: 'anonymous' })).rejects.toThrow()
     await expect(importService.createJob('x.csv', CSV, { kind: 'anonymous' })).rejects.toThrow()
+  })
+})
+
+/** A CSV cell holding JSON: wrapped in double quotes, every inner quote doubled (RFC 4180). */
+const jsonCell = (value: unknown): string => `"${JSON.stringify(value).replace(/"/g, '""')}"`
+const SPEC_HEADER = 'product_id;product_slug;product_name;brand_slug;category_slugs;sku;price_huf;specifications'
+const KIJELZO = { title: 'Kijelző', items: [{ label: 'Méret', value: '6,1 hüvelyk' }, { label: 'Frissítés', value: '120 Hz' }] }
+const AKKU = { title: 'Akkumulátor', items: [{ label: 'Kapacitás', value: '4000 mAh' }] }
+const specsOf = async (id: string): Promise<SpecificationGroup[] | undefined> => (await getAllProducts(ADMIN)).find((item) => item.id === id)?.specifications
+
+describe('CSV import: product specifications', () => {
+  it('imports the downloadable sample with its Hungarian specifications, shows them first, and never duplicates on re-import', async () => {
+    const sample = readFileSync(path.resolve('public/minta/termekimport-minta.csv'), 'utf8')
+    const preview = await importService.previewImport(sample, ADMIN)
+    expect(preview.errors).toEqual([])
+    const change = preview.specificationChanges?.find((item) => item.productId === 'prod-nothing-phone-3')
+    expect(change).toMatchObject({ row: 2, change: 'replace', productName: 'Nothing Phone (3)', updated: [], removed: [] })
+    expect(change?.added).toContain('Kijelző › Méret: 6,67 hüvelyk')
+    expect(change?.added).toContain('Általános › Vízállóság: IP68 – por- és vízálló')
+    // The iPhone row leaves its specifications cell blank: nothing planned for it.
+    expect(preview.specificationChanges?.some((item) => item.productId === 'prod-iphone-17')).toBe(false)
+
+    const iphoneBefore = await specsOf('prod-iphone-17')
+    await importService.applyImport(sample, ADMIN)
+    const specs = await specsOf('prod-nothing-phone-3')
+    expect(specs?.map((group) => group.title)).toEqual(['Kijelző', 'Akkumulátor', 'Általános'])
+    expect(specs?.[0]?.items).toEqual([{ label: 'Méret', value: '6,67 hüvelyk' }, { label: 'Típus', value: 'LTPO AMOLED, 120 Hz' }])
+    expect(await specsOf('prod-iphone-17')).toEqual(iphoneBefore)
+
+    // Stored as Payload rows, i.e. what the admin "Specifikáció" field edits.
+    const payload = await testPayload()
+    const doc = await payload.findByID({ collection: 'products', id: 'prod-nothing-phone-3', overrideAccess: true, depth: 0 })
+    expect(doc.specifications?.[2]).toMatchObject({ title: 'Általános', items: [{ label: 'Operációs rendszer', value: 'Nothing OS (Android-alapú)' }, { label: 'Vízállóság' }] })
+
+    const again = await importService.applyImport(sample, ADMIN)
+    expect(again.specificationChanges).toEqual([])
+    expect(again.products.created + again.products.updated).toBe(0)
+    expect((await specsOf('prod-nothing-phone-3'))?.flatMap((group) => group.items)).toHaveLength(6)
+  })
+
+  it('keeps stored specifications for blank cells, replaces them with a new list, and clears them with []', async () => {
+    const original = await specsOf('prod-iphone-17')
+    expect(original?.length).toBeGreaterThan(0)
+    await importService.applyImport(`${SPEC_HEADER}\nprod-iphone-17;;;;;APL-IP17-256-01;459990;`, ADMIN)
+    expect(await specsOf('prod-iphone-17')).toEqual(original)
+
+    const next = [{ ...KIJELZO, items: [{ label: 'Méret', value: '6,3 hüvelyk' }, { label: 'Fényerő', value: '3000 nit' }] }, AKKU]
+    const before = (original ?? []).find((group) => group.title === 'Kijelző')
+    const preview = await importService.previewImport(`${SPEC_HEADER}\nprod-iphone-17;;;;;APL-IP17-256-01;;${jsonCell(next)}`, ADMIN)
+    const change = preview.specificationChanges?.[0]
+    expect(change?.change).toBe('replace')
+    expect(change?.added).toEqual(expect.arrayContaining(['Kijelző › Fényerő: 3000 nit', 'Akkumulátor › Kapacitás: 4000 mAh']))
+    if (before?.items.some((item) => item.label === 'Méret')) expect(change?.updated.some((entry) => entry.startsWith('Kijelző › Méret:') && entry.endsWith('→ 6,3 hüvelyk'))).toBe(true)
+    await importService.applyImport(`${SPEC_HEADER}\nprod-iphone-17;;;;;APL-IP17-256-01;;${jsonCell(next)}`, ADMIN)
+    expect(await specsOf('prod-iphone-17')).toEqual(next)
+
+    const clear = await importService.previewImport(`${SPEC_HEADER}\nprod-iphone-17;;;;;APL-IP17-256-01;;[]`, ADMIN)
+    expect(clear.specificationChanges?.[0]).toMatchObject({ change: 'clear', removed: expect.arrayContaining(['Akkumulátor › Kapacitás']) })
+    await importService.applyImport(`${SPEC_HEADER}\nprod-iphone-17;;;;;APL-IP17-256-01;;[]`, ADMIN)
+    expect(await specsOf('prod-iphone-17')).toEqual([])
+  })
+
+  it('takes specifications from the main row of a multi-row product and rejects a conflicting second value', async () => {
+    const ok = [
+      SPEC_HEADER,
+      `prod-spec-teszt;spec-teszt;Spec teszt;apple;mobiltelefon;SPC-1;1000;${jsonCell([KIJELZO])}`,
+      'prod-spec-teszt;;;;;SPC-2;1100;',
+      `prod-spec-teszt;;;;;SPC-3;1200;${jsonCell([KIJELZO])}`,
+    ].join('\r\n')
+    expect((await importService.previewImport(ok, ADMIN)).errors).toEqual([])
+
+    const conflicting = [SPEC_HEADER, ok.split('\r\n')[1], 'prod-spec-teszt;;;;;SPC-2;1100;', `prod-spec-teszt;;;;;SPC-3;1200;${jsonCell([AKKU])}`].join('\r\n')
+    const report = await importService.applyImport(conflicting, ADMIN)
+    expect(report.errors).toContainEqual(expect.objectContaining({ row: 4, column: 'specifications', message: expect.stringMatching(/Ellentmondó/) }))
+    expect(report.products.failed).toBe(1)
+    expect((await getAllProducts(ADMIN)).some((item) => item.id === 'prod-spec-teszt')).toBe(false)
+  })
+
+  it('reports invalid specification cells per row and column with the location of the problem', async () => {
+    const rows: [string, RegExp][] = [
+      ['[{title:"Kijelző"}]', /Érvénytelen JSON/],
+      [jsonCell({ title: 'Kijelző', items: [] }), /JSON-tömb szükséges/],
+      [jsonCell([{ title: 'Kijelző', items: [{ label: 'Méret', value: '' }] }]), /1\. csoport, 1\. tulajdonság: value: nem lehet üres/],
+      [jsonCell([{ title: 'Kijelző', items: [{ label: 'Méret', value: '6,1', unit: 'col' }] }]), /1\. csoport, 1\. tulajdonság/],
+      [jsonCell([KIJELZO, { ...AKKU, title: 'Kijelző' }]), /Ismétlődő csoport: „Kijelző”/],
+      [jsonCell([{ title: 'Kijelző', items: [{ label: 'Méret', value: '1' }, { label: 'Méret', value: '2' }] }]), /Ismétlődő tulajdonság/],
+    ]
+    for (const [cell, message] of rows) {
+      const report = await importService.previewImport(`${SPEC_HEADER}\nprod-iphone-17;;;;;APL-IP17-256-01;;${cell}`, ADMIN)
+      expect(report.errors, cell).toContainEqual(expect.objectContaining({ row: 2, column: 'specifications', message: expect.stringMatching(message) }))
+      expect(report.products.failed).toBe(1)
+    }
   })
 })

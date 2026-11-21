@@ -26,8 +26,35 @@ Example file: [`public/minta/termekimport-minta.csv`](../public/minta/termekimpo
 | `price_huf` | variant | Integer forints, required for new variants. |
 | `procurement_min_days`, `procurement_max_days` | variant | Integers; min ≤ max. |
 | `image_keys` | variant | `\|`-separated **existing** media object keys of that product. URLs are rejected (no remote downloads, so no SSRF surface). |
+| `specifications` | product | JSON array, same structure as the admin **Specifikáció** field and the product page. Blank keeps the stored specifications, `[]` clears them. See [Specifications](#specifications). |
 
 Product-level values may appear on any row of the group. Conflicting non-empty values in the same group are an error.
+
+## Specifications
+
+The `specifications` cell holds the product's whole specification list as a JSON array of groups. Each group has a `title` and `items` of `label`/`value` pairs: the structure of the admin **Specifikáció** field, shown on the product page.
+
+```json
+[
+  { "title": "Kijelző", "items": [{ "label": "Méret", "value": "6,67 hüvelyk" }, { "label": "Típus", "value": "LTPO AMOLED, 120 Hz" }] },
+  { "title": "Akkumulátor", "items": [{ "label": "Kapacitás", "value": "5150 mAh" }] }
+]
+```
+
+**Escaping in the CSV.** JSON contains double quotes, so the cell must be quoted (RFC 4180): wrap the whole JSON in `"…"` and double every `"` inside it. Semicolons, commas and line breaks inside the quoted cell are then part of the value. The JSON above, written as one line, becomes this cell:
+
+```text
+"[{""title"":""Kijelző"",""items"":[{""label"":""Méret"",""value"":""6,67 hüvelyk""},{""label"":""Típus"",""value"":""LTPO AMOLED, 120 Hz""}]},{""title"":""Akkumulátor"",""items"":[{""label"":""Kapacitás"",""value"":""5150 mAh""}]}]"
+```
+
+Excel and LibreOffice do this automatically when you paste the JSON into a cell and save as CSV (semicolon-separated, UTF-8). The first Nothing Phone (3) row of the sample file has a complete example.
+
+- **Validation:** `title`, `label` and `value` are required, non-empty strings (surrounding spaces are trimmed); `items` may be empty. Unknown keys, duplicate group titles and duplicate labels within a group are row errors in the `specifications` column, with the location (e.g. "1. csoport, 2. tulajdonság"). Invalid JSON is reported with a hint about quoting.
+- **Blank cell or no column:** the stored specifications are kept.
+- **`[]`:** all specifications are removed.
+- **Non-empty value:** it replaces the product's whole list, with groups and items in the given order. Nothing is appended, so importing the same file again changes nothing.
+- **Multi-row products:** put the cell on the product's main row (any one row of the group works) and leave it blank on the others. Two different values in the same product's rows (including `[]` against a list) are a conflict, and the whole product group fails.
+- **Preview:** before you apply, the dry-run report lists per product what changes under "Specifikáció változások": added and removed `Csoport › Megnevezés` entries, changed values (`régi → új`), or that everything is cleared.
 
 ## Rules
 
