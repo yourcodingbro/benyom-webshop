@@ -4,6 +4,7 @@ import type React from "react";
 
 import { PopularSelector } from "@/components/home/PopularSelector";
 import { ProductCard } from "@/components/product/ProductCard";
+import { PRODUCT_CARD_CELL, PRODUCT_GRID_GAP, PRODUCT_GRID_ITEM } from "@/components/product/product-card-layout";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/shadcn/button";
 import { getBrands, getPopularBrands } from "@/dto/brands";
@@ -114,10 +115,10 @@ export default async function HomePage(): Promise<React.JSX.Element> {
           </div>
         </Reveal>
         {/* The grid is never animated as a whole (see ProductCatalog); each card has its own short entrance. */}
-        <ul className={`mt-6 grid grid-cols-1 gap-3 sm:gap-4 ${FEATURED_GRID_CLASSES[layout.columns] ?? FEATURED_GRID_CLASSES[4]}`}>
+        <ul className={`mt-6 grid grid-cols-1 ${PRODUCT_GRID_GAP} ${FEATURED_GRID_CLASSES[layout.columns] ?? FEATURED_GRID_CLASSES[4]}`}>
             {featured.items.slice(0, featuredCount).map((product, index: number) => (
-              <li key={product.id}>
-                <Reveal trigger="enter" index={index} className="h-full">
+              <li key={product.id} className={PRODUCT_GRID_ITEM}>
+                <Reveal trigger="enter" index={index} className={PRODUCT_CARD_CELL}>
                   <ProductCard
                     product={product}
                     brandName={brandsById.get(product.brandId)?.name ?? ""}

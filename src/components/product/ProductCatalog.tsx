@@ -5,6 +5,7 @@ import type React from "react";
 import { ListingResults } from "@/components/product/ListingTransitionProvider";
 import { Pagination } from "@/components/product/Pagination";
 import { ProductCard } from "@/components/product/ProductCard";
+import { PRODUCT_CARD_CELL, PRODUCT_GRID_GAP, PRODUCT_GRID_ITEM } from "@/components/product/product-card-layout";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/shadcn/button";
 import { getProducts } from "@/dto/products";
@@ -85,11 +86,11 @@ export async function ProductCatalog(
       ) : (
         // The grid itself is never animated: on a phone the one-column grid is far taller than the screen, and a
         // viewport-share trigger on it never fired (products stayed at opacity 0). Each card animates on its own.
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${PRODUCT_GRID_GAP}`}>
             {result.items.map((product: Product, index: number) => (
-              <li key={product.id}>
+              <li key={product.id} className={PRODUCT_GRID_ITEM}>
                 {/* Stable key: a card animates when it newly appears (filter, page), not on its own state changes. */}
-                <Reveal trigger="enter" index={index} className="h-full">
+                <Reveal trigger="enter" index={index} className={PRODUCT_CARD_CELL}>
                   <ProductCard
                     product={product}
                     brandName={brandsById.get(product.brandId)?.name ?? ""}

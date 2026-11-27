@@ -21,6 +21,13 @@ type VariantOptionsProps = {
   onChoose: (dimension: VariantDimension, value: string | number) => void;
   /** Compact sizing for product previews. */
   compact?: boolean;
+  /**
+   * Product cards: the grid row of each dimension in the card's subgrid. The groups are then rendered without a
+   * wrapper, each in its own row, so the same dimension lines up across the cards of a row.
+   */
+  rowFor?: (dimension: VariantDimension) => number;
+  /** Extra classes for each dimension group (with rowFor). */
+  groupClassName?: string;
 };
 
 /**
@@ -30,13 +37,11 @@ type VariantOptionsProps = {
  */
 export function VariantOptions(props: VariantOptionsProps): React.JSX.Element {
   const groupId = useId();
-  const { product, selection, compact } = props;
-  return (
-    <div className={compact ? "space-y-2" : "space-y-5"}>
-      {selection.dimensions.map((dimension: VariantDimension) => {
+  const { product, selection, compact, rowFor } = props;
+  const groups = selection.dimensions.map((dimension: VariantDimension) => {
         const current = selection.selection[dimension];
         return (
-          <fieldset key={dimension}>
+          <fieldset key={dimension} className={rowFor ? props.groupClassName : undefined} style={rowFor ? { gridRow: rowFor(dimension) } : undefined}>
             <legend
               className={cn(
                 "font-semibold",
@@ -141,7 +146,8 @@ export function VariantOptions(props: VariantOptionsProps): React.JSX.Element {
             </div>
           </fieldset>
         );
-      })}
-    </div>
-  );
+      });
+  // In a product card each group sits directly in the card grid; elsewhere they stack in one wrapper.
+  if (rowFor) return <>{groups}</>;
+  return <div className={compact ? "space-y-2" : "space-y-5"}>{groups}</div>;
 }

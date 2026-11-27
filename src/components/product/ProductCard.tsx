@@ -15,6 +15,7 @@ import { useCart } from '@/hooks/useCart'
 import { useVariantSelection } from '@/hooks/useVariantSelection'
 import { describeAttributes, effectiveOrderability } from '@/lib/catalog'
 import { formatHuf } from '@/lib/format'
+import { CARD_ROWS, DIMENSION_ROWS, PRODUCT_CARD_CELL } from '@/components/product/product-card-layout'
 import type { VariantDimension } from '@/lib/variant-selection'
 import type { Orderability, Product } from '@/types/catalog'
 import { Skeleton } from '@/components/shadcn/skeleton'
@@ -26,6 +27,8 @@ type ProductCardProps = {
 }
 
 type Feedback = { kind: 'success' | 'error'; text: string } | null
+
+const row = (name: keyof typeof CARD_ROWS): React.CSSProperties => ({ gridRow: CARD_ROWS[name] })
 
 function overallOrderability(product: Product): Orderability {
   if (product.orderability !== 'preorderable') return product.orderability
@@ -76,17 +79,18 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
   }
 
   return (
-    <article className="group relative flex h-full flex-col rounded-xl border bg-card p-3 transition-shadow duration-200 hover:shadow-lg focus-within:shadow-lg">
-      <ProductPicture
-        src={variants.image?.url ?? null}
-        alt={variants.image?.alt ?? product.name}
-        sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-        priority={props.priority}
-        className="transition-transform duration-300 group-hover:scale-[1.01]"
-      />
-      <div className="mt-3 flex flex-1 flex-col gap-2">
-        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{props.brandName}</p>
-        <h3 className="text-base leading-snug font-semibold">
+    <article className={`group relative rounded-xl border bg-card p-3 transition-shadow duration-200 hover:shadow-lg focus-within:shadow-lg ${PRODUCT_CARD_CELL}`}>
+      <div style={row('image')}>
+        <ProductPicture
+          src={variants.image?.url ?? null}
+          alt={variants.image?.alt ?? product.name}
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          priority={props.priority}
+          className="transition-transform duration-300 group-hover:scale-[1.01]"
+        />
+      </div>
+        <p className="mt-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase" style={row('brand')}>{props.brandName}</p>
+        <h3 className="mt-2 text-base leading-snug font-semibold" style={row('title')}>
           <Link
             href={selected ? `/termek/${product.slug}?valtozat=${encodeURIComponent(selected.sku)}` : `/termek/${product.slug}`}
             className="after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-3 focus-visible:after:outline-ring"
@@ -94,7 +98,7 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
             {product.name}
           </Link>
         </h3>
-        <div className="flex flex-wrap items-end justify-between gap-2" aria-live="polite">
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-2 self-start" style={row('price')} aria-live="polite">
           {price ? (
             <p className="text-lg font-bold text-ink">
               {price.min !== price.max ? <span className="text-sm font-normal text-muted-foreground">már </span> : null}
@@ -105,11 +109,10 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
           <OrderabilityBadge orderability={orderability} />
         </div>
 
-        {/* z-10 lifts the controls above the stretched link overlay. */}
-        <div className="relative z-10 mt-auto space-y-2 pt-1">
-          <VariantOptions product={product} selection={variants} onChoose={choose} compact />
-          {/* Stacked at every width: quantity on top, full-width "Kosárba" below. */}
-          <div className="flex flex-col gap-2">
+        {/* z-10 lifts the controls above the stretched link overlay. Each variant dimension has its own card row. */}
+        <VariantOptions product={product} selection={variants} onChoose={choose} compact rowFor={(dimension) => DIMENSION_ROWS[dimension]} groupClassName="relative z-10 mt-2" />
+        {/* Stacked at every width: quantity on top, full-width "Kosárba" below; both rows line up across the cards. */}
+        <div className="relative z-10 mt-3" style={row('quantity')}>
             <QuantitySelector
               value={quantity}
               onChange={(value: number | null) => {
@@ -122,6 +125,8 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
               compact
               fullWidth
             />
+        </div>
+        <div className="relative z-10 mt-2" style={row('button')}>
             <Button
               type="button"
               size="sm"
@@ -134,8 +139,8 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
               {adding ? null : <ShoppingCartIcon aria-hidden="true" />}
               <span className="truncate">{orderability !== 'preorderable' ? 'Nem rendelhető' : adding ? 'Hozzáadás…' : 'Kosárba'}</span>
             </Button>
-          </div>
-          <p className="min-h-4 text-xs" role={feedback?.kind === 'error' ? 'alert' : 'status'}>
+        </div>
+          <p className="relative z-10 mt-2 min-h-4 text-xs" style={row('feedback')} role={feedback?.kind === 'error' ? 'alert' : 'status'}>
             {feedback ? (
               <span className={feedback.kind === 'error' ? 'text-destructive' : 'inline-flex items-center gap-1 text-emerald-800'}>
                 {feedback.kind === 'success' ? <CheckIcon className="size-3.5" aria-hidden="true" /> : null}
@@ -143,8 +148,6 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
               </span>
             ) : null}
           </p>
-        </div>
-      </div>
     </article>
   )
 }
