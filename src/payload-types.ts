@@ -226,6 +226,8 @@ export interface BrandingAsset {
    * Logónál ez a képernyőolvasók szövege (pl. az áruház neve).
    */
   alt: string;
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -1151,6 +1153,8 @@ export interface MediaSelect<T extends boolean = true> {
  */
 export interface BrandingAssetsSelect<T extends boolean = true> {
   alt?: T;
+  prefix?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -1720,7 +1724,13 @@ export interface StoreSetting {
    * A kosár, a pénztár és a rendelésleadás is ezeket ellenőrzi. Változtatáskor a már leadott rendelések nem módosulnak; a már elküldött árváltozási ajánlatok a saját, induláskor rögzített határidejükkel futnak tovább.
    */
   limits: {
+    /**
+     * Egy termékváltozatból legfeljebb ennyi darab tehető a kosárba és rendelhető egy rendelésben.
+     */
     maxLineQuantity: number;
+    /**
+     * Legfeljebb ennyi különböző termékváltozat lehet egyszerre a kosárban és egy rendelésben.
+     */
     maxCartLines: number;
     /**
      * Az ajánlat sikeres elküldésétől számítva; utána emlékeztetőt küldünk.
@@ -1782,7 +1792,7 @@ export interface HomepageSetting {
 export interface PaymentSetting {
   id: number;
   /**
-   * Az oldal látható tartalma. A szállítási módokat, díjakat, az átvételi címet és a nyitvatartást az alábbi mezőkből veszi; ezeket nem kell itt megismételni. A keresőknek szóló metaadatok a kódban vannak.
+   * A „Fizetés és szállítás” oldal címe, bevezetője és szakaszcímei. Ezek a szövegek csak ezen az oldalon jelennek meg. A szállítási módokat, a díjakat és az átvételi helyet az oldal a lenti csoportokból veszi, azokat itt nem kell megismételni.
    */
   paymentPage: {
     title: string;

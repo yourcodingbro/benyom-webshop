@@ -12,7 +12,7 @@ export const paymentSettingsFields: Field[] = [
     type: "group",
     admin: {
       description:
-        "Az oldal látható tartalma. A szállítási módokat, díjakat, az átvételi címet és a nyitvatartást az alábbi mezőkből veszi; ezeket nem kell itt megismételni. A keresőknek szóló metaadatok a kódban vannak.",
+        "A „Fizetés és szállítás” oldal címe, bevezetője és szakaszcímei. Ezek a szövegek csak ezen az oldalon jelennek meg. A szállítási módokat, a díjakat és az átvételi helyet az oldal a lenti csoportokból veszi, azokat itt nem kell megismételni.",
     },
     fields: [
       {
@@ -161,10 +161,6 @@ export const paymentSettingsFields: Field[] = [
   },
 ];
 
-/**
- * Fizetési és szállítási beállítások: the content of /fizetes-es-szallitas, the delivery methods and fees used by the
- * checkout and order placement, and the collection point (shown in checkout, on the page and in the status email).
- */
 export const PaymentSettings: GlobalConfig = {
   slug: "payment-settings",
   label: "Fizetési és szállítási beállítások",

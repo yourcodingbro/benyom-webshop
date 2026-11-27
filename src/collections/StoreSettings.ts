@@ -134,7 +134,11 @@ const rulesTab: Field[] = [
             5,
             1,
             TECHNICAL_LIMITS.maxLineQuantity,
-            { width: HALF }
+            {
+              width: HALF,
+              description:
+                "Egy termékváltozatból legfeljebb ennyi darab tehető a kosárba és rendelhető egy rendelésben.",
+            }
           ),
           boundedIntField(
             "maxCartLines",
@@ -142,7 +146,11 @@ const rulesTab: Field[] = [
             20,
             1,
             TECHNICAL_LIMITS.maxCartLines,
-            { width: HALF }
+            {
+              width: HALF,
+              description:
+                "Legfeljebb ennyi különböző termékváltozat lehet egyszerre a kosárban és egy rendelésben.",
+            }
           ),
         ],
       },
