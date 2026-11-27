@@ -20,7 +20,7 @@ src/
 │   │   ├── fejlesztes/                  dev tools: manual scheduler run (APP_ENV ≠ production, admin login)
 │   │   └── actions.ts                   quoteCartAction, placeOrderAction
 │   ├── (payload)/           Payload admin/API route files (generated template) + admin import map
-│   ├── cron/process/        scheduler endpoint (Vercel cron, CRON_SECRET)
+│   ├── cron/process/        scheduler endpoint (GitHub Actions schedule, CRON_SECRET)
 │   ├── webhooks/resend/     verified Resend delivery webhooks
 │   ├── sitemap.ts, robots.ts
 ├── components/              grouped by responsibility, not by the page that renders them
@@ -58,7 +58,7 @@ docs/                        this documentation
 public/minta/termekimport-minta.csv
 ```
 
-Root-level exceptions: `package.json`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `postcss.config.mjs`, `vitest.config.ts`, `vercel.json` (cron), `components.json`, `.env.example`, `public/`.
+Root-level exceptions: `package.json`, `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `postcss.config.mjs`, `vitest.config.ts`, `components.json`, `.github/workflows/process-cron.yml` (scheduler), `.env.example`, `public/`.
 
 ## Conventions
 

@@ -47,7 +47,7 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
       <section className="rounded-xl border p-5">
         <h2 className="mb-2 text-lg font-bold">Ütemező kézi futtatása</h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Ugyanaz a feldolgozás, amit élesben a Vercel cron percenként futtat: esedékes e-mailek (újrapróbálással), árváltozási emlékeztetők és lejáratok. A demó adatokat nem érinti.
+          Ugyanaz a feldolgozás, amit élesben a GitHub Actions ütemező kb. 5 percenként futtat: esedékes e-mailek (újrapróbálással), árváltozási emlékeztetők és lejáratok. A demó adatokat nem érinti.
         </p>
         <form action={runSchedulerAction}>
           <PendingSubmitButton pendingLabel="Futtatás…">Ütemező futtatása most</PendingSubmitButton>

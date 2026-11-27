@@ -11,7 +11,7 @@ export type SchedulerRun = { ranAt: string; emails: ProcessReport; proposals: Sc
 
 type SchedulerService = {
   /**
-   * One durable processing tick (Vercel cron, see docs/ordering-and-price-changes.md): due email
+   * One durable processing tick (GitHub Actions, see docs/ordering-and-price-changes.md): due email
    * jobs with backoff, then proposal reminders and expiry. Idempotent and safe to run concurrently
    * or twice; all state lives in the database, nothing in memory or timers. Finally, product-form
    * uploads never attached to any product (or saved version) are removed after the slug reservation

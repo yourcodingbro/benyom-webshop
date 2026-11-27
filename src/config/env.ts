@@ -35,7 +35,7 @@ const serverEnvSchema = z.object({
   SUPABASE_S3_REGION: optional(z.string().min(1)),
   SUPABASE_S3_ACCESS_KEY_ID: optional(z.string().min(1)),
   SUPABASE_S3_SECRET_ACCESS_KEY: optional(z.string().min(1)),
-  /** Vercel cron sends `Authorization: Bearer <CRON_SECRET>`. */
+  /** The GitHub Actions workflow (.github/workflows/process-cron.yml) sends `Authorization: Bearer <CRON_SECRET>`. */
   CRON_SECRET: optional(z.string().min(16, 'CRON_SECRET legalább 16 karakter legyen.')),
   /** Lifetime of an emailed temporary admin password (hours, 1–720, default 72). */
   ADMIN_TEMP_PASSWORD_TTL_HOURS: z.coerce.number().int().min(1, 'ADMIN_TEMP_PASSWORD_TTL_HOURS legalább 1 óra legyen.').max(720, 'ADMIN_TEMP_PASSWORD_TTL_HOURS legfeljebb 720 óra lehet.').default(72),

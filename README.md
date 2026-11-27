@@ -95,7 +95,7 @@ Details: [docs/email.md](docs/email.md).
 
 ## Scheduler
 
-`/cron/process` (Vercel cron, every minute, `Authorization: Bearer CRON_SECRET`) processes due email jobs, proposal reminders and expiry. It is idempotent; in development use *Ütemező futtatása* on `/fejlesztes`. See [docs/ordering-and-price-changes.md](docs/ordering-and-price-changes.md#scheduler).
+`GET /cron/process` processes due email jobs, proposal reminders and expiry. The only scheduler is the GitHub Actions workflow `.github/workflows/process-cron.yml` (every 5 minutes plus manual runs), which sends `Authorization: Bearer <CRON_SECRET>` to `APP_URL` (a repository variable); the repository secret `CRON_SECRET` must equal the production environment variable. Scheduled runs come from the default branch and may be delayed; deadlines are evaluated from persisted timestamps whenever a run happens. Setup, manual runs and results: [docs/deployment.md](docs/deployment.md#scheduler-github-actions). The endpoint is idempotent; in development use *Ütemező futtatása* on `/fejlesztes`. See [docs/ordering-and-price-changes.md](docs/ordering-and-price-changes.md#scheduler).
 
 ## Information pages
 
@@ -124,4 +124,4 @@ General settings pages live at `/info/<slug>`, the FAQ at `/gyik` (questions in 
 - [Ordering and price changes](docs/ordering-and-price-changes.md) – snapshots, proposals, deadlines, scheduler
 - [Email](docs/email.md) – Resend, logging mode, jobs, retries, webhooks, history
 - [CSV import](docs/csv-import.md)
-- [Deployment](docs/deployment.md) – Supabase, migrations, storage, Vercel, cron, verification status
+- [Deployment](docs/deployment.md) – Supabase, migrations, storage, Vercel, GitHub Actions scheduler, verification status

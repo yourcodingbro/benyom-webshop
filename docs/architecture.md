@@ -31,7 +31,7 @@ Payload Local API (src/dto/payload.ts) → @payloadcms/db-postgres → Supabase 
 | Fulfillment | `orderService.updateFulfillmentStatus`, `orderService.cancelOrder` |
 | Price changes | `priceChangeService.createProposal`, `.getDecisionView`, `.decide`, `.processDueProposals` |
 | Email | `emailService.sendEmail(input)`, persisted jobs, `processDue`, `retry`, `handleWebhook` |
-| Scheduler | `schedulerService.runOnce()` via `/cron/process` |
+| Scheduler | `schedulerService.runOnce()` via `GET /cron/process`, called every 5 minutes by GitHub Actions (`.github/workflows/process-cron.yml`, `APP_URL` variable + `CRON_SECRET` secret; runs from the default branch and may be delayed, deadlines use persisted timestamps); see [deployment.md](deployment.md#scheduler-github-actions) |
 | CSV | `importService.createJob`, `importService.runJob` (admin), `previewImport`/`applyImport` |
 | Navigation | `catalogService.getNavigation()` (mobile menu, /markak). The desktop header has fixed links: Összes termék, Kapcsolat (Fizetés és szállítás is in the footer) |
 | Contact form | `contactService.submitContactMessage(input)` → `addContactMessage` (idempotent) → `emailService.sendEmail` |

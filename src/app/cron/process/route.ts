@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 /**
- * Durable processing tick, called by Vercel cron (vercel.json) with `Authorization: Bearer <CRON_SECRET>`.
- * Idempotent: Vercel may skip or duplicate invocations, and every step is safe to repeat.
+ * Durable processing tick, called every ~5 minutes by GitHub Actions (.github/workflows/process-cron.yml) with
+ * `Authorization: Bearer <CRON_SECRET>`. Idempotent and safe under overlap: runs may be delayed, skipped or duplicated.
  */
 export async function GET(request: Request): Promise<Response> {
   const secret = getServerEnv().CRON_SECRET

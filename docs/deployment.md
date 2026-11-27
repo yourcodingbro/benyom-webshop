@@ -18,7 +18,7 @@ All are server-side; see [.env.example](../.env.example) for placeholders and ex
 | `DATABASE_POOL_MAX` | no | Connections per instance (default 5) |
 | `PAYLOAD_SECRET`, `APP_SIGNING_SECRET` | always | ≥ 32 random characters each |
 | `SUPABASE_URL`, `SUPABASE_STORAGE_BUCKET`, `SUPABASE_S3_ENDPOINT`, `SUPABASE_S3_REGION`, `SUPABASE_S3_ACCESS_KEY_ID`, `SUPABASE_S3_SECRET_ACCESS_KEY` | production (all or none elsewhere) | Without them media uploads are refused (503); there is no local-disk fallback |
-| `CRON_SECRET` | production | ≥ 16 characters; Vercel sends it as `Authorization: Bearer …` |
+| `CRON_SECRET` | production | ≥ 16 characters; the GitHub Actions scheduler sends it as `Authorization: Bearer …`, so the repository secret of the same name must hold the same value ([Scheduler](#scheduler-github-actions)) |
 | `EMAIL_MODE`, `RESEND_API_KEY` | for real email | the sender and the store address are admin settings (*Beállítások → Email beállítások*), not env; see [email.md](email.md#sender-and-store-address-store-settings) |
 | `RESEND_WEBHOOK_SECRET` | for delivery tracking | `whsec_…` from the Resend webhook |
 | `NEXT_PUBLIC_SITE_URL`, `ALLOW_INDEXING` | yes / no | public URL; indexing only in production with `true` |
@@ -91,9 +91,33 @@ The Media collection stores the explicit object key (`brand/category/product/[co
 1. Import the repository; framework Next.js; build command `npm run build`.
 2. Set all variables per environment (*Settings → Environment Variables*; mark secrets *Sensitive*). Production: `APP_ENV=production`, `EMAIL_MODE=resend`. Preview: `APP_ENV=preview`, a separate preview database, `EMAIL_MODE=log`.
 3. Run `npm run migrate` against the target database before promoting a deployment that needs it.
-4. **Cron**: `vercel.json` schedules `GET /cron/process` every minute. Per-minute schedules need a Pro (or Enterprise) plan; Hobby allows only daily runs and would fail deployment with this schedule. Vercel calls only the production deployment, sends `Authorization: Bearer <CRON_SECRET>`, does not retry failures and may occasionally skip or duplicate an invocation; the endpoint is idempotent. `CRON_SECRET` changes apply on the next deployment.
+4. **Scheduler**: Vercel cron is not used (there is no `vercel.json`); set up GitHub Actions as described in [Scheduler (GitHub Actions)](#scheduler-github-actions). `CRON_SECRET` changes in Vercel apply on the next deployment.
 5. **Resend webhook**: in Resend → Webhooks add `https://<domain>/webhooks/resend` for the `email.*` events (at least delivered, bounced, failed, suppressed) and set `RESEND_WEBHOOK_SECRET`.
 6. Sign in at `/admin` and create the first admin user (first registration), then add further admins in *Felhasználók*.
+
+## Scheduler (GitHub Actions)
+
+GitHub Actions is the only scheduler. `.github/workflows/process-cron.yml` calls `GET /cron/process` on the production site every 5 minutes (`*/5 * * * *`) and on manual runs.
+
+**Configuration** (repository → *Settings → Secrets and variables → Actions*):
+
+| Name | Tab | Value |
+| --- | --- | --- |
+| `APP_URL` | *Variables* | production origin, `https://` only, e.g. `https://shop.example.hu` (no path; a trailing slash is ignored) |
+| `CRON_SECRET` | *Secrets* | exactly the same value as the production `CRON_SECRET` environment variable in Vercel |
+
+When the secret is rotated, update both places; until both match, runs fail with HTTP 401.
+
+**Behavior**:
+
+- The request is `GET` over HTTPS with `Authorization: Bearer <CRON_SECRET>`. The header is passed to curl on stdin, the secret is never printed, and curl runs without verbose output.
+- The run fails on a missing `APP_URL` or `CRON_SECRET`, a non-HTTPS `APP_URL` or any HTTP error. Timeouts: 10 s to connect, 90 s per request, 5 minutes per job.
+- The workflow token has no permissions (`permissions: {}`). The concurrency group `process-cron` never starts a second run while one is active and never cancels an active run.
+- Server-side protection does not depend on the workflow: the endpoint checks the secret, every step is idempotent, and emails and proposals are claimed with row locks, so overlapping calls are harmless.
+
+**Timing**: GitHub runs scheduled workflows only from the default branch (the file must be merged there) and may delay or skip them under load, so five minutes is a target, not an exact execution guarantee. Order and proposal deadlines are evaluated against persisted timestamps whenever processing runs, so a late run changes only when due work is noticed, never the outcome (see [ordering-and-price-changes.md](ordering-and-price-changes.md#scheduler)). GitHub also disables schedules in repositories without activity for 60 days; re-enable the workflow on the *Actions* tab.
+
+**Manual run and results**: *Actions → Process cron → Run workflow* (on the default branch). Every run is listed on the same page; open a run and its *Call /cron/process* step to see the JSON report (`emails`, `proposals`, `media`) or the error. With the GitHub CLI: `gh workflow run process-cron.yml`, then `gh run list --workflow process-cron.yml` and `gh run view <run-id> --log`.
 
 ## Verification status
 
@@ -109,7 +133,7 @@ Done locally (development and test databases on a local PostgreSQL 18 instance, 
 - connecting to a real Supabase project (pooler/direct URLs, SSL, IPv4/IPv6), running migrations and the import there;
 - uploading media to Supabase Storage (no bucket or S3 keys available; all 77 images reported as unavailable);
 - sending real email through Resend and receiving real Resend webhooks (SDK mocked; webhook signatures produced in tests with the Svix scheme);
-- Vercel cron invocation on a deployed project;
+- the GitHub Actions scheduler against a deployed project (the workflow was only validated statically);
 - interactive use of the admin UI in a browser (only server responses were checked).
 
 ## Production checklist
@@ -120,5 +144,5 @@ Done locally (development and test databases on a local PostgreSQL 18 instance, 
 - [ ] Initial catalog import with `confirm-production` (demo orders are skipped automatically), or manual catalog entry
 - [ ] First admin user; `ALLOW_INDEXING=true` only when going live
 - [ ] Resend domain verified; `EMAIL_MODE=resend`; webhook configured
-- [ ] Vercel Pro (per-minute cron) or adjust the schedule and accept coarser reminder timing
+- [ ] GitHub Actions: `APP_URL` variable and `CRON_SECRET` secret set, workflow on the default branch, one manual run succeeded
 - [ ] Legal texts, delivery fees and store settings reviewed in the admin
