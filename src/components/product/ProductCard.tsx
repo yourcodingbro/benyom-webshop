@@ -11,7 +11,6 @@ import { ProductPicture } from '@/components/product/ProductPicture'
 import { VariantOptions } from '@/components/product/VariantOptions'
 import { Button } from '@/components/shadcn/button'
 import { VARIANT_DIMENSION_LABELS } from '@/config/labels'
-import { MAX_LINE_QUANTITY } from '@/config/shop'
 import { useCart } from '@/hooks/useCart'
 import { useVariantSelection } from '@/hooks/useVariantSelection'
 import { describeAttributes, effectiveOrderability } from '@/lib/catalog'
@@ -117,7 +116,7 @@ export function ProductCard(props: ProductCardProps): React.JSX.Element {
                 setQuantity(value)
                 setFeedback(null)
               }}
-              max={MAX_LINE_QUANTITY}
+              max={cart.limits.maxLineQuantity}
               label={`${product.name} mennyisége`}
               disabled={orderability !== 'preorderable'}
               compact

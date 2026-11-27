@@ -32,7 +32,7 @@ export async function enableResendMode(): Promise<void> {
 
 export async function setEmailSettings(data: { emailFrom?: string | null; contactEmail?: string | null }): Promise<void> {
   const payload = await testPayload()
-  await payload.updateGlobal({ slug: 'store-settings', data: { ...(data.emailFrom !== undefined ? { emailFrom: data.emailFrom } : {}), ...(data.contactEmail !== undefined ? { storeContactEmail: data.contactEmail } : {}) }, overrideAccess: true })
+  await payload.updateGlobal({ slug: 'email-settings', data: { ...(data.emailFrom !== undefined ? { emailFrom: data.emailFrom } : {}), ...(data.contactEmail !== undefined ? { storeContactEmail: data.contactEmail } : {}) }, overrideAccess: true })
 }
 
 /**

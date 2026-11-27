@@ -4,12 +4,15 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { quoteCartAction } from '@/app/(frontend)/actions'
-import { CART_STORAGE_KEY, MAX_CART_LINES, MAX_LINE_QUANTITY } from '@/config/shop'
+import { CART_STORAGE_KEY, TECHNICAL_LIMITS } from '@/config/shop'
 import { type AddItemResult, CartContext, type UseCartResult } from '@/hooks/useCart'
 import type { CartQuote, StoredCartLine } from '@/types/cart'
+import type { CartLimits } from '@/types/settings'
 
 type CartProviderProps = {
   children: React.ReactNode
+  /** Configured business limits (read on the server from the store settings). */
+  limits: CartLimits
 }
 
 function readStoredLines(): StoredCartLine[] {
@@ -23,7 +26,8 @@ function readStoredLines(): StoredCartLine[] {
         const record = item as Record<string, unknown>
         return typeof record.sku === 'string' && typeof record.quantity === 'number' && (record.quoteToken === null || typeof record.quoteToken === 'string')
       })
-      .slice(0, MAX_CART_LINES)
+      // Lines above a lowered business limit are kept and reported by the server quote, never silently dropped.
+      .slice(0, TECHNICAL_LIMITS.maxCartLines)
   } catch {
     return []
   }
@@ -37,12 +41,13 @@ function writeStoredLines(lines: StoredCartLine[]): void {
   }
 }
 
-function clampQuantity(quantity: number): number {
-  return Math.min(Math.max(Math.round(quantity), 1), MAX_LINE_QUANTITY)
+function clampQuantity(quantity: number, max: number): number {
+  return Math.min(Math.max(Math.round(quantity), 1), max)
 }
 
 /** Browser cart persisted in localStorage; every price shown is re-quoted by the server. */
 export function CartProvider(props: CartProviderProps): React.JSX.Element {
+  const { maxLineQuantity, maxCartLines } = props.limits
   const [lines, setLines] = useState<StoredCartLine[]>([])
   const [quote, setQuote] = useState<CartQuote | null>(null)
   const [hydrated, setHydrated] = useState<boolean>(false)
@@ -95,12 +100,12 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
     async (sku: string, quantity: number): Promise<AddItemResult> => {
       if (!Number.isSafeInteger(quantity) || quantity < 1) return { ok: false, message: 'A mennyiség pozitív egész szám legyen.' }
       const existing = lines.find((line: StoredCartLine) => line.sku === sku)
-      if (!existing && lines.length >= MAX_CART_LINES) return { ok: false, message: `Legfeljebb ${MAX_CART_LINES} tétel lehet a kosárban.` }
+      if (!existing && lines.length >= maxCartLines) return { ok: false, message: `Legfeljebb ${maxCartLines} tétel lehet a kosárban.` }
       const total = (existing?.quantity ?? 0) + quantity
       // Per-line order cap (not a stock limit): report it instead of silently clamping.
-      if (total > MAX_LINE_QUANTITY) {
+      if (total > maxLineQuantity) {
         const inCart = existing ? ` (a kosárban már ${existing.quantity} db van)` : ''
-        return { ok: false, message: `Tételenként legfeljebb ${MAX_LINE_QUANTITY} db rendelhető${inCart}.` }
+        return { ok: false, message: `Tételenként legfeljebb ${maxLineQuantity} db rendelhető${inCart}.` }
       }
       const next = existing
         ? lines.map((line: StoredCartLine) => (line.sku === sku ? { ...line, quantity: total } : line))
@@ -117,14 +122,14 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
       setDrawerOpen(true)
       return { ok: true, quantityInCart: total }
     },
-    [lines, requote],
+    [lines, requote, maxCartLines, maxLineQuantity],
   )
 
   const setQuantity = useCallback(
     async (sku: string, quantity: number): Promise<void> => {
-      await requote(lines.map((line: StoredCartLine) => (line.sku === sku ? { ...line, quantity: clampQuantity(quantity) } : line)))
+      await requote(lines.map((line: StoredCartLine) => (line.sku === sku ? { ...line, quantity: clampQuantity(quantity, maxLineQuantity) } : line)))
     },
-    [lines, requote],
+    [lines, requote, maxLineQuantity],
   )
 
   const removeItem = useCallback(
@@ -155,6 +160,7 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
   const value = useMemo<UseCartResult>(
     () => ({
       lines,
+      limits: props.limits,
       quote,
       itemCount: lines.reduce((total: number, line: StoredCartLine) => total + line.quantity, 0),
       hydrated,
@@ -168,7 +174,7 @@ export function CartProvider(props: CartProviderProps): React.JSX.Element {
       refresh,
       clear,
     }),
-    [lines, quote, hydrated, pending, error, drawerOpen, addItem, setQuantity, removeItem, refresh, clear],
+    [lines, props.limits, quote, hydrated, pending, error, drawerOpen, addItem, setQuantity, removeItem, refresh, clear],
   )
 
   return <CartContext.Provider value={value}>{props.children}</CartContext.Provider>

@@ -53,7 +53,7 @@ function buildEmail(template: Exclude<EmailTemplate, { id: 'payload-native' }>, 
     case 'cancelled-by-store':
       return { subject: cancellationSubject(template.order), element: <CancellationEmail order={template.order} reason="store" settings={settings} /> }
     case 'fulfillment-update':
-      return { subject: fulfillmentUpdateSubject(template.order, template.status), element: <FulfillmentUpdateEmail order={template.order} status={template.status} settings={settings} /> }
+      return { subject: fulfillmentUpdateSubject(template.order, template.status), element: <FulfillmentUpdateEmail order={template.order} status={template.status} collection={template.collection} settings={settings} /> }
     case 'contact-message':
       return { subject: contactSubject(template.message), element: <ContactMessageEmail message={template.message} settings={settings} /> }
     case 'admin-invitation':

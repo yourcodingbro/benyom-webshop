@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { MAX_CART_LINES, MAX_LINE_QUANTITY } from '@/config/shop'
+import { TECHNICAL_LIMITS } from '@/config/shop'
 import { normalizeHexColor } from '@/lib/hex'
 
 /** Strict `#RRGGBB`, normalized to uppercase. Shared by sample data, Payload and CSV. */
@@ -21,7 +21,8 @@ export const quantitySchema: z.ZodNumber = z
   .number({ error: 'Érvénytelen mennyiség.' })
   .int({ error: 'A mennyiség egész szám legyen.' })
   .min(1, { error: 'A mennyiség legalább 1.' })
-  .max(MAX_LINE_QUANTITY, { error: `Tételenként legfeljebb ${MAX_LINE_QUANTITY} darab rendelhető.` })
+  // Technical ceiling only; the configured business limit is checked by lib/cart-limits.ts in the services.
+  .max(TECHNICAL_LIMITS.maxLineQuantity, { error: `Tételenként legfeljebb ${TECHNICAL_LIMITS.maxLineQuantity} darab rendelhető.` })
 
 export const cartLineInputSchema = z.object({
   sku: skuSchema,
@@ -33,4 +34,4 @@ export type CartLineInput = z.infer<typeof cartLineInputSchema>
 
 export const cartLinesSchema = z
   .array(cartLineInputSchema)
-  .max(MAX_CART_LINES, { error: `Legfeljebb ${MAX_CART_LINES} tétel lehet a kosárban.` })
+  .max(TECHNICAL_LIMITS.maxCartLines, { error: `Legfeljebb ${TECHNICAL_LIMITS.maxCartLines} tétel lehet a kosárban.` })

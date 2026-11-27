@@ -6,14 +6,18 @@ import { buildConfig, type Plugin } from "payload";
 import sharp from "sharp";
 import { fileURLToPath } from "url";
 
+import { BrandingAssets } from "./collections/BrandingAssets";
 import { Brands } from "./collections/Brands";
 import { Categories } from "./collections/Categories";
 import { ContactMessages } from "./collections/ContactMessages";
 import { EmailEvents } from "./collections/EmailEvents";
 import { EmailMessages } from "./collections/EmailMessages";
+import { EmailSettings } from "./collections/EmailSettings";
+import { Faqs } from "./collections/Faqs";
+import { HomepageSettings } from "./collections/HomepageSettings";
 import { ImportJobs } from "./collections/ImportJobs";
 import { Media } from "./collections/Media";
-import { NotificationSettings } from "./collections/NotificationSettings";
+import { PaymentSettings } from "./collections/PaymentSettings";
 import { OrderEvents } from "./collections/OrderEvents";
 import { Orders } from "./collections/Orders";
 import { PriceChangeProposals } from "./collections/PriceChangeProposals";
@@ -47,11 +51,21 @@ const connectionString: string = useMigrationConnection
 const plugins: Plugin[] = storage
   ? [
       s3Storage({
-        // Object keys come from the per-document prefix (brand/category/product/[color]); see collections/Media.ts.
         collections: {
           media: {
             prefix: "",
-            // Public product images are served straight from Supabase Storage.
+            disablePayloadAccessControl: true,
+            generateFileURL: ({
+              filename,
+              prefix,
+            }: {
+              filename: string;
+              prefix?: string;
+            }): string =>
+              `${storage.publicBaseUrl}/${prefix ? `${prefix}/` : ""}${filename}`,
+          },
+          "branding-assets": {
+            prefix: "branding",
             disablePayloadAccessControl: true,
             generateFileURL: ({
               filename,
@@ -83,10 +97,8 @@ export default buildConfig({
     importMap: { baseDir: path.resolve(dirname) },
     meta: { titleSuffix: " – Webshop admin" },
     components: {
-      // Native nav with the sidebar groups in NAV_GROUP_ORDER (collections/utils/nav-groups.ts).
       Nav: "@/components/admin/OrderedNav#OrderedNav",
       views: {
-        // Native login form, plus a "Bejelentkezés…" pending state (components/admin/AdminLoginView.tsx).
         login: {
           Component: "@/components/admin/AdminLoginView#AdminLoginView",
         },
@@ -104,6 +116,7 @@ export default buildConfig({
   i18n: { supportedLanguages: { hu }, fallbackLanguage: "hu" },
   collections: [
     Media,
+    BrandingAssets,
     Brands,
     Categories,
     Products,
@@ -118,10 +131,15 @@ export default buildConfig({
     SaleEntries,
     Users,
     ImportJobs,
+    Faqs,
   ],
-  globals: [StoreSettings, NotificationSettings],
+  globals: [
+    StoreSettings,
+    HomepageSettings,
+    PaymentSettings,
+    EmailSettings,
+  ],
   secret: env.PAYLOAD_SECRET,
-  // Native Payload emails (e.g. forgot password) go through the app's emailService: EMAIL_MODE, store-settings sender, history.
   email: payloadEmailAdapter,
   typescript: { outputFile: path.resolve(dirname, "payload-types.ts") },
   db: postgresAdapter({

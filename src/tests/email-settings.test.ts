@@ -1,11 +1,9 @@
-import { sql } from '@payloadcms/db-postgres'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UNSET_STORE_RECIPIENT } from '@/config/email'
 import { addContactMessage } from '@/dto/contact-messages'
-import { getStoreSettings } from '@/dto/settings'
+import { getEmailSettings, getStoreSettings } from '@/dto/settings'
 import { clock } from '@/lib/clock'
-import { importEmailSettingsFromEnv } from '@/migrations/20261116_205853_email_settings_in_store'
 import { emailService } from '@/services/emailService'
 import { enableResendMode, placeTestOrder, resetWorld, setEmailSettings, TEST_SENDER, TEST_STORE_EMAIL, testPayload } from '@/tests/helpers'
 import { acceptAll, send } from '@/tests/resend-mock'
@@ -28,11 +26,11 @@ const lastRequest = (): { from?: string; to?: unknown; replyTo?: unknown } => (s
 
 async function sendContact(key: string): Promise<void> {
   const { message } = await addContactMessage({ submissionKey: key, name: 'Látogató', email: 'latogato@example.com', subject: 'Kérdés', message: 'Mikor érkezik?', privacyVersion: 'v1', receivedAt: clock.nowIso() })
-  const settings = await getStoreSettings()
-  await emailService.sendEmail({ to: settings.contactEmail ?? UNSET_STORE_RECIPIENT, replyTo: message.email, template: { id: 'contact-message', message }, settings, orderReference: null, proposalId: null, idempotencyKey: `contact-message/${key}` })
+  const [settings, email] = await Promise.all([getStoreSettings(), getEmailSettings()])
+  await emailService.sendEmail({ to: email.contactEmail ?? UNSET_STORE_RECIPIENT, replyTo: message.email, template: { id: 'contact-message', message }, settings, orderReference: null, proposalId: null, idempotencyKey: `contact-message/${key}` })
 }
 
-describe('sender and store recipient from the store settings', () => {
+describe('sender and store recipient from Email beállítások', () => {
   it('uses the configured sender, keeps the visitor as reply-to, and applies a change at once without rewriting history', async () => {
     await enableResendMode()
     await sendContact('k-1')
@@ -54,7 +52,7 @@ describe('sender and store recipient from the store settings', () => {
     const [job] = await jobs({ category: { equals: 'contact' } })
     // Retried with backoff (the admin can fix the setting), but never shown as sent or simulated.
     expect(job?.status).toBe('queued')
-    expect(job?.lastError).toMatch(/Áruház beállításai → Feladó/)
+    expect(job?.lastError).toMatch(/Email beállítások → Feladó/)
     expect(send).not.toHaveBeenCalled()
   })
 
@@ -75,33 +73,18 @@ describe('sender and store recipient from the store settings', () => {
     expect(after).toMatchObject({ to: TEST_STORE_EMAIL, status: 'submitted' })
   })
 
-  it('validates both fields with Hungarian messages and hides them from the public settings read', async () => {
+  it('validates both fields with Hungarian messages and never exposes them to visitors', async () => {
     const payload = await testPayload()
-    await expect(payload.updateGlobal({ slug: 'store-settings', data: { emailFrom: 'Webshop rendeles@example' }, overrideAccess: true })).rejects.toMatchObject({
+    await expect(payload.updateGlobal({ slug: 'email-settings', data: { emailFrom: 'Webshop rendeles@example' }, overrideAccess: true })).rejects.toMatchObject({
       data: { errors: [expect.objectContaining({ path: 'emailFrom', message: expect.stringMatching(/Érvénytelen feladó/) })] },
     })
-    await expect(payload.updateGlobal({ slug: 'store-settings', data: { storeContactEmail: 'nem-email' }, overrideAccess: true })).rejects.toThrow()
+    await expect(payload.updateGlobal({ slug: 'email-settings', data: { storeContactEmail: 'nem-email' }, overrideAccess: true })).rejects.toThrow()
     await setEmailSettings({ emailFrom: 'rendeles@example.com' })
-    expect((await getStoreSettings()).emailFrom).toBe('rendeles@example.com')
+    expect((await getEmailSettings()).emailFrom).toBe('rendeles@example.com')
+    // The whole global is admin-only; the public store settings carry no email fields at all.
+    await expect(payload.findGlobal({ slug: 'email-settings', overrideAccess: false })).rejects.toThrow()
     const visitor = await payload.findGlobal({ slug: 'store-settings', overrideAccess: false })
     expect(visitor).not.toHaveProperty('emailFrom')
     expect(visitor).not.toHaveProperty('storeContactEmail')
-  })
-})
-
-describe('one-time import of CONTACT_EMAIL / EMAIL_FROM', () => {
-  it('fills only empty settings, skips invalid values and never overwrites', async () => {
-    const payload = await testPayload()
-    const db = payload.db.drizzle
-    await db.execute(sql`UPDATE "store_settings" SET "store_contact_email" = NULL, "email_from" = NULL`)
-    expect(await importEmailSettingsFromEnv(db, { CONTACT_EMAIL: 'bolt@example.hu', EMAIL_FROM: 'Webshop <rendeles@example.hu>' })).toEqual({ contact: 'CONTACT_EMAIL', from: 'EMAIL_FROM' })
-    expect(await getStoreSettings()).toMatchObject({ contactEmail: 'bolt@example.hu', emailFrom: 'Webshop <rendeles@example.hu>' })
-    // Already configured: kept.
-    expect(await importEmailSettingsFromEnv(db, { CONTACT_EMAIL: 'masik@example.hu', EMAIL_FROM: 'masik@example.hu' })).toEqual({ contact: 'megtartva', from: 'megtartva' })
-    expect(await getStoreSettings()).toMatchObject({ contactEmail: 'bolt@example.hu', emailFrom: 'Webshop <rendeles@example.hu>' })
-    // No env: the previous contact-form recipient is used; an invalid sender is skipped.
-    await db.execute(sql`UPDATE "store_settings" SET "store_contact_email" = NULL, "email_from" = NULL, "contact_recipient_email" = 'regi@example.hu'`)
-    expect(await importEmailSettingsFromEnv(db, { EMAIL_FROM: 'nem egy cím' })).toEqual({ contact: 'korábbi kapcsolati címzett', from: 'EMAIL_FROM érvénytelen, kihagyva' })
-    expect(await getStoreSettings()).toMatchObject({ contactEmail: 'regi@example.hu', emailFrom: null })
   })
 })

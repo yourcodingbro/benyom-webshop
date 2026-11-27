@@ -196,17 +196,35 @@ async function importSettings(payload: Payload): Promise<void> {
     overrideAccess: true,
     data: {
       storeName: settings.storeName,
-      storeContactEmail: settings.contactEmail,
-      emailFrom: settings.emailFrom,
       contact: settings.contact,
+      legal: settings.legal,
+      limits: settings.limits,
+      pages: settings.pages.map((page) => ({
+        slug: page.slug,
+        title: page.title,
+        body: page.paragraphs.join("\n\n"),
+      })),
+    },
+  });
+  await payload.updateGlobal({
+    slug: "email-settings",
+    overrideAccess: true,
+    data: { storeContactEmail: sampleData.email.contactEmail, emailFrom: sampleData.email.emailFrom },
+  });
+  await payload.updateGlobal({ slug: "homepage-settings", overrideAccess: true, data: sampleData.homepage });
+  const payment = sampleData.payment;
+  await payload.updateGlobal({
+    slug: "payment-settings",
+    overrideAccess: true,
+    data: {
       collection: {
-        address: settings.collection.address,
-        openingHours: settings.collection.openingHours.map((line: string) => ({
+        address: payment.collection.address,
+        openingHours: payment.collection.openingHours.map((line: string) => ({
           line,
         })),
-        note: settings.collection.note,
+        note: payment.collection.note,
       },
-      deliveryMethods: settings.deliveryMethods.map((method) => ({
+      deliveryMethods: payment.deliveryMethods.map((method) => ({
         methodId: method.id,
         kind: method.kind,
         name: method.name,
@@ -215,14 +233,21 @@ async function importSettings(payload: Payload): Promise<void> {
         feeKind: method.fee.kind,
         feeAmount: method.fee.kind === "fixed" ? method.fee.amount : null,
       })),
-      legal: settings.legal,
-      seo: settings.seo,
-      homepage: settings.homepage,
-      pages: settings.pages.map((page) => ({
-        slug: page.slug,
-        title: page.title,
-        body: page.paragraphs.join("\n\n"),
-      })),
+      paymentPage: {
+        title: payment.paymentPage.title,
+        intro: payment.paymentPage.intro,
+        methodsHeading: payment.paymentPage.methodsHeading,
+        collectionHeading: payment.paymentPage.collectionHeading,
+        openingHoursHeading: payment.paymentPage.openingHoursHeading,
+      },
+      preorderSteps: {
+        processHeading: payment.paymentPage.processHeading,
+        processSteps: payment.paymentPage.processSteps.map((text: string) => ({ text })),
+      },
+      paymentKnowledge: {
+        paymentHeading: payment.paymentPage.paymentHeading,
+        paymentItems: payment.paymentPage.paymentItems.map((text: string) => ({ text })),
+      },
     },
   });
   note("settings", "created");

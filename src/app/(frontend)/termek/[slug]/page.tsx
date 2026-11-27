@@ -11,6 +11,7 @@ import { getBrands } from '@/dto/brands'
 import { getCategories } from '@/dto/categories'
 import { getCanonicalSlugForFormer, getProductBySlug } from '@/dto/products'
 import { effectiveOrderability, primaryImage } from '@/lib/catalog'
+import { entityMetadata } from '@/lib/metadata'
 import type { Orderability, Product } from '@/types/catalog'
 
 type ProductPageProps = {
@@ -48,13 +49,8 @@ function structuredData(product: Product, brandName: string): Record<string, unk
 export async function generateMetadata(props: ProductPageProps): Promise<Metadata> {
   const product = await getProductBySlug((await props.params).slug)
   if (!product) return {}
-  const image = primaryImage(product)
-  return {
-    title: product.seo.title ?? product.name,
-    description: product.seo.description ?? product.description,
-    alternates: { canonical: `/termek/${product.slug}` },
-    openGraph: { title: product.name, description: product.description, images: image ? [{ url: image.url, alt: image.alt }] : [] },
-  }
+  // Open Graph and Twitter use the editable SEO values too (they used to ignore them).
+  return entityMetadata({ seo: product.seo, fallbackTitle: product.name, fallbackDescription: product.description, canonical: `/termek/${product.slug}`, image: primaryImage(product) })
 }
 
 export default async function ProductPage(props: ProductPageProps): Promise<React.JSX.Element> {

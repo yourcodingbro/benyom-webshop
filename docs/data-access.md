@@ -14,7 +14,7 @@ All data goes through **Payload's Local API on Supabase PostgreSQL** (`src/dto/p
 | `email-log.ts` | `enqueueEmail`, `claimEmailJob`, `completeEmailJob`, `requeueEmailJob`, `getDueEmailJobIds`, `getEmailJob`, `applyProviderEvent`, `getEmailLogEntries(auth)`, `getEmailLogEntry(id, auth)` |
 | `contact-messages.ts` | `addContactMessage(input)` (idempotent), `getContactMessage`, `updateContactMessageStatus`, `getContactMessages` |
 | `import-jobs.ts` | `createImportJob`, `getImportJob`, `claimImportJob`, `recordImportGroup`, `finishImportJob` |
-| `settings.ts` | `getStoreSettings()`, `getInfoPage(slug)` |
+| `settings.ts` | `getStoreSettings()`, `getInfoPage(slug)`, `getSiteChrome()` (logo, favicon, footer slogan), `getPublishedFaqs()` |
 | `auth.ts` | `getAdminAuthorization(headers)` (Payload session → admin context) |
 
 ## Conventions

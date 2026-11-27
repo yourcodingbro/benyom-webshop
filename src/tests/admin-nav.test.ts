@@ -36,10 +36,12 @@ describe('admin sidebar groups', () => {
     expect(groups.find((group) => group.label === NAV_GROUPS.STORE)?.slugs).toEqual(['brands', 'categories', 'products'])
     expect(groups.find((group) => group.label === NAV_GROUPS.SYSTEM)?.slugs).toEqual(['media', 'users', 'import-jobs'])
     expect(groups.find((group) => group.label === NAV_GROUPS.NOTIFICATIONS)?.slugs).toEqual(['email-messages', 'email-events', 'contact-messages'])
+    // Beállítások: four settings pages; the FAQ collection has no entry of its own (Áruház beállítások → GYIK).
+    expect(groups.find((group) => group.label === NAV_GROUPS.SETTINGS)?.slugs).toEqual(['store-settings', 'homepage-settings', 'payment-settings', 'email-settings'])
   })
 
   it('keeps permission-based visibility: a group without readable entries disappears, the order stays', async () => {
-    const groups = await sidebar(['users', 'media', 'import-jobs', 'orders'])
+    const groups = await sidebar(['users', 'media', 'branding-assets', 'import-jobs', 'orders'])
     expect(groups.map((group) => group.label)).toEqual(NAV_GROUP_ORDER.filter((label) => label !== NAV_GROUPS.SYSTEM))
     expect(groups.find((group) => group.label === NAV_GROUPS.ORDERS)?.slugs).not.toContain('orders')
   })

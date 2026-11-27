@@ -68,6 +68,7 @@ export interface Config {
   blocks: {};
   collections: {
     media: Media;
+    'branding-assets': BrandingAsset;
     brands: Brand;
     categories: Category;
     products: Product;
@@ -82,6 +83,7 @@ export interface Config {
     'sale-entries': SaleEntry;
     users: User;
     'import-jobs': ImportJob;
+    faqs: Faq;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -96,6 +98,7 @@ export interface Config {
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
+    'branding-assets': BrandingAssetsSelect<false> | BrandingAssetsSelect<true>;
     brands: BrandsSelect<false> | BrandsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
@@ -110,6 +113,7 @@ export interface Config {
     'sale-entries': SaleEntriesSelect<false> | SaleEntriesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'import-jobs': ImportJobsSelect<false> | ImportJobsSelect<true>;
+    faqs: FaqsSelect<false> | FaqsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -121,11 +125,15 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     'store-settings': StoreSetting;
-    'notification-settings': NotificationSetting;
+    'homepage-settings': HomepageSetting;
+    'payment-settings': PaymentSetting;
+    'email-settings': EmailSetting;
   };
   globalsSelect: {
     'store-settings': StoreSettingsSelect<false> | StoreSettingsSelect<true>;
-    'notification-settings': NotificationSettingsSelect<false> | NotificationSettingsSelect<true>;
+    'homepage-settings': HomepageSettingsSelect<false> | HomepageSettingsSelect<true>;
+    'payment-settings': PaymentSettingsSelect<false> | PaymentSettingsSelect<true>;
+    'email-settings': EmailSettingsSelect<false> | EmailSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -207,6 +215,30 @@ export interface Media {
   };
 }
 /**
+ * Logó és favicon. Az Áruház beállítások Áruház fülén választható ki vagy tölthető fel közvetlenül.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "branding-assets".
+ */
+export interface BrandingAsset {
+  id: number;
+  /**
+   * Logónál ez a képernyőolvasók szövege (pl. az áruház neve).
+   */
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
  * A sorrend fogd és vidd módszerrel állítható (fogantyú a sor elején; billentyűzettel: Tab a fogantyúra, Szóköz, nyilak, Szóköz). Ez a kézi sorrend a bolti navigációban és listákban; a főoldali népszerűség a heti eladásokból számolódik.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -224,6 +256,13 @@ export interface Brand {
    */
   slug: string;
   description?: string | null;
+  /**
+   * Csak ennek az oldalnak a keresőknek és megosztásnak szóló címe és leírása. Üresen a nevet és a leírást használjuk.
+   */
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   sortOrder?: number | null;
   popularityRank: number;
   updatedAt: string;
@@ -247,6 +286,13 @@ export interface Category {
    */
   slug: string;
   description?: string | null;
+  /**
+   * Csak ennek az oldalnak a keresőknek és megosztásnak szóló címe és leírása. Üresen a nevet és a leírást használjuk.
+   */
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+  };
   sortOrder?: number | null;
   popularityRank: number;
   updatedAt: string;
@@ -322,6 +368,9 @@ export interface Product {
     images?: (number | Media)[] | null;
     id?: string | null;
   }[];
+  /**
+   * Csak ennek az oldalnak a keresőknek és megosztásnak szóló címe és leírása. Üresen a nevet és a leírást használjuk.
+   */
   seo?: {
     title?: string | null;
     description?: string | null;
@@ -760,6 +809,10 @@ export interface PriceChangeProposal {
      */
     sentAt?: string | null;
   };
+  responseHours: {
+    initial: number;
+    reminder: number;
+  };
   resolvedAt?: string | null;
   supersedesId?: string | null;
   supersededById?: string | null;
@@ -894,6 +947,21 @@ export interface ImportJob {
   createdAt: string;
 }
 /**
+ * A /gyik oldal kérdései. A sorrend fogd és vidd módszerrel állítható; a „Megjelenik” kikapcsolásával egy kérdés törlés nélkül elrejthető.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "faqs".
+ */
+export interface Faq {
+  id: number;
+  _order?: string | null;
+  question: string;
+  answer: string;
+  published?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -920,6 +988,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'branding-assets';
+        value: number | BrandingAsset;
       } | null)
     | ({
         relationTo: 'brands';
@@ -976,6 +1048,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'import-jobs';
         value: number | ImportJob;
+      } | null)
+    | ({
+        relationTo: 'faqs';
+        value: number | Faq;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1071,6 +1147,24 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "branding-assets_select".
+ */
+export interface BrandingAssetsSelect<T extends boolean = true> {
+  alt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "brands_select".
  */
 export interface BrandsSelect<T extends boolean = true> {
@@ -1079,6 +1173,12 @@ export interface BrandsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   description?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   sortOrder?: T;
   popularityRank?: T;
   updatedAt?: T;
@@ -1094,6 +1194,12 @@ export interface CategoriesSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   description?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+      };
   sortOrder?: T;
   popularityRank?: T;
   updatedAt?: T;
@@ -1359,6 +1465,12 @@ export interface PriceChangeProposalsSelect<T extends boolean = true> {
         claimedAt?: T;
         sentAt?: T;
       };
+  responseHours?:
+    | T
+    | {
+        initial?: T;
+        reminder?: T;
+      };
   resolvedAt?: T;
   supersedesId?: T;
   supersededById?: T;
@@ -1527,6 +1639,18 @@ export interface ImportJobsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "faqs_select".
+ */
+export interface FaqsSelect<T extends boolean = true> {
+  _order?: T;
+  question?: T;
+  answer?: T;
+  published?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -1571,63 +1695,45 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
  */
 export interface StoreSetting {
   id: number;
+  /**
+   * A fejlécben (ha nincs logó), a láblécben, az e-mailekben és a böngészőfül címében jelenik meg.
+   */
   storeName: string;
   /**
-   * Ide érkeznek a kapcsolati űrlap üzenetei és az új rendelések bolti értesítései. A látogató címe csak válaszcím (Reply-To) lesz, sosem feladó.
+   * A láblécben, a webshop neve alatt jelenik meg. Üresen nem jelenik meg semmi.
    */
-  storeContactEmail?: string | null;
+  footerSlogan?: string | null;
   /**
-   * Formátum: „Webshop <rendeles@example.hu>” vagy „rendeles@example.hu”. A domainnek ellenőrzöttnek kell lennie a Resendben (Domains); a mező módosítása nem kerüli meg a szolgáltató korlátozásait (pl. a tesztkorlátozást). Éles küldéshez (EMAIL_MODE=resend) kötelező. A módosítás azonnal érvényes, újratelepítés nélkül.
+   * PNG, WebP, JPEG, AVIF vagy SVG, sötét háttérhez. A fejlécben és a láblécben jelenik meg az arányai megtartásával; ha üres, a webshop neve látszik szövegként.
    */
-  emailFrom?: string | null;
-  storeNotificationEmail?: string | null;
-  contactRecipientEmail?: string | null;
+  logo?: (number | null) | BrandingAsset;
+  /**
+   * PNG (legalább 32 × 32 px, négyzetes), SVG vagy ICO. Ha üres, a böngésző alapértelmezett ikonja látszik.
+   */
+  favicon?: (number | null) | BrandingAsset;
   contact?: {
     email?: string | null;
     phone?: string | null;
     address?: string | null;
   };
-  collection?: {
-    address?: string | null;
-    openingHours?:
-      | {
-          line: string;
-          id?: string | null;
-        }[]
-      | null;
-    note?: string | null;
+  /**
+   * A kosár, a pénztár és a rendelésleadás is ezeket ellenőrzi. Változtatáskor a már leadott rendelések nem módosulnak; a már elküldött árváltozási ajánlatok a saját, induláskor rögzített határidejükkel futnak tovább.
+   */
+  limits: {
+    maxLineQuantity: number;
+    maxCartLines: number;
+    /**
+     * Az ajánlat sikeres elküldésétől számítva; utána emlékeztetőt küldünk.
+     */
+    priceChangeResponseHours: number;
+    /**
+     * Az emlékeztető sikeres elküldésétől számítva; utána a rendelés törlődik.
+     */
+    priceChangeReminderHours: number;
   };
-  deliveryMethods?:
-    | {
-        methodId: string;
-        kind: 'collection' | 'delivery';
-        name: string;
-        description?: string | null;
-        enabled?: boolean | null;
-        feeKind: 'free' | 'fixed';
-        feeAmount?: number | null;
-        id?: string | null;
-      }[]
-    | null;
   legal: {
     termsVersion: string;
     privacyVersion: string;
-  };
-  seo?: {
-    defaultTitle?: string | null;
-    defaultDescription?: string | null;
-  };
-  homepage?: {
-    heroTitle?: string | null;
-    heroText?: string | null;
-    featuredHeading?: string | null;
-    highlights?:
-      | {
-          title?: string | null;
-          text?: string | null;
-          id?: string | null;
-        }[]
-      | null;
   };
   pages?:
     | {
@@ -1641,13 +1747,112 @@ export interface StoreSetting {
   createdAt?: string | null;
 }
 /**
- * Automatikus ügyfél e-mail állapotváltáskor. A módosítás csak a későbbi állapotváltásokra hat; korábbi értesítést nem küld újra.
- *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "notification-settings".
+ * via the `definition` "homepage-settings".
  */
-export interface NotificationSetting {
+export interface HomepageSetting {
   id: number;
+  heroTitle?: string | null;
+  heroText?: string | null;
+  heroPrimaryLabel: string;
+  heroSecondaryLabel: string;
+  /**
+   * A „Kiemelt” jelölésű termékek közül legfeljebb a megadott számút mutatjuk, asztali nézetben a megadott oszlopszámmal. Sorok × oszlopok a rács befogadóképessége: a termékszám nem lehet nagyobb ennél (pl. 3 termék: 1 × 3, 6 termék: 2 × 3, 8 termék: 2 × 4). Ha kevesebb kiemelt termék van, a rács üres helyek nélkül, részben töltődik ki. Telefonon egy, tableten két oszlop marad.
+   */
+  featured: {
+    heading?: string | null;
+    count: number;
+    columns: number;
+    rows: number;
+  };
+  highlights?:
+    | {
+        title?: string | null;
+        text?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payment-settings".
+ */
+export interface PaymentSetting {
+  id: number;
+  /**
+   * Az oldal látható tartalma. A szállítási módokat, díjakat, az átvételi címet és a nyitvatartást az alábbi mezőkből veszi; ezeket nem kell itt megismételni. A keresőknek szóló metaadatok a kódban vannak.
+   */
+  paymentPage: {
+    title: string;
+    intro?: string | null;
+    methodsHeading: string;
+    collectionHeading: string;
+    openingHoursHeading: string;
+  };
+  preorderSteps: {
+    processHeading: string;
+    processSteps?:
+      | {
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  paymentKnowledge: {
+    paymentHeading: string;
+    paymentItems?:
+      | {
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  deliveryMethods?:
+    | {
+        methodId: string;
+        kind: 'collection' | 'delivery';
+        name: string;
+        description?: string | null;
+        enabled?: boolean | null;
+        feeKind: 'free' | 'fixed';
+        feeAmount?: number | null;
+        id?: string | null;
+      }[]
+    | null;
+  collection?: {
+    address?: string | null;
+    openingHours?:
+      | {
+          line: string;
+          id?: string | null;
+        }[]
+      | null;
+    note?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-settings".
+ */
+export interface EmailSetting {
+  id: number;
+  /**
+   * Formátum: „Webshop <rendeles@example.hu>” vagy „rendeles@example.hu”. A domainnek ellenőrzöttnek kell lennie a Resendben (Domains); a mező módosítása nem kerüli meg a szolgáltató korlátozásait (pl. a tesztkorlátozást). Éles küldéshez (EMAIL_MODE=resend) kötelező. A módosítás azonnal érvényes, újratelepítés nélkül.
+   */
+  emailFrom?: string | null;
+  /**
+   * Ide érkeznek a kapcsolati űrlap üzenetei és az új rendelések bolti értesítései. A látogató címe csak válaszcím (Reply-To) lesz, sosem feladó.
+   */
+  storeContactEmail?: string | null;
+  storeNotificationEmail?: string | null;
+  contactRecipientEmail?: string | null;
+  /**
+   * A módosítás csak a későbbi állapotváltásokra hat; korábbi értesítést nem küld újra. A rendelés visszaigazolása, a bolti értesítés és az árváltozási e-mailek mindig kimennek; azokat itt nem lehet kikapcsolni.
+   */
   statusEmails?: {
     under_review?: boolean | null;
     confirmed?: boolean | null;
@@ -1666,10 +1871,9 @@ export interface NotificationSetting {
  */
 export interface StoreSettingsSelect<T extends boolean = true> {
   storeName?: T;
-  storeContactEmail?: T;
-  emailFrom?: T;
-  storeNotificationEmail?: T;
-  contactRecipientEmail?: T;
+  footerSlogan?: T;
+  logo?: T;
+  favicon?: T;
   contact?:
     | T
     | {
@@ -1677,55 +1881,19 @@ export interface StoreSettingsSelect<T extends boolean = true> {
         phone?: T;
         address?: T;
       };
-  collection?:
+  limits?:
     | T
     | {
-        address?: T;
-        openingHours?:
-          | T
-          | {
-              line?: T;
-              id?: T;
-            };
-        note?: T;
-      };
-  deliveryMethods?:
-    | T
-    | {
-        methodId?: T;
-        kind?: T;
-        name?: T;
-        description?: T;
-        enabled?: T;
-        feeKind?: T;
-        feeAmount?: T;
-        id?: T;
+        maxLineQuantity?: T;
+        maxCartLines?: T;
+        priceChangeResponseHours?: T;
+        priceChangeReminderHours?: T;
       };
   legal?:
     | T
     | {
         termsVersion?: T;
         privacyVersion?: T;
-      };
-  seo?:
-    | T
-    | {
-        defaultTitle?: T;
-        defaultDescription?: T;
-      };
-  homepage?:
-    | T
-    | {
-        heroTitle?: T;
-        heroText?: T;
-        featuredHeading?: T;
-        highlights?:
-          | T
-          | {
-              title?: T;
-              text?: T;
-              id?: T;
-            };
       };
   pages?:
     | T
@@ -1741,9 +1909,105 @@ export interface StoreSettingsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "notification-settings_select".
+ * via the `definition` "homepage-settings_select".
  */
-export interface NotificationSettingsSelect<T extends boolean = true> {
+export interface HomepageSettingsSelect<T extends boolean = true> {
+  heroTitle?: T;
+  heroText?: T;
+  heroPrimaryLabel?: T;
+  heroSecondaryLabel?: T;
+  featured?:
+    | T
+    | {
+        heading?: T;
+        count?: T;
+        columns?: T;
+        rows?: T;
+      };
+  highlights?:
+    | T
+    | {
+        title?: T;
+        text?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payment-settings_select".
+ */
+export interface PaymentSettingsSelect<T extends boolean = true> {
+  paymentPage?:
+    | T
+    | {
+        title?: T;
+        intro?: T;
+        methodsHeading?: T;
+        collectionHeading?: T;
+        openingHoursHeading?: T;
+      };
+  preorderSteps?:
+    | T
+    | {
+        processHeading?: T;
+        processSteps?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+      };
+  paymentKnowledge?:
+    | T
+    | {
+        paymentHeading?: T;
+        paymentItems?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+      };
+  deliveryMethods?:
+    | T
+    | {
+        methodId?: T;
+        kind?: T;
+        name?: T;
+        description?: T;
+        enabled?: T;
+        feeKind?: T;
+        feeAmount?: T;
+        id?: T;
+      };
+  collection?:
+    | T
+    | {
+        address?: T;
+        openingHours?:
+          | T
+          | {
+              line?: T;
+              id?: T;
+            };
+        note?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-settings_select".
+ */
+export interface EmailSettingsSelect<T extends boolean = true> {
+  emailFrom?: T;
+  storeContactEmail?: T;
+  storeNotificationEmail?: T;
+  contactRecipientEmail?: T;
   statusEmails?:
     | T
     | {

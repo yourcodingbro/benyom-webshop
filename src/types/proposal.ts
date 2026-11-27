@@ -38,6 +38,11 @@ export type PriceChangeProposal = {
   createdBy: string
   proposalEmail: EmailDispatchState
   reminderEmail: EmailDispatchState
+  /**
+   * Response periods in hours, snapshotted from the store settings when the proposal was created. Each period starts
+   * when its email is successfully submitted; later settings changes never alter this proposal's deadlines.
+   */
+  responseHours: { initial: number; reminder: number }
   resolvedAt: IsoDateTime | null
   supersedesId: string | null
   supersededById: string | null

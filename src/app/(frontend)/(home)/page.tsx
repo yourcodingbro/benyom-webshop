@@ -9,14 +9,27 @@ import { Button } from "@/components/shadcn/button";
 import { getBrands, getPopularBrands } from "@/dto/brands";
 import { getPopularCategories } from "@/dto/categories";
 import { getProducts } from "@/dto/products";
-import { getStoreSettings } from "@/dto/settings";
+import { getHomepageSettings } from "@/dto/settings";
 import type { Brand } from "@/types/catalog";
 
+/**
+ * Featured grid per configured desktop column count (static class names for Tailwind). Phones keep one column and
+ * tablets two, so cards never get narrow; wider screens step up to the configured count.
+ */
+const FEATURED_GRID_CLASSES: Record<number, string> = {
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-2 lg:grid-cols-3",
+  4: "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+};
+
 export default async function HomePage(): Promise<React.JSX.Element> {
-  const [settings, featured, brands, popularBrands, popularCategories] =
+  const homepage = await getHomepageSettings();
+  const layout = homepage.featured;
+  // Rows × columns is the capacity (validated in the admin); the minimum guards data saved before that rule.
+  const featuredCount = Math.min(layout.count, layout.rows * layout.columns);
+  const [featured, brands, popularBrands, popularCategories] =
     await Promise.all([
-      getStoreSettings(),
-      getProducts({ featuredOnly: true, pageSize: 8 }),
+      getProducts({ featuredOnly: true, pageSize: featuredCount }),
       getBrands(),
       getPopularBrands(3),
       getPopularCategories(3),
@@ -36,20 +49,20 @@ export default async function HomePage(): Promise<React.JSX.Element> {
               Előrendelés
             </p>
             <h1 className="mt-3 max-w-3xl text-4xl leading-tight font-bold text-white sm:text-5xl">
-              {settings.homepage.heroTitle}
+              {homepage.heroTitle}
             </h1>
             <p className="mt-5 max-w-2xl text-lg text-white/80">
-              {settings.homepage.heroText}
+              {homepage.heroText}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
                 <Link href="/termekek">
-                  Termékek böngészése
+                  {homepage.heroPrimaryLabel}
                   <ArrowRightIcon aria-hidden="true" />
                 </Link>
               </Button>
               <Button asChild size="lg" variant="secondary">
-                <Link href="/gyik">Hogyan működik?</Link>
+                <Link href="/gyik">{homepage.heroSecondaryLabel}</Link>
               </Button>
             </div>
           </Reveal>
@@ -89,7 +102,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
         <Reveal>
           <div className="flex items-end justify-between gap-4">
             <h2 id="kiemelt" className="text-2xl font-bold">
-              {settings.homepage.featuredHeading}
+              {layout.heading}
             </h2>
             <Link
               href="/termekek"
@@ -101,8 +114,8 @@ export default async function HomePage(): Promise<React.JSX.Element> {
           </div>
         </Reveal>
         {/* The grid is never animated as a whole (see ProductCatalog); each card has its own short entrance. */}
-        <ul className="mt-6 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {featured.items.map((product, index: number) => (
+        <ul className={`mt-6 grid grid-cols-1 gap-3 sm:gap-4 ${FEATURED_GRID_CLASSES[layout.columns] ?? FEATURED_GRID_CLASSES[4]}`}>
+            {featured.items.slice(0, featuredCount).map((product, index: number) => (
               <li key={product.id}>
                 <Reveal trigger="enter" index={index} className="h-full">
                   <ProductCard
@@ -122,7 +135,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
             Miért nálunk?
           </h2>
           <ul className="grid gap-6 md:grid-cols-3">
-            {settings.homepage.highlights.map((highlight, index: number) => (
+            {homepage.highlights.map((highlight, index: number) => (
               <li key={highlight.title}>
                 <Reveal delay={index * 0.08}>
                   <h3 className="text-lg font-bold">{highlight.title}</h3>

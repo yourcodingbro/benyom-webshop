@@ -32,7 +32,7 @@ Independent of the database and of the per-status notification switches.
 | `failed` | Permanent provider error (400/401/403/404/422) or retries exhausted |
 | `bounced`, `suppressed` | From webhook events |
 | `cancelled` | No longer applicable (e.g. proposal already decided, demo data) |
-| `skipped` | Switched off in *Értesítési beállítások*; the reason is stored and logged |
+| `skipped` | Switched off in *Email beállítások (automatikus ügyfél e-mailek)*; the reason is stored and logged |
 | `simulated` | Logging mode |
 
 ## Retries
@@ -68,7 +68,7 @@ Admins can retry `failed` (or stuck `queued`) emails from the email detail view.
 
 ## Sender and store address (store settings)
 
-*Beállítások → Áruház beállításai → E-mail küldés*, admin-only (the public settings read never returns them):
+*Beállítások → Email beállítások*, a separate global readable by admins only (the public store settings carry no email fields):
 
 - **Kapcsolati e-mail** (`storeContactEmail`): receives contact-form messages and new-order notifications. The visitor's address is only `replyTo`, never the sender. (Named `storeContactEmail` because `contactEmail` would share the `contact_email` column of the public *Kapcsolat → E-mail* field.)
 - **Feladó** (`emailFrom`): `Webshop <rendeles@example.hu>` or `rendeles@example.hu`, validated on save. The domain must be **verified in Resend** (Domains); changing this field does not get around provider restrictions such as the testing restriction.

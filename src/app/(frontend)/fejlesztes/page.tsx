@@ -7,7 +7,7 @@ import type React from 'react'
 import { runSchedulerAction } from '@/app/(frontend)/fejlesztes/actions'
 import { PendingSubmitButton } from '@/components/PendingSubmitButton'
 import { getEmailConfig } from '@/config/email'
-import { getStoreSettings } from '@/dto/settings'
+import { getEmailSettings } from '@/dto/settings'
 import { getAppEnv } from '@/config/env'
 import { areDevToolsEnabled } from '@/config/runtime'
 import { getAdminAuthorization } from '@/dto/auth'
@@ -29,7 +29,7 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
   if (!(await getAdminAuthorization(await headers()))) redirect('/admin/login?redirect=%2Ffejlesztes')
   const searchParams = await props.searchParams
   const message = typeof searchParams.uzenet === 'string' ? searchParams.uzenet : null
-  const emailMode = getEmailConfig(await getStoreSettings()).mode
+  const emailMode = getEmailConfig(await getEmailSettings()).mode
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
@@ -72,8 +72,8 @@ export default async function DevToolsPage(props: DevToolsPageProps): Promise<Re
             </Link>
           </li>
           <li>
-            <Link className="underline" href="/admin/globals/notification-settings">
-              Értesítési beállítások
+            <Link className="underline" href="/admin/globals/email-settings">
+              Email beállítások (állapotváltási e-mailek)
             </Link>
           </li>
         </ul>

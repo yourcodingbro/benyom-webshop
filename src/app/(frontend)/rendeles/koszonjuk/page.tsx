@@ -9,7 +9,7 @@ import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { Reveal } from '@/components/Reveal'
 import { Alert, AlertDescription, AlertTitle } from '@/components/shadcn/alert'
 import { getEmailConfig } from '@/config/email'
-import { getStoreSettings } from '@/dto/settings'
+import { getEmailSettings } from '@/dto/settings'
 import { ORDER_ACCESS_COOKIE } from '@/config/shop'
 import { orderService } from '@/services/orderService'
 
@@ -20,7 +20,7 @@ export default async function ConfirmationPage(): Promise<React.JSX.Element> {
   const raw = (await cookies()).get(ORDER_ACCESS_COOKIE)?.value ?? ''
   const separator = raw.indexOf('.')
   const order = separator > 0 ? await orderService.getOrderForCustomer(raw.slice(0, separator), raw.slice(separator + 1)) : null
-  const emailMode = getEmailConfig(await getStoreSettings()).mode
+  const emailMode = getEmailConfig(await getEmailSettings()).mode
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">

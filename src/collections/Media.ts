@@ -2,14 +2,13 @@ import {
   APIError,
   type CollectionBeforeChangeHook,
   type CollectionBeforeDeleteHook,
-  type CollectionBeforeValidateHook,
   type CollectionConfig,
 } from "payload";
 
+import { requireStorage } from "@/collections/hooks/storageHooks";
 import { adminOnly, publicRead, serverOnly } from "@/collections/utils/access";
 import { mediaEndpoints } from "@/collections/utils/endpoints";
 import { hexColorField, SLUG_PATTERN } from "@/collections/utils/fields";
-import { getServerEnv, getStorageEnv } from "@/config/env";
 import { hexToPathSegment, normalizeHexColor } from "@/lib/hex";
 import { NAV_GROUPS } from "@/collections/utils/nav-groups";
 
@@ -34,17 +33,6 @@ const preventReferencedDelete: CollectionBeforeDeleteHook = async ({
       "A médiafájlt termék használja, ezért nem törölhető.",
       409
     );
-};
-
-/** Uploads need Supabase Storage; there is no silent local-disk fallback. */
-const requireStorage: CollectionBeforeValidateHook = ({ data, req }) => {
-  if (req.file && !getStorageEnv(getServerEnv())) {
-    throw new APIError(
-      "A médiatár nincs beállítva (SUPABASE_* környezeti változók). Feltöltés nem lehetséges.",
-      503
-    );
-  }
-  return data;
 };
 
 /**

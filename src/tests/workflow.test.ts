@@ -30,7 +30,7 @@ describe('persistence and authorization through Payload', () => {
     for (const collection of ['orders', 'order-events', 'price-change-proposals', 'email-messages', 'import-jobs', 'contact-messages'] as const) {
       await expect(payload.find({ collection, overrideAccess: false })).rejects.toThrow()
     }
-    await expect(payload.findGlobal({ slug: 'notification-settings', overrideAccess: false })).rejects.toThrow()
+    await expect(payload.findGlobal({ slug: 'email-settings', overrideAccess: false })).rejects.toThrow()
     // Even admins cannot create orders, audit entries, proposals or emails through the API.
     const user = await adminUser()
     await expect(payload.create({ collection: 'order-events', data: { order: 1, orderReference: 'X', type: 'admin_edit', actorType: 'admin', actorLabel: 'x', message: 'x', at: clock.nowIso() }, user, overrideAccess: false })).rejects.toThrow()
@@ -85,7 +85,7 @@ describe('order audit trail', () => {
 describe('per-status notification switches', () => {
   it('applies the policy centrally: disabled transitions are skipped with a reason, no re-sends', async () => {
     const payload = await testPayload()
-    await payload.updateGlobal({ slug: 'notification-settings', data: { statusEmails: { confirmed: false, procurement_in_progress: true } }, overrideAccess: true })
+    await payload.updateGlobal({ slug: 'email-settings', data: { statusEmails: { confirmed: false, procurement_in_progress: true } }, overrideAccess: true })
     const order = await placeTestOrder()
     const confirmed = await orderService.updateFulfillmentStatus({ reference: order.reference, status: 'confirmed', expectedVersion: order.version }, ADMIN)
     const skipped = (await payload.find({ collection: 'email-messages', where: { and: [{ orderReference: { equals: order.reference } }, { templateId: { equals: 'fulfillment-update' } }] }, overrideAccess: true })).docs
@@ -96,7 +96,7 @@ describe('per-status notification switches', () => {
     await orderService.updateFulfillmentStatus({ reference: order.reference, status: 'procurement_in_progress', expectedVersion: confirmed.version }, ADMIN)
     expect(await emailCount(order.reference, 'fulfillment-update')).toBe(2)
     // Turning "confirmed" on later does not resend the past notification.
-    await payload.updateGlobal({ slug: 'notification-settings', data: { statusEmails: { confirmed: true } }, overrideAccess: true })
+    await payload.updateGlobal({ slug: 'email-settings', data: { statusEmails: { confirmed: true } }, overrideAccess: true })
     expect(await emailCount(order.reference, 'fulfillment-update')).toBe(2)
     // Saving without a status transition sends nothing.
     const user = await adminUser()

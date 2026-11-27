@@ -64,6 +64,17 @@ export const PriceChangeProposals: CollectionConfig = {
     totalsGroup('proposedTotals', 'Javasolt összesítő', true),
     dispatchGroup('proposalEmail', 'Ajánlat e-mail'),
     dispatchGroup('reminderEmail', 'Emlékeztető e-mail'),
+    {
+      // Snapshot of Áruház beállítások → Üzleti szabályok when the proposal was created; later changes never move its deadlines.
+      name: 'responseHours',
+      label: 'Válaszidők (az ajánlat indulásakor rögzítve)',
+      type: 'group',
+      admin: { readOnly: true },
+      fields: [
+        { name: 'initial', label: 'Első válaszidő (óra)', type: 'number', required: true, defaultValue: 24, admin: { readOnly: true } },
+        { name: 'reminder', label: 'Emlékeztető utáni válaszidő (óra)', type: 'number', required: true, defaultValue: 24, admin: { readOnly: true } },
+      ],
+    },
     { name: 'resolvedAt', label: 'Lezárva', type: 'date', admin: { readOnly: true } },
     { name: 'supersedesId', label: 'Felülírt ajánlat', type: 'text', admin: { readOnly: true } },
     { name: 'supersededById', label: 'Felülíró ajánlat', type: 'text', admin: { readOnly: true } },

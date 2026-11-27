@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getEmailConfig } from '@/config/email'
 import { addContactMessage } from '@/dto/contact-messages'
 import { getEmailJob } from '@/dto/email-log'
-import { getStoreSettings } from '@/dto/settings'
+import { getEmailSettings, getStoreSettings } from '@/dto/settings'
 import { clock } from '@/lib/clock'
 import { emailService } from '@/services/emailService'
 import { ADMIN, placeTestOrder, resetWorld, testPayload, enableResendMode } from '@/tests/helpers'
@@ -38,7 +38,7 @@ async function jobId(key: string): Promise<number> {
 
 describe('email configuration', () => {
   it('defaults to logging mode without contacting Resend and records a simulated email', async () => {
-    expect(getEmailConfig(await getStoreSettings()).mode).toBe('log')
+    expect(getEmailConfig(await getEmailSettings()).mode).toBe('log')
     const result = await emailService.sendEmail(await contactInput('k-log'))
     expect(result.status).toBe('sent_simulated')
     expect(send).not.toHaveBeenCalled()

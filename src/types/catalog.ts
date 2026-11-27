@@ -3,6 +3,9 @@ import type { HufAmount, IsoDateTime, Paginated } from '@/types/common'
 export type Orderability = 'preorderable' | 'temporarily_unavailable' | 'discontinued'
 export type PublicationStatus = 'draft' | 'published'
 
+/** Per-page SEO override (product, brand, category). Null or empty: derived from the entity's name and description. */
+export type SeoOverride = { title: string | null; description: string | null }
+
 export type Brand = {
   id: string
   slug: string
@@ -11,6 +14,8 @@ export type Brand = {
   sortOrder: number
   /** Explicit editorial popularity ranking (1 = most popular). Not derived from sales. */
   popularityRank: number
+  /** Always set when read from the database; omitted by seed data. */
+  seo?: SeoOverride
 }
 
 export type Category = {
@@ -21,6 +26,8 @@ export type Category = {
   sortOrder: number
   /** Explicit editorial popularity ranking (1 = most popular). Not derived from sales. */
   popularityRank: number
+  /** Always set when read from the database; omitted by seed data. */
+  seo?: SeoOverride
 }
 
 export type ProductImage = {
@@ -78,7 +85,7 @@ export type Product = {
   /** Product-wide orderability; overrides variants when not preorderable. */
   orderability: Orderability
   procurementEstimate: ProcurementEstimate | null
-  seo: { title: string | null; description: string | null }
+  seo: SeoOverride
   createdAt: IsoDateTime
   updatedAt: IsoDateTime
 }

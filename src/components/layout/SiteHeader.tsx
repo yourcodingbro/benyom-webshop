@@ -7,9 +7,12 @@ import { MobileNav, type NavigationEntry } from "@/components/layout/MobileNav";
 import { SearchForm } from "@/components/layout/SearchForm";
 import { Button } from "@/components/shadcn/button";
 import type { BrandNavigationItem } from "@/services/catalogService";
+import type { BrandingImage } from "@/types/settings";
 
 type SiteHeaderProps = {
   storeName: string;
+  /** Fejléc beállítások → Logó (null: store name as text). */
+  logo: BrandingImage | null;
   navigation: BrandNavigationItem[];
 };
 
@@ -44,7 +47,7 @@ export function SiteHeader(props: SiteHeaderProps): React.JSX.Element {
       </a>
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
         <MobileNav navigation={mobileNavigation} />
-        <Logo storeName={props.storeName} />
+        <Logo storeName={props.storeName} logo={props.logo} />
         <nav aria-label="Fő navigáció" className="ml-6 hidden lg:block">
           <ul className="flex items-center gap-1">
             {DESKTOP_LINKS.map((link: DesktopLink) => (

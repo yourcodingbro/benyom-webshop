@@ -21,6 +21,7 @@ import {
   hufField,
   ORDERABILITY_OPTIONS,
   procurementGroup,
+  seoGroup,
   SKU_PATTERN,
   slugField,
   stableIdField,
@@ -427,15 +428,7 @@ export const Products: CollectionConfig = {
         imagesField("images", "Változat képei"),
       ],
     },
-    {
-      name: "seo",
-      label: "Keresőoptimalizálás",
-      type: "group",
-      fields: [
-        { name: "title", label: "Oldalcím", type: "text" },
-        { name: "description", label: "Leírás", type: "textarea" },
-      ],
-    },
+    seoGroup(),
   ],
   hooks: {
     beforeValidate: [assignProductIdentity, enforceUniqueSkus],

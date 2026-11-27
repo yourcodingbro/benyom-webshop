@@ -10,7 +10,7 @@ import {
   getActiveProposal,
   resolveProposal,
 } from "@/dto/price-change-proposals";
-import { getStoreSettings } from "@/dto/settings";
+import { getPaymentSettings, getStoreSettings } from "@/dto/settings";
 import { actorOf } from "@/lib/audit";
 import { assertAdminOrSystem } from "@/lib/authorization";
 import { clock } from "@/lib/clock";
@@ -18,6 +18,7 @@ import { canonicalJson, sha256 } from "@/lib/crypto";
 import { AppError } from "@/lib/errors";
 import { sumHuf } from "@/lib/money";
 import { createOrderAccessToken } from "@/lib/order-access";
+import { cartLimitError } from "@/lib/cart-limits";
 import { checkoutSchema } from "@/schemas/checkout";
 import { notificationService } from "@/services/notificationService";
 import { quoteService } from "@/services/quoteService";
@@ -195,8 +196,14 @@ export const orderService: OrderService = {
     }
 
     try {
-      const settings = await getStoreSettings();
-      const method = settings.deliveryMethods.find(
+      const [settings, payment] = await Promise.all([getStoreSettings(), getPaymentSettings()]);
+      // Configured limits (Üzleti szabályok); the schema above only applies the technical ceiling.
+      const limitError = cartLimitError(data.lines, settings.limits);
+      if (limitError) {
+        return { ok: false, message: limitError, fieldErrors: { lines: limitError } };
+      }
+      // Delivery methods and fees: Fizetési és szállítási beállítások.
+      const method = payment.deliveryMethods.find(
         (item: DeliveryMethod) => item.id === data.deliveryMethodId
       );
       const deliveryFee = resolveDeliveryFee(method);

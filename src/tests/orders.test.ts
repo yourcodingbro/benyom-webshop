@@ -89,9 +89,9 @@ describe('order validation and orderability', () => {
     expect(order.agreed.totals.deliveryFee).toBe(2990)
     expect(order.agreed.totals.grandTotal).toBe(order.agreed.totals.itemsTotal + 2990)
     const payload = await testPayload()
-    const settings = await payload.findGlobal({ slug: 'store-settings', overrideAccess: true })
+    const settings = await payload.findGlobal({ slug: 'payment-settings', overrideAccess: true })
     const methods = (settings.deliveryMethods ?? []).map((method) => (method.methodId === 'hazhozszallitas' ? { ...method, feeAmount: 3990 } : method))
-    await payload.updateGlobal({ slug: 'store-settings', data: { deliveryMethods: methods }, overrideAccess: true })
+    await payload.updateGlobal({ slug: 'payment-settings', data: { deliveryMethods: methods }, overrideAccess: true })
     const latest = await reload(order)
     expect(latest.agreed.totals.deliveryFee).toBe(2990)
     expect((await placeTestOrder(undefined, { deliveryMethodId: 'hazhozszallitas', shippingAddress: address })).agreed.totals.deliveryFee).toBe(3990)
@@ -99,14 +99,14 @@ describe('order validation and orderability', () => {
 
   it('validates fixed fees server-side: a missing, fractional or negative amount is rejected, never read as free', async () => {
     const payload = await testPayload()
-    const settings = await payload.findGlobal({ slug: 'store-settings', overrideAccess: true })
+    const settings = await payload.findGlobal({ slug: 'payment-settings', overrideAccess: true })
     for (const feeAmount of [null, 1.5, -1]) {
       const methods = (settings.deliveryMethods ?? []).map((method) => (method.methodId === 'hazhozszallitas' ? { ...method, feeKind: 'fixed' as const, feeAmount } : method))
-      await expect(payload.updateGlobal({ slug: 'store-settings', data: { deliveryMethods: methods }, overrideAccess: true })).rejects.toThrow()
+      await expect(payload.updateGlobal({ slug: 'payment-settings', data: { deliveryMethods: methods }, overrideAccess: true })).rejects.toThrow()
     }
     // Free is 0 Ft whatever amount is left in the hidden field.
     const free = (settings.deliveryMethods ?? []).map((method) => (method.methodId === 'hazhozszallitas' ? { ...method, feeKind: 'free' as const, feeAmount: 2990 } : method))
-    await payload.updateGlobal({ slug: 'store-settings', data: { deliveryMethods: free }, overrideAccess: true })
+    await payload.updateGlobal({ slug: 'payment-settings', data: { deliveryMethods: free }, overrideAccess: true })
     const order = await placeTestOrder(undefined, { deliveryMethodId: 'hazhozszallitas', shippingAddress: { postalCode: '1111', city: 'Budapest', street: 'Teszt utca 1.', country: 'HU' } })
     expect(order.agreed.totals.deliveryFee).toBe(0)
   })

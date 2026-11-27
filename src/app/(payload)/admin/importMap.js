@@ -6,6 +6,7 @@ import { EmailPreview as EmailPreview_26ff0c3c8c64756354667624f7216f27 } from '@
 import { AdminAccountActions as AdminAccountActions_d4c1a39377ab97ab5ac19fd57fa55511 } from '@/components/admin/AdminAccountActions'
 import { InviteAdminForm as InviteAdminForm_c52446367466bfc4359a86ca37f98bd2 } from '@/components/admin/InviteAdminForm'
 import { ImportJobView as ImportJobView_4f1ad6bb832dcbaf806c98b3ccc371fc } from '@/components/admin/ImportJobView'
+import { FaqManager as FaqManager_d2dd1e6a67ffe3e5e0e7b8be5048b93a } from '@/components/admin/FaqManager'
 import { OrderedNav as OrderedNav_f0cd2a7f98979214735494ecc7ac5497 } from '@/components/admin/OrderedNav'
 import { MustChangePasswordGate as MustChangePasswordGate_daf2dde71dcc88e9704b93b54ab0a1d6 } from '@/components/admin/MustChangePasswordGate'
 import { ClickableListRows as ClickableListRows_23417c0427e9960134bf65079a873f1e } from '@/components/admin/ClickableListRows'
@@ -24,6 +25,7 @@ export const importMap = {
   "@/components/admin/AdminAccountActions#AdminAccountActions": AdminAccountActions_d4c1a39377ab97ab5ac19fd57fa55511,
   "@/components/admin/InviteAdminForm#InviteAdminForm": InviteAdminForm_c52446367466bfc4359a86ca37f98bd2,
   "@/components/admin/ImportJobView#ImportJobView": ImportJobView_4f1ad6bb832dcbaf806c98b3ccc371fc,
+  "@/components/admin/FaqManager#FaqManager": FaqManager_d2dd1e6a67ffe3e5e0e7b8be5048b93a,
   "@/components/admin/OrderedNav#OrderedNav": OrderedNav_f0cd2a7f98979214735494ecc7ac5497,
   "@/components/admin/MustChangePasswordGate#MustChangePasswordGate": MustChangePasswordGate_daf2dde71dcc88e9704b93b54ab0a1d6,
   "@/components/admin/ClickableListRows#ClickableListRows": ClickableListRows_23417c0427e9960134bf65079a873f1e,

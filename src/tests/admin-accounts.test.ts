@@ -135,7 +135,7 @@ describe('first-login enforcement', () => {
     const products = await payload.find({ collection: 'products', user, overrideAccess: false, draft: true, pagination: false })
     expect(products.docs.every((product) => product._status === 'published')).toBe(true)
     await expect(payload.update({ collection: 'products', id: 'prod-iphone-17', data: { featured: false }, user, overrideAccess: false })).rejects.toThrow()
-    await expect(payload.findGlobal({ slug: 'notification-settings', user, overrideAccess: false })).rejects.toThrow()
+    await expect(payload.findGlobal({ slug: 'email-settings', user, overrideAccess: false })).rejects.toThrow()
     // Only themself is visible ("me"), and they cannot edit their account or flags directly.
     const visible = await payload.find({ collection: 'users', user, overrideAccess: false })
     expect(visible.docs.map((doc) => doc.email)).toEqual(['korlat@example.com'])

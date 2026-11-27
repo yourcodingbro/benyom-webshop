@@ -8,6 +8,21 @@ import * as migration_20261116_175758_slug_history_ordering_and_sales from './20
 import * as migration_20261116_205853_email_settings_in_store from './20261116_205853_email_settings_in_store';
 import * as migration_20261119_194111_delivery_fee_free_or_fixed from './20261119_194111_delivery_fee_free_or_fixed';
 import * as migration_20261119_205652_payload_native_email_template from './20261119_205652_payload_native_email_template';
+import * as migration_20261127_152944_content_settings_restructure from './20261127_152944_content_settings_restructure';
+import * as migration_20261127_153043_remove_general_seo_settings from './20261127_153043_remove_general_seo_settings';
+import * as migration_20261127_155841_settings_pages_split from './20261127_155841_settings_pages_split';
+import * as migration_20261127_155926_remove_moved_settings from './20261127_155926_remove_moved_settings';
+import * as migration_20261127_163034_remove_listing_titles from './20261127_163034_remove_listing_titles';
+import * as migration_20261127_163234_payment_settings_global from './20261127_163234_payment_settings_global';
+import * as migration_20261127_163314_remove_payment_from_store from './20261127_163314_remove_payment_from_store';
+import * as migration_20261127_163632_status_emails_into_email_settings from './20261127_163632_status_emails_into_email_settings';
+import * as migration_20261127_163659_remove_notification_settings from './20261127_163659_remove_notification_settings';
+import * as migration_20261127_170320_payment_knowledge_group from './20261127_170320_payment_knowledge_group';
+import * as migration_20261127_170347_remove_old_payment_items from './20261127_170347_remove_old_payment_items';
+import * as migration_20261127_171516_preorder_steps_group from './20261127_171516_preorder_steps_group';
+import * as migration_20261127_171543_remove_old_process_steps from './20261127_171543_remove_old_process_steps';
+import * as migration_20261127_172209_process_heading_group from './20261127_172209_process_heading_group';
+import * as migration_20261127_172226_remove_old_process_heading from './20261127_172226_remove_old_process_heading';
 
 export const migrations = [
   {
@@ -58,6 +73,81 @@ export const migrations = [
   {
     up: migration_20261119_205652_payload_native_email_template.up,
     down: migration_20261119_205652_payload_native_email_template.down,
-    name: '20261119_205652_payload_native_email_template'
+    name: '20261119_205652_payload_native_email_template',
+  },
+  {
+    up: migration_20261127_152944_content_settings_restructure.up,
+    down: migration_20261127_152944_content_settings_restructure.down,
+    name: '20261127_152944_content_settings_restructure',
+  },
+  {
+    up: migration_20261127_153043_remove_general_seo_settings.up,
+    down: migration_20261127_153043_remove_general_seo_settings.down,
+    name: '20261127_153043_remove_general_seo_settings',
+  },
+  {
+    up: migration_20261127_155841_settings_pages_split.up,
+    down: migration_20261127_155841_settings_pages_split.down,
+    name: '20261127_155841_settings_pages_split',
+  },
+  {
+    up: migration_20261127_155926_remove_moved_settings.up,
+    down: migration_20261127_155926_remove_moved_settings.down,
+    name: '20261127_155926_remove_moved_settings',
+  },
+  {
+    up: migration_20261127_163034_remove_listing_titles.up,
+    down: migration_20261127_163034_remove_listing_titles.down,
+    name: '20261127_163034_remove_listing_titles',
+  },
+  {
+    up: migration_20261127_163234_payment_settings_global.up,
+    down: migration_20261127_163234_payment_settings_global.down,
+    name: '20261127_163234_payment_settings_global',
+  },
+  {
+    up: migration_20261127_163314_remove_payment_from_store.up,
+    down: migration_20261127_163314_remove_payment_from_store.down,
+    name: '20261127_163314_remove_payment_from_store',
+  },
+  {
+    up: migration_20261127_163632_status_emails_into_email_settings.up,
+    down: migration_20261127_163632_status_emails_into_email_settings.down,
+    name: '20261127_163632_status_emails_into_email_settings',
+  },
+  {
+    up: migration_20261127_163659_remove_notification_settings.up,
+    down: migration_20261127_163659_remove_notification_settings.down,
+    name: '20261127_163659_remove_notification_settings',
+  },
+  {
+    up: migration_20261127_170320_payment_knowledge_group.up,
+    down: migration_20261127_170320_payment_knowledge_group.down,
+    name: '20261127_170320_payment_knowledge_group',
+  },
+  {
+    up: migration_20261127_170347_remove_old_payment_items.up,
+    down: migration_20261127_170347_remove_old_payment_items.down,
+    name: '20261127_170347_remove_old_payment_items',
+  },
+  {
+    up: migration_20261127_171516_preorder_steps_group.up,
+    down: migration_20261127_171516_preorder_steps_group.down,
+    name: '20261127_171516_preorder_steps_group',
+  },
+  {
+    up: migration_20261127_171543_remove_old_process_steps.up,
+    down: migration_20261127_171543_remove_old_process_steps.down,
+    name: '20261127_171543_remove_old_process_steps',
+  },
+  {
+    up: migration_20261127_172209_process_heading_group.up,
+    down: migration_20261127_172209_process_heading_group.down,
+    name: '20261127_172209_process_heading_group',
+  },
+  {
+    up: migration_20261127_172226_remove_old_process_heading.up,
+    down: migration_20261127_172226_remove_old_process_heading.down,
+    name: '20261127_172226_remove_old_process_heading'
   },
 ];

@@ -11,7 +11,6 @@ import { OrderabilityBadge } from '@/components/product/OrderabilityBadge'
 import { ProductPicture } from '@/components/product/ProductPicture'
 import { VariantOptions } from '@/components/product/VariantOptions'
 import { Button } from '@/components/shadcn/button'
-import { MAX_LINE_QUANTITY } from '@/config/shop'
 import { useCart } from '@/hooks/useCart'
 import { useVariantSelection } from '@/hooks/useVariantSelection'
 import { describeAttributes, effectiveOrderability } from '@/lib/catalog'
@@ -93,7 +92,7 @@ export function ProductConfigurator(props: ProductConfiguratorProps): React.JSX.
             <p id={quantityLabelId} className="mb-1 text-sm font-semibold">
               Mennyiség
             </p>
-            <QuantitySelector value={quantity} onChange={setQuantity} max={MAX_LINE_QUANTITY} label="Mennyiség" disabled={orderability !== 'preorderable'} />
+            <QuantitySelector value={quantity} onChange={setQuantity} max={cart.limits.maxLineQuantity} label="Mennyiség" disabled={orderability !== 'preorderable'} />
           </div>
           <Button size="lg" className="min-w-52" loading={adding} disabled={orderability !== 'preorderable' || !cart.hydrated} onClick={() => void addToCart()}>
             <ShoppingCartIcon aria-hidden="true" />

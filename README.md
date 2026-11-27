@@ -78,7 +78,7 @@ It is repeatable: existing records are skipped (never overwritten or deleted), r
 | CSV import with template, dry run, history, resume/retry | *Termékimportok* (list = history, *Új létrehozása* = upload) |
 | Brand/category order (drag and drop, keyboard accessible) | *Márkák*, *Kategóriák* |
 | Record receipt, payment, completion (counts as a sale for weekly popularity) | order → *Átadás, fizetés és teljesítés*; *Eladási napló* |
-| Per-status customer email switches | *Értesítési beállítások* |
+| Per-status customer email switches | *Email beállítások (automatikus ügyfél e-mailek)* |
 | Email history, content snapshot, delivery state, retry | *E-mail előzmények* |
 | Invite admins (emailed temporary password, mandatory change at first login), regenerate and resend | *Felhasználók* |
 
@@ -99,14 +99,14 @@ Details: [docs/email.md](docs/email.md).
 
 ## Information pages
 
-General settings pages live at `/info/<slug>`, the FAQ at `/gyik` (content in `FaqAccordion`) and payment & delivery at `/fizetes-es-szallitas`. Old `/oldal/…` URLs redirect permanently in one step.
+General settings pages live at `/info/<slug>`, the FAQ at `/gyik` (questions in *Beállítások → Áruház beállítások → GYIK*) and payment & delivery at `/fizetes-es-szallitas`. Old `/oldal/…` URLs redirect permanently in one step.
 
 ## Common problems
 
 | Problem | Fix |
 | --- | --- |
 | "Hibás vagy hiányzó környezeti beállítás" on start | Fill in the listed variables in `.env.local` (names only are shown). |
-| "Az áruház beállításai hiányoznak az adatbázisból" | Run the migrations and `npm run import:initial`, or fill in *Áruház beállításai* in the admin. |
+| "Az áruház beállításai hiányoznak az adatbázisból" | Run the migrations and `npm run import:initial`, or fill in *Áruház beállítások* in the admin. |
 | `relation … does not exist` | Run `npm run migrate`. |
 | `/fejlesztes` returns 404 | Expected unless `APP_ENV` is `development`, `test` or `preview`; sign in at `/admin` first. |
 | Image upload refused (503) | Configure the `SUPABASE_*` storage variables. |
@@ -119,6 +119,7 @@ General settings pages live at `/info/<slug>`, the FAQ at `/gyik` (content in `F
 - [Project structure](docs/project-structure.md)
 - [Data access](docs/data-access.md) – DTO functions on the Payload Local API, transactions, atomic contracts
 - [Admin operations](docs/admin-operations.md) – orders, audit, proposals, products, CSV, notifications, email history
+- [Content and business settings](docs/content-settings.md) – Áruház, Főoldal, Email beállítások and the GYIK tab, limits, SEO policy
 - [Catalog and variants](docs/catalog-and-variants.md)
 - [Ordering and price changes](docs/ordering-and-price-changes.md) – snapshots, proposals, deadlines, scheduler
 - [Email](docs/email.md) – Resend, logging mode, jobs, retries, webhooks, history

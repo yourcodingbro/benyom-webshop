@@ -1,13 +1,13 @@
 import 'server-only'
 
 import { isEmailAddress, senderAddress } from '@/lib/email-address'
-import type { StoreSettings } from '@/types/settings'
+import type { EmailSettings } from '@/types/settings'
 
 /**
  * Email delivery configuration. Transport secrets stay in server-only environment variables:
  *   EMAIL_MODE      log (default) | resend
  *   RESEND_API_KEY  Resend API key (resend mode)
- * The sender and the store recipient are admin-editable store settings (Áruház beállításai →
+ * The sender and the store recipient are admin-editable (Beállítások → Email beállítások:
  * "Feladó", "Kapcsolati e-mail"), read on every send, so a change applies without a redeploy.
  * Nothing here may use a NEXT_PUBLIC_ prefix; the API key is never logged or returned.
  */
@@ -16,16 +16,14 @@ export type EmailConfig =
   | { mode: 'resend'; apiKey: string; from: string; contactEmail: string | null }
   | { mode: 'invalid'; problems: string[] }
 
-type EmailSettings = Pick<StoreSettings, 'contactEmail' | 'emailFrom'>
-
 /**
  * Placeholder recipient of a store notification created while "Kapcsolati e-mail" is not set. It is never
  * sent to: the job fails with an explanation and takes the configured address once it exists.
  */
 export const UNSET_STORE_RECIPIENT: string = 'nincs-beallitva'
 
-const FROM_SETTING: string = 'Áruház beállításai → Feladó (email_from)'
-const CONTACT_SETTING: string = 'Áruház beállításai → Kapcsolati e-mail (contact_email)'
+const FROM_SETTING: string = 'Email beállítások → Feladó (From)'
+const CONTACT_SETTING: string = 'Email beállítások → Kapcsolati e-mail'
 
 function env(name: string): string {
   return (process.env[name] ?? '').trim()

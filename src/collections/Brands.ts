@@ -2,7 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { adminOnly, publicRead } from '@/collections/utils/access'
 import { autoSlugAndId } from '@/collections/hooks/taxonomyHooks'
-import { slugField, stableIdField } from '@/collections/utils/fields'
+import { seoGroup, slugField, stableIdField } from '@/collections/utils/fields'
 import { NAV_GROUPS } from '@/collections/utils/nav-groups'
 
 export const Brands: CollectionConfig = {
@@ -18,6 +18,7 @@ export const Brands: CollectionConfig = {
     { name: 'name', label: 'Név', type: 'text', required: true },
     slugField(),
     { name: 'description', label: 'Leírás', type: 'textarea' },
+    seoGroup(),
     // Legacy columns kept (non-destructive); the manual order is `_order`, popularity is computed from sales.
     { name: 'sortOrder', label: 'Sorrend (régi)', type: 'number', defaultValue: 100, admin: { hidden: true } },
     { name: 'popularityRank', label: 'Népszerűségi sorrend (régi)', type: 'number', required: true, defaultValue: 100, min: 1, admin: { hidden: true } },

@@ -3,6 +3,8 @@
 import { cookies } from 'next/headers'
 
 import { ORDER_ACCESS_COOKIE } from '@/config/shop'
+import { getStoreSettings } from '@/dto/settings'
+import { cartLimitError } from '@/lib/cart-limits'
 import { isAppError } from '@/lib/errors'
 import { cartLinesSchema } from '@/schemas/common'
 import { orderService } from '@/services/orderService'
@@ -18,6 +20,8 @@ export type PlaceOrderActionResult = { ok: true; reference: string } | { ok: fal
 export async function quoteCartAction(lines: unknown): Promise<QuoteCartActionResult> {
   const parsed = cartLinesSchema.safeParse(lines)
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? 'Érvénytelen kosár.' }
+  const limitError = cartLimitError(parsed.data, (await getStoreSettings()).limits)
+  if (limitError) return { ok: false, message: limitError }
   return { ok: true, quote: await quoteService.quoteCart(parsed.data) }
 }
 

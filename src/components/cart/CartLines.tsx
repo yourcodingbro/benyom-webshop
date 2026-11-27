@@ -9,7 +9,6 @@ import { ColorDot } from '@/components/product/ColorDot'
 import { ProductPicture } from '@/components/product/ProductPicture'
 import { Button } from '@/components/shadcn/button'
 import { ORDERABILITY_LABELS } from '@/config/labels'
-import { MAX_LINE_QUANTITY } from '@/config/shop'
 import { useCart } from '@/hooks/useCart'
 import { describeAttributes } from '@/lib/catalog'
 import { formatHuf } from '@/lib/format'
@@ -74,7 +73,7 @@ export function CartLines(props: CartLinesProps): React.JSX.Element {
                     onChange={(value: number | null) => {
                       if (value !== null && value !== line.quantity) void cart.setQuantity(line.sku, value)
                     }}
-                    max={MAX_LINE_QUANTITY}
+                    max={cart.limits.maxLineQuantity}
                     label={`${line.productName} mennyisége`}
                     compact
                   />

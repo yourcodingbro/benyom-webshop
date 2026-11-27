@@ -19,7 +19,7 @@ All are server-side; see [.env.example](../.env.example) for placeholders and ex
 | `PAYLOAD_SECRET`, `APP_SIGNING_SECRET` | always | ≥ 32 random characters each |
 | `SUPABASE_URL`, `SUPABASE_STORAGE_BUCKET`, `SUPABASE_S3_ENDPOINT`, `SUPABASE_S3_REGION`, `SUPABASE_S3_ACCESS_KEY_ID`, `SUPABASE_S3_SECRET_ACCESS_KEY` | production (all or none elsewhere) | Without them media uploads are refused (503); there is no local-disk fallback |
 | `CRON_SECRET` | production | ≥ 16 characters; Vercel sends it as `Authorization: Bearer …` |
-| `EMAIL_MODE`, `RESEND_API_KEY` | for real email | the sender and the store address are admin settings (*Áruház beállításai → E-mail küldés*), not env; see [email.md](email.md#sender-and-store-address-store-settings) |
+| `EMAIL_MODE`, `RESEND_API_KEY` | for real email | the sender and the store address are admin settings (*Beállítások → Email beállítások*), not env; see [email.md](email.md#sender-and-store-address-store-settings) |
 | `RESEND_WEBHOOK_SECRET` | for delivery tracking | `whsec_…` from the Resend webhook |
 | `NEXT_PUBLIC_SITE_URL`, `ALLOW_INDEXING` | yes / no | public URL; indexing only in production with `true` |
 | `ADMIN_TEMP_PASSWORD_TTL_HOURS` | no | Validity of an invited admin's temporary password in hours (1–720, default 72); see [admin-operations.md](admin-operations.md#admin-accounts-felhasználók) |

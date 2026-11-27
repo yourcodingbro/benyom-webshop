@@ -4,6 +4,7 @@ import type React from 'react'
 
 import { CatalogListing } from '@/components/product/CatalogListing'
 import { getCategoryBySlug } from '@/dto/categories'
+import { entityMetadata } from '@/lib/metadata'
 import { parseListingParams, type SearchParamsRecord } from '@/schemas/listing'
 
 type CategoryPageProps = {
@@ -14,7 +15,7 @@ type CategoryPageProps = {
 export async function generateMetadata(props: CategoryPageProps): Promise<Metadata> {
   const category = await getCategoryBySlug((await props.params).category)
   if (!category) return {}
-  return { title: category.name, description: category.description, alternates: { canonical: `/kategoria/${category.slug}` } }
+  return entityMetadata({ seo: category.seo, fallbackTitle: category.name, fallbackDescription: category.description, canonical: `/kategoria/${category.slug}` })
 }
 
 export default async function CategoryPage(props: CategoryPageProps): Promise<React.JSX.Element> {

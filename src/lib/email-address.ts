@@ -16,7 +16,7 @@ export function senderAddress(value: string): string | null {
   return address && isEmailAddress(address) ? address.trim() : null
 }
 
-/** Admin field validator for the sender (Áruház beállításai → Feladó). Empty is allowed: sending then fails with an explanation. */
+/** Admin field validator for the sender (Email beállítások → Feladó). Empty is allowed: sending then fails with an explanation. */
 export function validateSender(value: string | null | undefined): true | string {
   if (!value || !value.trim()) return true
   return senderAddress(value) ? true : 'Érvénytelen feladó. Formátum: „Webshop <rendeles@example.hu>” vagy „rendeles@example.hu”.'

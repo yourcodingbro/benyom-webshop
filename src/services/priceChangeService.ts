@@ -4,11 +4,10 @@ import type { PayloadRequest } from 'payload'
 
 import { getEmailConfig } from '@/config/email'
 import { PROPOSAL_INELIGIBLE_STATUSES } from '@/config/order-rules'
-import { PROPOSAL_FINAL_WINDOW_HOURS, PROPOSAL_REMINDER_AFTER_HOURS } from '@/config/shop'
 import { enqueueEmail } from '@/dto/email-log'
 import { getOrder, getOrderById } from '@/dto/orders'
 import { addProposal, getActiveProposal, getPendingProposals, getProposal, getProposalByTokenHash, resolveProposal } from '@/dto/price-change-proposals'
-import { getStoreSettings } from '@/dto/settings'
+import { getEmailSettings, getStoreSettings } from '@/dto/settings'
 import { actorOf } from '@/lib/audit'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import { addHours, clock } from '@/lib/clock'
@@ -25,9 +24,9 @@ import type { EmailKind, PriceChangeProposal, ProposalLine, ProposalStatus } fro
 import type { AuditEventInput } from '@/types/workflow'
 
 export type ProposalDeadlines = {
-  /** When the reminder becomes due (24 h after the proposal email was accepted by the provider). */
+  /** When the reminder becomes due (the proposal's initial response period after its email was accepted by the provider). */
   reminderDueAt: IsoDateTime | null
-  /** Final cancellation time (24 h after the reminder was accepted by the provider). */
+  /** Final cancellation time (the proposal's reminder response period after the reminder was accepted by the provider). */
   expiresAt: IsoDateTime | null
   /** Earliest possible cancellation if the reminder is sent exactly on time. */
   earliestCancellationAt: IsoDateTime | null
@@ -134,7 +133,7 @@ async function planProposal(input: unknown, auth: AuthorizationContext): Promise
       proposedTotals: { itemsTotal, deliveryFee, grandTotal: sumHuf([itemsTotal, deliveryFee]), currency: 'HUF' },
       explanation: data.explanation,
       activeProposalId: active?.id ?? null,
-      deliveryMode: getEmailConfig(await getStoreSettings()).mode,
+      deliveryMode: getEmailConfig(await getEmailSettings()).mode,
     },
   }
 }
@@ -214,11 +213,13 @@ export const priceChangeService: PriceChangeService = {
   getDeadlines(proposal: PriceChangeProposal): ProposalDeadlines {
     const sentAt = proposal.proposalEmail.sentAt
     const reminderAt = proposal.reminderEmail.sentAt
+    // The proposal's own snapshot, never the current settings: changing them does not move active deadlines.
+    const { initial, reminder } = proposal.responseHours
     return {
-      reminderDueAt: sentAt ? addHours(sentAt, PROPOSAL_REMINDER_AFTER_HOURS) : null,
+      reminderDueAt: sentAt ? addHours(sentAt, initial) : null,
       // A late reminder still gives the full final window: it is counted from the reminder itself.
-      expiresAt: reminderAt ? addHours(reminderAt, PROPOSAL_FINAL_WINDOW_HOURS) : null,
-      earliestCancellationAt: sentAt ? addHours(sentAt, PROPOSAL_REMINDER_AFTER_HOURS + PROPOSAL_FINAL_WINDOW_HOURS) : null,
+      expiresAt: reminderAt ? addHours(reminderAt, reminder) : null,
+      earliestCancellationAt: sentAt ? addHours(sentAt, initial + reminder) : null,
     }
   },
 
@@ -229,6 +230,7 @@ export const priceChangeService: PriceChangeService = {
 
   async createProposal(input: unknown, auth: AuthorizationContext): Promise<PriceChangeProposal> {
     const { data, order, review } = await planProposal(input, auth)
+    const settings = await getStoreSettings()
     const now = clock.nowIso()
     const empty = { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null }
     const createdEvent: AuditEventInput = {
@@ -251,6 +253,7 @@ export const priceChangeService: PriceChangeService = {
           createdBy: auth.kind === 'admin' ? (auth.label ?? auth.adminId) : auth.kind,
           proposalEmail: { ...empty },
           reminderEmail: { ...empty },
+          responseHours: { initial: settings.limits.priceChangeResponseHours, reminder: settings.limits.priceChangeReminderHours },
         },
         supersedeProposalId: data.supersedeActive ? review.activeProposalId : null,
         orderExpectedVersion: order.version,
@@ -351,8 +354,9 @@ export const priceChangeService: PriceChangeService = {
   /**
    * One scheduler tick. Safe to run repeatedly and concurrently (claims, row locks, idempotent jobs):
    * - proposal email not yet accepted → (re)try through its job (no period runs until accepted)
-   * - 24 h after the accepted proposal email → send exactly one reminder (same job on retry)
-   * - 24 h after the accepted reminder → expire atomically and cancel the whole order
+   * - initial response period after the accepted proposal email → send exactly one reminder (same job on retry)
+   * - reminder response period after the accepted reminder → expire atomically and cancel the whole order
+   * (both periods are the proposal's snapshot, see getDeadlines)
    * Demo proposals are never loaded.
    */
   async processDueProposals(auth: AuthorizationContext): Promise<SchedulerReport> {

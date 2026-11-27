@@ -2,47 +2,45 @@ import type { Metadata } from "next";
 import type React from "react";
 
 import { InfoPageLayout } from "@/components/info/InfoPageLayout";
-import { getStoreSettings } from "@/dto/settings";
+import { PAGE_DESCRIPTIONS } from "@/config/seo";
+import { getPaymentSettings } from "@/dto/settings";
 import { describeDeliveryFee } from "@/lib/delivery";
 import type { DeliveryMethod } from "@/types/settings";
 
+/** Code-managed metadata; the visible content comes from Fizetési és szállítási beállítások. */
 export const metadata: Metadata = {
   title: "Fizetés és szállítás",
-  description:
-    "Fizetés átvételkor vagy kiszállításkor, személyes átvétel és házhozszállítás előrendelés esetén.",
+  description: PAGE_DESCRIPTIONS.paymentAndDelivery,
   alternates: { canonical: "/fizetes-es-szallitas" },
 };
 
-/** Store-settings driven payment and delivery details, laid out like the other informational pages. */
+/**
+ * Payment and delivery page, entirely from Fizetési és szállítási beállítások: the page texts, the delivery methods with
+ * fees and the collection point (the same source the checkout uses).
+ */
 export default async function PaymentAndDeliveryPage(): Promise<React.JSX.Element> {
-  const settings = await getStoreSettings();
+  const settings = await getPaymentSettings();
+  const content = settings.paymentPage;
   const methods = settings.deliveryMethods.filter(
     (method: DeliveryMethod) => method.enabled
   );
 
   return (
-    <InfoPageLayout title="Fizetés és szállítás">
-      <p>
-        Előrendelés esetén online fizetés nincs: a vételárat személyes
-        átvételkor vagy kiszállításkor kell kiegyenlíteni.
-      </p>
+    <InfoPageLayout title={content.title}>
+      {content.intro ? <p className="whitespace-pre-line">{content.intro}</p> : null}
 
-      <h2>Fizetés</h2>
-      <ul>
-        <li>
-          Személyes átvételnél a helyszínen, kiszállításnál a futárnál fizet.
-        </li>
-        <li>
-          Online fizetés nincs, bankkártyaadatot nem kérünk, és a rendelés
-          leadásakor semmit nem kell fizetni.
-        </li>
-        <li>Számlát a webshop nem állít ki automatikusan.</li>
-      </ul>
+      <h2>{content.paymentHeading}</h2>
+      {content.paymentItems.length > 0 ? (
+        <ul>
+          {content.paymentItems.map((item: string, index: number) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
 
-      <h2>Átvételi és szállítási módok</h2>
+      <h2>{content.methodsHeading}</h2>
       <ul>
         {methods.map((method: DeliveryMethod) => {
-          const fee = describeDeliveryFee(method.fee);
           const kind =
             method.kind === "collection" ? "személyes átvétel" : "kiszállítás";
           return (
@@ -54,15 +52,15 @@ export default async function PaymentAndDeliveryPage(): Promise<React.JSX.Elemen
               <br />
               {method.description}
               <br />
-              <span className="font-semibold text-ink">Díj: ${fee}</span>
+              <span className="font-semibold text-ink">Díj: {describeDeliveryFee(method.fee)}</span>
             </li>
           );
         })}
       </ul>
 
-      <h2>Személyes átvétel</h2>
+      <h2>{content.collectionHeading}</h2>
       <p>{settings.collection.address}</p>
-      <h3>Nyitvatartás</h3>
+      <h3>{content.openingHoursHeading}</h3>
       <ul>
         {settings.collection.openingHours.map((line: string) => (
           <li key={line}>{line}</li>
@@ -70,23 +68,14 @@ export default async function PaymentAndDeliveryPage(): Promise<React.JSX.Elemen
       </ul>
       <p>{settings.collection.note}</p>
 
-      <h2>Az előrendelés menete</h2>
-      <ol>
-        <li>
-          A leadott rendelést e-mailben visszaigazoljuk, majd megkezdjük a
-          beszerzést.
-        </li>
-        <li>
-          A termékoldalakon látható beszerzési idő becslés, nem garantált
-          határidő.
-        </li>
-        <li>
-          Ha a beszerzési ár változna, árváltozási ajánlatot küldünk; az ár csak
-          az Ön kifejezett elfogadásával módosul. Elutasítás esetén a teljes
-          rendelés törlődik.
-        </li>
-        <li>Amikor a rendelés átvehető vagy úton van, e-mailben értesítjük.</li>
-      </ol>
+      <h2>{content.processHeading}</h2>
+      {content.processSteps.length > 0 ? (
+        <ol>
+          {content.processSteps.map((step: string, index: number) => (
+            <li key={index}>{step}</li>
+          ))}
+        </ol>
+      ) : null}
     </InfoPageLayout>
   );
 }

@@ -7,11 +7,11 @@ import type { Brand, Category, ProcurementEstimate, Product, ProductImage, Produ
 /* Payload document ⇄ application type mapping for the catalog. Private to src/dto/. */
 
 export function toBrand(doc: BrandDoc): Brand {
-  return { id: doc.id, slug: doc.slug, name: doc.name, description: doc.description ?? '', sortOrder: doc.sortOrder ?? 100, popularityRank: doc.popularityRank }
+  return { id: doc.id, slug: doc.slug, name: doc.name, description: doc.description ?? '', sortOrder: doc.sortOrder ?? 100, popularityRank: doc.popularityRank, seo: { title: doc.seo?.title?.trim() || null, description: doc.seo?.description?.trim() || null } }
 }
 
 export function toCategory(doc: CategoryDoc): Category {
-  return { id: doc.id, slug: doc.slug, name: doc.name, description: doc.description ?? '', sortOrder: doc.sortOrder ?? 100, popularityRank: doc.popularityRank }
+  return { id: doc.id, slug: doc.slug, name: doc.name, description: doc.description ?? '', sortOrder: doc.sortOrder ?? 100, popularityRank: doc.popularityRank, seo: { title: doc.seo?.title?.trim() || null, description: doc.seo?.description?.trim() || null } }
 }
 
 function toImage(value: number | MediaDoc): ProductImage | null {
@@ -63,7 +63,7 @@ export function toProduct(doc: ProductDoc): Product {
     featured: Boolean(doc.featured),
     orderability: doc.orderability,
     procurementEstimate: toEstimate(doc.procurementEstimate),
-    seo: { title: doc.seo?.title ?? null, description: doc.seo?.description ?? null },
+    seo: { title: doc.seo?.title?.trim() || null, description: doc.seo?.description?.trim() || null },
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   }

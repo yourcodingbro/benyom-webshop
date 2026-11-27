@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import type React from 'react'
 
 import { CatalogListing } from '@/components/product/CatalogListing'
+import { PAGE_DESCRIPTIONS } from '@/config/seo'
 import { parseListingParams, type SearchParamsRecord } from '@/schemas/listing'
 
 type ProductsPageProps = {
@@ -12,7 +13,7 @@ export async function generateMetadata(props: ProductsPageProps): Promise<Metada
   const query = parseListingParams(await props.searchParams)
   return {
     title: query.search ? `Keresés: ${query.search}` : 'Összes termék',
-    description: 'Apple és Samsung telefonok, tabletek és okosórák előrendelésre.',
+    description: PAGE_DESCRIPTIONS.products,
     alternates: { canonical: '/termekek' },
   }
 }

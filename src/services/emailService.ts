@@ -4,7 +4,7 @@ import { Resend } from 'resend'
 
 import { type EmailConfig, getEmailConfig, getStoreRecipient, MISSING_STORE_RECIPIENT, UNSET_STORE_RECIPIENT } from '@/config/email'
 import { getServerEnv } from '@/config/env'
-import { EMAIL_CLAIM_STALE_MINUTES, PROPOSAL_FINAL_WINDOW_HOURS, PROPOSAL_REMINDER_AFTER_HOURS } from '@/config/shop'
+import { EMAIL_CLAIM_STALE_MINUTES } from '@/config/shop'
 import { getContactMessage, updateContactMessageStatus } from '@/dto/contact-messages'
 import {
   applyProviderEvent,
@@ -19,7 +19,7 @@ import {
 } from '@/dto/email-log'
 import { getOrder } from '@/dto/orders'
 import { anchorProposalEmail, getProposal, recordProposalEmailAttempt } from '@/dto/price-change-proposals'
-import { getStoreSettings } from '@/dto/settings'
+import { getEmailSettings, getPaymentSettings, getStoreSettings } from '@/dto/settings'
 import { renderEmail } from '@/emails'
 import { assertAdminOrSystem } from '@/lib/authorization'
 import { addHours, clock } from '@/lib/clock'
@@ -130,7 +130,7 @@ async function buildTemplate(job: EmailJob): Promise<{ template: EmailTemplate }
     case 'cancelled-by-store':
       return { template: { id: ref.id, order } }
     case 'fulfillment-update':
-      return ref.status ? { template: { id: 'fulfillment-update', order, status: ref.status } } : { cancel: 'Hiányzó állapot.' }
+      return ref.status ? { template: { id: 'fulfillment-update', order, status: ref.status, collection: (await getPaymentSettings()).collection } } : { cancel: 'Hiányzó állapot.' }
     case 'price-change-accepted':
     case 'price-change-proposal':
     case 'price-change-reminder': {
@@ -143,8 +143,8 @@ async function buildTemplate(job: EmailJob): Promise<{ template: EmailTemplate }
       const anchor = await anchorProposalEmail(proposal.id, kind, job.firstAttemptAt ?? clock.nowIso(), EMAIL_AUTH)
       const url = decisionUrl(decisionToken(proposal.id, kind))
       return kind === 'proposal'
-        ? { template: { id: 'price-change-proposal', order, proposal, decisionUrl: url, earliestCancellation: addHours(anchor, PROPOSAL_REMINDER_AFTER_HOURS + PROPOSAL_FINAL_WINDOW_HOURS) } }
-        : { template: { id: 'price-change-reminder', order, proposal, decisionUrl: url, deadline: addHours(anchor, PROPOSAL_FINAL_WINDOW_HOURS) } }
+        ? { template: { id: 'price-change-proposal', order, proposal, decisionUrl: url, earliestCancellation: addHours(anchor, proposal.responseHours.initial + proposal.responseHours.reminder) } }
+        : { template: { id: 'price-change-reminder', order, proposal, decisionUrl: url, deadline: addHours(anchor, proposal.responseHours.reminder) } }
     }
     case 'admin-invitation':
       // The temporary password is never stored, so this email cannot be rebuilt or retried from storage.
@@ -165,10 +165,10 @@ async function buildTemplate(job: EmailJob): Promise<{ template: EmailTemplate }
 export function providerErrorText(error: { name: string; statusCode: number | null; message: string }): string {
   const raw = `Resend hiba (${error.name}, ${error.statusCode ?? 'nincs státusz'}): ${redactForLog(error.message)}`
   if (error.statusCode === 403 && /only send testing emails to your own email/i.test(error.message)) {
-    return `A Resend küldő jelenleg csak tesztelésre használható: kizárólag a Resend-fiók saját e-mail-címére küldhet, más címzettnek nem. Más címzetthez ellenőrzött domain kell a Resendben (Domains), és a feladónak (Áruház beállításai → Feladó) ezen a domainen kell lennie. Az e-mailt nem irányítottuk át más címre, és automatikusan sem próbáljuk újra. [${raw}]`
+    return `A Resend küldő jelenleg csak tesztelésre használható: kizárólag a Resend-fiók saját e-mail-címére küldhet, más címzettnek nem. Más címzetthez ellenőrzött domain kell a Resendben (Domains), és a feladónak (Email beállítások → Feladó) ezen a domainen kell lennie. Az e-mailt nem irányítottuk át más címre, és automatikusan sem próbáljuk újra. [${raw}]`
   }
   if (error.statusCode === 403 && /domain is not verified|not verified/i.test(error.message)) {
-    return `A feladó (Áruház beállításai → Feladó) domainje nincs ellenőrizve a Resendben. Ellenőrizze a domaint (Resend → Domains), vagy használjon ellenőrzött domainen lévő feladót. Automatikusan nem próbáljuk újra. [${raw}]`
+    return `A feladó (Email beállítások → Feladó) domainje nincs ellenőrizve a Resendben. Ellenőrizze a domaint (Resend → Domains), vagy használjon ellenőrzött domainen lévő feladót. Automatikusan nem próbáljuk újra. [${raw}]`
   }
   return raw
 }
@@ -233,15 +233,15 @@ async function deliverJob(id: number, oneShot?: OneShotContent): Promise<EmailJo
   try {
     const built = oneShot ? { template: oneShot.template } : await buildTemplate(job)
     if ('cancel' in built) return (await completeEmailJob(id, { kind: 'cancelled', at: clock.nowIso(), reason: built.cancel }, null)).status
-    // Sender and store recipient come from the current store settings (no redeploy needed).
+    // Sender and store recipient come from the current Email beállítások (no redeploy needed).
     stage = 'settings'
-    const settings = await getStoreSettings()
-    const config = getEmailConfig(settings)
+    const [settings, emailSettings] = await Promise.all([getStoreSettings(), getEmailSettings()])
+    const config = getEmailConfig(emailSettings)
     stage = 'render'
     const rendered = await renderEmail(built.template, settings)
     stage = config.mode === 'invalid' ? 'config' : 'provider'
     // A store notification created before "Kapcsolati e-mail" was set takes the address configured now.
-    const to = job.to === UNSET_STORE_RECIPIENT ? getStoreRecipient(settings) : job.to
+    const to = job.to === UNSET_STORE_RECIPIENT ? getStoreRecipient(emailSettings) : job.to
     const sent: EmailJobOutcome =
       to === UNSET_STORE_RECIPIENT ? { kind: 'failed', at: clock.nowIso(), error: MISSING_STORE_RECIPIENT, retryAt: retryAt(job.attempts, clock.now()) } : await send(config, { ...job, to }, rendered)
     if (to === UNSET_STORE_RECIPIENT) stage = 'recipient'

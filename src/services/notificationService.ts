@@ -4,6 +4,7 @@ import type { PayloadRequest } from 'payload'
 
 import { getStoreRecipient } from '@/config/email'
 import { type EmailJobRef, enqueueEmail } from '@/dto/email-log'
+import { getEmailSettings } from '@/dto/settings'
 import { emailService } from '@/services/emailService'
 import type { EmailTemplate, EmailTemplateId, SendEmailResult } from '@/types/email'
 import type { FulfillmentStatus, NotificationRecord, Order } from '@/types/order'
@@ -42,7 +43,7 @@ export function notificationKey(templateId: EmailTemplateId, reference: string, 
 
 export const notificationService: NotificationService = {
   async notify(input: NotifyInput): Promise<SendEmailResult> {
-    const to = input.recipientRole === 'store' ? getStoreRecipient(input.settings) : input.order.submission.customer.email
+    const to = input.recipientRole === 'store' ? getStoreRecipient(await getEmailSettings()) : input.order.submission.customer.email
     const status = input.template.id === 'fulfillment-update' ? input.template.status : null
     return emailService.sendEmail({
       to,
@@ -60,7 +61,7 @@ export const notificationService: NotificationService = {
       {
         idempotencyKey: notificationKey(input.templateId, input.order.reference, input.proposalId, input.status),
         category: input.recipientRole === 'store' ? 'store' : 'customer',
-        to: input.recipientRole === 'store' ? getStoreRecipient(input.settings) : input.order.customerEmail,
+        to: input.recipientRole === 'store' ? getStoreRecipient(await getEmailSettings()) : input.order.customerEmail,
         replyTo: null,
         template: { id: input.templateId, orderReference: input.order.reference, proposalId: input.proposalId, contactMessageId: null, status: input.status },
         orderId: input.order.id,

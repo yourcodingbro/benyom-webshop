@@ -49,7 +49,7 @@ export function PriceChangeProposalEmail(props: PriceChangeProposalEmailProps): 
       <Paragraph>Rendelése addig nem kerül teljesítésre, amíg nem dönt. Az eredeti ár az Ön elfogadása nélkül nem változik.</Paragraph>
       <Consequences />
       <Paragraph>
-        Válaszhatáridő: ha 24 órán belül nem dönt, emlékeztetőt küldünk. Ha az emlékeztető kiküldését követő 24 órán belül sem érkezik döntés, a teljes rendelés automatikusan törlődik (legkorábban {formatDateTime(props.earliestCancellation)}).
+        Válaszhatáridő: ha {props.proposal.responseHours.initial} órán belül nem dönt, emlékeztetőt küldünk. Ha az emlékeztető kiküldését követő {props.proposal.responseHours.reminder} órán belül sem érkezik döntés, a teljes rendelés automatikusan törlődik (legkorábban {formatDateTime(props.earliestCancellation)}).
       </Paragraph>
       <PriceComparison proposal={proposal} />
     </EmailLayout>

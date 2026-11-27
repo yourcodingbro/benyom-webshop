@@ -39,7 +39,7 @@ The checkout form creates a UUID idempotency key (kept in sessionStorage until s
 
 ## Fulfillment
 
-States: Beérkezett → Ellenőrzés alatt → Visszaigazolva → Beszerzés folyamatban → Átvehető (collection) / Kiszállítás alatt (delivery) → Teljesítve, plus Törölve. Transitions are listed in `config/order-rules.ts` and enforced in `orderService` and the Payload hook. Updates use optimistic concurrency (`version`, checked under a row lock). Customer emails per status transition are governed by the switches in *Értesítési beállítások* (see [admin-operations.md](admin-operations.md#notification-settings-értesítési-beállítások)), applied centrally in the Orders hook. Cancellation by the store requires a reason.
+States: Beérkezett → Ellenőrzés alatt → Visszaigazolva → Beszerzés folyamatban → Átvehető (collection) / Kiszállítás alatt (delivery) → Teljesítve, plus Törölve. Transitions are listed in `config/order-rules.ts` and enforced in `orderService` and the Payload hook. Updates use optimistic concurrency (`version`, checked under a row lock). Customer emails per status transition are governed by the switches in *Email beállítások (automatikus ügyfél e-mailek)* (see [content-settings.md](content-settings.md#email-beállítások)), applied centrally in the Orders hook. Cancellation by the store requires a reason.
 
 **Completion** needs two explicit records first: the customer received the goods (`receivedByCustomerAt`, set only by the handover action) and payment (`paymentStatus = paid`, which stamps `paidAt`). Then "Teljesítve" stamps `completedAt` and `saleRecordedAt` and writes the sale entries used for the weekly popularity. The Orders hook enforces this for every write path (admin form, REST/GraphQL, services, background jobs); a completed order's receipt and payment facts are final. Each order line also stores `brandId` and `categoryIds` from checkout (existing lines were backfilled by SKU).
 
@@ -70,18 +70,18 @@ All times are stored in UTC and shown in Europe/Budapest.
 
 ```
 proposal email successfully sent  (T0 = proposalEmail.sentAt)
-  └─ +24 h, no decision → send ONE reminder   (T1 = reminderEmail.sentAt)
-        └─ +24 h after T1, no decision → expire + cancel whole order + timeout email
+  └─ +initial h (default 24), no decision → send ONE reminder   (T1 = reminderEmail.sentAt)
+        └─ +reminder h (default 24) after T1, no decision → expire + cancel whole order + timeout email
 ```
 
-- A failed attempt does not start a period. The scheduler retries the proposal email until it succeeds, and only then does T0 start. A delayed or failed reminder still gives the customer the **full** 24 h after it is actually sent.
+- A failed attempt does not start a period. The scheduler retries the proposal email until it succeeds, and only then does T0 start. A delayed or failed reminder still gives the customer the **full** reminder period after it is actually sent. Both periods are set in *Áruház beállítások → Üzleti szabályok* and snapshotted on the proposal when it is created (`responseHours`), so changing the setting never moves a running proposal's deadlines ([content-settings.md](content-settings.md#üzleti-szabályok-áruház-beállítások)).
 - Each proposal/reminder is one persisted email job (stable key); delivery attempts run under a **claim** (row lock), so concurrent or retried scheduler runs cannot send twice. A claim older than 10 minutes counts as interrupted and may be retried.
 - "Successfully sent" means **Resend accepted the request**. In logging mode (`EMAIL_MODE=log`) or with a broken configuration nothing starts: the proposal stays pending with an explanatory `lastError`, and no reminder or expiry is ever scheduled for it.
 - Demo (historical) proposals are never loaded by the scheduler.
 
 ## Scheduler
 
-`GET /cron/process` (Vercel cron, every minute, `Authorization: Bearer CRON_SECRET`) runs `schedulerService.runOnce()`: due email jobs (with backoff), then proposals (unsent proposal emails, due reminders, expiry). Everything is stored in the database; there are no in-memory timers and no fire-and-forget work. Timing tolerance is one cron interval: a reminder may be sent up to ~1 minute (Pro plan) late, but the final 24 h are counted from its actual acceptance, so the customer never loses time; expiry may also run up to one interval late, and a decision arriving after the deadline loses anyway (see Races). Vercel may skip or duplicate a run; both are harmless. In development, *Ütemező futtatása* on `/fejlesztes` runs the same tick.
+`GET /cron/process` (Vercel cron, every minute, `Authorization: Bearer CRON_SECRET`) runs `schedulerService.runOnce()`: due email jobs (with backoff), then proposals (unsent proposal emails, due reminders, expiry). Everything is stored in the database; there are no in-memory timers and no fire-and-forget work. Timing tolerance is one cron interval: a reminder may be sent up to ~1 minute (Pro plan) late, but the final period is counted from its actual acceptance, so the customer never loses time; expiry may also run up to one interval late, and a decision arriving after the deadline loses anyway (see Races). Vercel may skip or duplicate a run; both are harmless. In development, *Ütemező futtatása* on `/fejlesztes` runs the same tick.
 
 ### Races
 

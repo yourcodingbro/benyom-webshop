@@ -11,7 +11,7 @@ import type {
 } from "@/types/catalog";
 import type { Order, OrderEventType } from "@/types/order";
 import type { PriceChangeProposal } from "@/types/proposal";
-import type { StoreSettings } from "@/types/settings";
+import type { EmailSettings, HomepageSettings, PaymentSettings, StoreSettings } from "@/types/settings";
 
 /**
  * Original sample dataset, kept only as input for the initial import (`npm run import:initial`).
@@ -42,6 +42,12 @@ export type SampleData = {
   orders: SeedOrder[];
   proposals: PriceChangeProposal[];
   settings: StoreSettings;
+  /** Email beállítások. */
+  email: EmailSettings;
+  /** Főoldal beállítások. */
+  homepage: HomepageSettings;
+  /** Fizetési és szállítási beállítások. */
+  payment: PaymentSettings;
 };
 
 const BASE_DATE: number = Date.UTC(2026, 9, 1, 8, 0, 0);
@@ -975,23 +981,55 @@ const extraSeeds: ProductSeed[] = [
 
 const products: Product[] = [...productSeeds, ...extraSeeds].map(buildProduct);
 
-const settings: StoreSettings = {
-  storeName: "Benyom Webshop",
-  contact: {
-    email: "info@minta-webshop.example",
-    phone: "+36 1 000 0000 (fiktív)",
-    address: "0000 Mintaváros, Példa utca 1. (fiktív cím)",
-  },
+const email: EmailSettings = {
   contactEmail: "kapcsolat@minta-webshop.example",
   emailFrom: null,
-  collection: {
-    address: "0000 Mintaváros, Példa utca 1. (fiktív átvételi pont)",
-    openingHours: [
-      "Hétfő–Péntek: 9:00–17:00",
-      "Szombat: 9:00–12:00",
-      "Vasárnap: zárva",
+};
+
+const homepage: HomepageSettings = {
+  heroTitle: "Előrendelés egyszerűen, fizetés átvételkor",
+  heroText:
+    "Válassza ki a készüléket és a változatot, adja le előrendelését – online fizetés nélkül. Az árat átvételkor vagy kiszállításkor kell kiegyenlíteni.",
+  heroPrimaryLabel: "Termékek böngészése",
+  heroSecondaryLabel: "Hogyan működik?",
+  featured: { heading: "Kiemelt termékek", count: 8, columns: 4, rows: 2 },
+  highlights: [
+    {
+      title: "Nincs online fizetés",
+      text: "Fizetés személyes átvételkor vagy a futárnál.",
+    },
+    {
+      title: "Rögzített ár",
+      text: "A leadott rendelés ára csak az Ön kifejezett jóváhagyásával változhat.",
+    },
+    {
+      title: "Átlátható folyamat",
+      text: "E-mailben értesítjük a rendelés minden fontos lépéséről.",
+    },
+  ],
+};
+
+const payment: PaymentSettings = {
+  paymentPage: {
+    title: "Fizetés és szállítás",
+    intro:
+      "Előrendelés esetén online fizetés nincs: a vételárat személyes átvételkor vagy kiszállításkor kell kiegyenlíteni.",
+    paymentHeading: "Fizetés",
+    paymentItems: [
+      "Személyes átvételnél a helyszínen, kiszállításnál a futárnál fizet.",
+      "Online fizetés nincs, bankkártyaadatot nem kérünk, és a rendelés leadásakor semmit nem kell fizetni.",
+      "Számlát a webshop nem állít ki automatikusan.",
     ],
-    note: "Átvétel előtt e-mailben értesítjük. A fizetés átvételkor, a helyszínen történik.",
+    methodsHeading: "Átvételi és szállítási módok",
+    collectionHeading: "Személyes átvétel",
+    openingHoursHeading: "Nyitvatartás",
+    processHeading: "Az előrendelés menete",
+    processSteps: [
+      "A leadott rendelést e-mailben visszaigazoljuk, majd megkezdjük a beszerzést.",
+      "A termékoldalakon látható beszerzési idő becslés, nem garantált határidő.",
+      "Ha a beszerzési ár változna, árváltozási ajánlatot küldünk; az ár csak az Ön kifejezett elfogadásával módosul. Elutasítás esetén a teljes rendelés törlődik.",
+      "Amikor a rendelés átvehető vagy úton van, e-mailben értesítjük.",
+    ],
   },
   deliveryMethods: [
     {
@@ -1021,36 +1059,29 @@ const settings: StoreSettings = {
       fee: { kind: "free" },
     },
   ],
+  collection: {
+    address: "0000 Mintaváros, Példa utca 1. (fiktív átvételi pont)",
+    openingHours: [
+      "Hétfő–Péntek: 9:00–17:00",
+      "Szombat: 9:00–12:00",
+      "Vasárnap: zárva",
+    ],
+    note: "Átvétel előtt e-mailben értesítjük. A fizetés átvételkor, a helyszínen történik.",
+  },
+};
+
+const settings: StoreSettings = {
+  storeName: "Benyom Webshop",
+  contact: {
+    email: "info@minta-webshop.example",
+    phone: "+36 1 000 0000 (fiktív)",
+    address: "0000 Mintaváros, Példa utca 1. (fiktív cím)",
+  },
   legal: {
     termsVersion: "MINTA-ASZF-2026-11",
     privacyVersion: "MINTA-ADATVEDELEM-2026-11",
   },
-  seo: {
-    defaultTitle:
-      "Benyom Webshop – telefonok, tabletek és okosórák előrendelésre",
-    defaultDescription:
-      "Apple és Samsung készülékek előrendelése. Fizetés személyes átvételkor vagy kiszállításkor. (Mintaáruház)",
-  },
-  homepage: {
-    heroTitle: "Előrendelés egyszerűen, fizetés átvételkor",
-    heroText:
-      "Válassza ki a készüléket és a változatot, adja le előrendelését – online fizetés nélkül. Az árat átvételkor vagy kiszállításkor kell kiegyenlíteni.",
-    featuredHeading: "Kiemelt termékek",
-    highlights: [
-      {
-        title: "Nincs online fizetés",
-        text: "Fizetés személyes átvételkor vagy a futárnál.",
-      },
-      {
-        title: "Rögzített ár",
-        text: "A leadott rendelés ára csak az Ön kifejezett jóváhagyásával változhat.",
-      },
-      {
-        title: "Átlátható folyamat",
-        text: "E-mailben értesítjük a rendelés minden fontos lépéséről.",
-      },
-    ],
-  },
+  limits: { maxLineQuantity: 5, maxCartLines: 20, priceChangeResponseHours: 24, priceChangeReminderHours: 24 },
   pages: [
     {
       slug: "aszf",
@@ -1314,4 +1345,7 @@ export const sampleData: SampleData = deepFreeze<SampleData>({
   orders,
   proposals,
   settings,
+  email,
+  homepage,
+  payment,
 });

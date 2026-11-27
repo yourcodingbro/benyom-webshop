@@ -4,7 +4,7 @@ import { FULFILLMENT_LABELS } from '@/config/labels'
 import { EmailLayout, OrderItems, PAYMENT_EXPLANATION, Paragraph } from '@/emails/EmailLayout'
 import { formatDateTime } from '@/lib/format'
 import type { FulfillmentStatus, Order } from '@/types/order'
-import type { StoreSettings } from '@/types/settings'
+import type { CollectionPoint, StoreSettings } from '@/types/settings'
 
 type OrderEmailProps = {
   order: Order
@@ -67,6 +67,8 @@ const FULFILLMENT_TEXT: Partial<Record<FulfillmentStatus, string>> = {
 
 type FulfillmentUpdateEmailProps = OrderEmailProps & {
   status: FulfillmentStatus
+  /** Shown when the order is ready for collection. */
+  collection: CollectionPoint
 }
 
 export function fulfillmentUpdateSubject(order: Order, status: FulfillmentStatus): string {
@@ -74,15 +76,15 @@ export function fulfillmentUpdateSubject(order: Order, status: FulfillmentStatus
 }
 
 export function FulfillmentUpdateEmail(props: FulfillmentUpdateEmailProps): React.JSX.Element {
-  const { order, status, settings } = props
+  const { order, status, settings, collection } = props
   return (
     <EmailLayout settings={settings} preview={fulfillmentUpdateSubject(order, status)} heading={`Új állapot: ${FULFILLMENT_LABELS[status]}`}>
       <Paragraph>Kedves {order.submission.customer.name}!</Paragraph>
       <Paragraph>{FULFILLMENT_TEXT[status] ?? `Rendelése új állapota: ${FULFILLMENT_LABELS[status]}.`}</Paragraph>
       {status === 'ready_for_collection' ? (
         <>
-          <Paragraph>Átvételi hely: {settings.collection.address}</Paragraph>
-          <Paragraph>Nyitvatartás: {settings.collection.openingHours.join('; ')}</Paragraph>
+          <Paragraph>Átvételi hely: {collection.address}</Paragraph>
+          <Paragraph>Nyitvatartás: {collection.openingHours.join('; ')}</Paragraph>
         </>
       ) : null}
       <OrderItems order={order} />

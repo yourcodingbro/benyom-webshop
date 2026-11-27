@@ -123,3 +123,45 @@ export function totalsGroup(name: string, label: string, readOnly: boolean = fal
 }
 
 export const options = (labels: Record<string, string>): { label: string; value: string }[] => Object.entries(labels).map(([value, label]) => ({ value, label }))
+
+type BoundedIntOptions = {
+  description?: string
+  /** Payload's own row-layout width (e.g. "50%"), so fields in a row share the width equally regardless of their texts. */
+  width?: string
+}
+
+/** Required whole number within [min, max], checked on the server (Payload validation), with a Hungarian message. */
+export function boundedIntField(name: string, label: string, defaultValue: number, min: number, max: number, options: BoundedIntOptions = {}): Field {
+  const admin = { ...(options.description ? { description: options.description } : {}), ...(options.width ? { width: options.width } : {}) }
+  return {
+    name,
+    label,
+    type: 'number',
+    required: true,
+    defaultValue,
+    min,
+    max,
+    ...(Object.keys(admin).length > 0 ? { admin } : {}),
+    validate: (value: number | null | undefined) =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max ? true : `Egész szám ${min} és ${max} között.`,
+  }
+}
+
+/** Ordered list of plain text lines (rows with a single required `text` field). */
+export function textListField(name: string, label: string, itemLabel: string): Field {
+  return { name, label, type: 'array', labels: { singular: itemLabel, plural: label }, fields: [{ name: 'text', label: itemLabel, type: 'textarea', required: true }] }
+}
+
+/** SEO title/description override for a catalog entity page (product, brand, category). Empty = derived from the entity. */
+export function seoGroup(): Field {
+  return {
+    name: 'seo',
+    label: 'SEO',
+    type: 'group',
+    admin: { description: 'Csak ennek az oldalnak a keresőknek és megosztásnak szóló címe és leírása. Üresen a nevet és a leírást használjuk.' },
+    fields: [
+      { name: 'title', label: 'SEO cím', type: 'text' },
+      { name: 'description', label: 'SEO leírás', type: 'textarea' },
+    ],
+  }
+}

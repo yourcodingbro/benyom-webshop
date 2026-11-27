@@ -29,7 +29,7 @@ describe('React Email templates', () => {
       id: 'prop-x', orderReference: order.reference, status: 'pending' as const, explanation: 'Teszt indoklás.', tokenHashes: [], createdAt: clock.nowIso(), createdBy: 'teszt',
       lines: [{ lineId: 'line-1', sku: 'APL-IP17-256-01', productName: 'Apple iPhone 17', quantity: 1, originalUnitPrice: 449990, proposedUnitPrice: 469990 }],
       originalTotals: order.agreed.totals, proposedTotals: { ...order.agreed.totals, itemsTotal: 469990, grandTotal: 469990 },
-      proposalEmail: { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null }, reminderEmail: { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null },
+      proposalEmail: { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null }, reminderEmail: { attempts: 0, firstAttemptAt: null, lastAttemptAt: null, lastError: null, claimedAt: null, sentAt: null }, responseHours: { initial: 24, reminder: 24 },
       resolvedAt: null, supersedesId: null, supersededById: null, version: 1, isDemo: false,
     }
     const message = { id: 'msg-1', submissionKey: 'k', name: 'Teszt Elek', email: 'teszt@example.com', subject: 'Kérdés', message: 'Mikor érkezik a termék?', privacyVersion: 'v1', receivedAt: clock.nowIso(), notificationStatus: 'pending' as const }
@@ -42,7 +42,7 @@ describe('React Email templates', () => {
       { id: 'cancelled-after-rejection', order },
       { id: 'cancelled-after-timeout', order },
       { id: 'cancelled-by-store', order },
-      { id: 'fulfillment-update', order, status: 'ready_for_collection' },
+      { id: 'fulfillment-update', order, status: 'ready_for_collection', collection: { address: 'Átvételi pont', openingHours: ['H–P 9–17'], note: '' } },
       { id: 'contact-message', message },
     ]
     for (const template of templates) {

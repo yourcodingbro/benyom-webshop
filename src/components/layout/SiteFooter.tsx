@@ -1,11 +1,16 @@
 import Link from "next/link";
 import type React from "react";
 
-import type { StoreSettings } from "@/types/settings";
+import { Logo } from "@/components/Logo";
+import type { BrandingImage, StoreSettings } from "@/types/settings";
 import { hasDedicatedRoute, infoPagePath } from "@/lib/info-pages";
 
 type SiteFooterProps = {
   settings: StoreSettings;
+  /** Fejléc beállítások → Logó (null: store name as text). */
+  logo: BrandingImage | null;
+  /** Lábléc beállítások → Szlogen (empty: not shown). */
+  slogan: string;
 };
 
 export function SiteFooter(props: SiteFooterProps): React.JSX.Element {
@@ -14,13 +19,14 @@ export function SiteFooter(props: SiteFooterProps): React.JSX.Element {
     <footer className="mt-16 bg-ink text-white/80">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-3">
         <div>
-          <p className="font-heading border-l-4 border-brand-red pl-2.5 font-bold tracking-[0.15em] text-white uppercase">
-            {settings.storeName}
-          </p>
-          <p className="mt-3 text-sm">
-            Előrendelés online, fizetés személyes átvételkor vagy
-            kiszállításkor. Online fizetés nincs.
-          </p>
+          {props.logo ? (
+            <Logo storeName={settings.storeName} logo={props.logo} />
+          ) : (
+            <p className="font-heading border-l-4 border-brand-red pl-2.5 font-bold tracking-[0.15em] text-white uppercase">
+              {settings.storeName}
+            </p>
+          )}
+          {props.slogan ? <p className="mt-3 text-sm whitespace-pre-line">{props.slogan}</p> : null}
         </div>
         <div>
           <h2 className="text-sm font-semibold text-white uppercase">

@@ -38,7 +38,7 @@ function asText(value: SendEmailOptions['html'] | SendEmailOptions['text']): str
  */
 export const payloadEmailAdapter: EmailAdapter<NativeSendResult> = () => ({
   name: 'benyom-email-service',
-  // Required by Payload's API but not used for delivery: the sender always comes from Áruház beállításai → Feladó.
+  // Required by Payload's API but not used for delivery: the sender always comes from Email beállítások → Feladó.
   defaultFromName: 'Webshop',
   defaultFromAddress: 'felado@aruhaz-beallitasok.invalid',
   async sendEmail(message: SendEmailOptions): Promise<NativeSendResult> {

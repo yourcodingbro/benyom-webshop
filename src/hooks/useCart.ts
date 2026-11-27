@@ -3,6 +3,7 @@
 import { createContext, useContext } from 'react'
 
 import type { CartQuote, StoredCartLine } from '@/types/cart'
+import type { CartLimits } from '@/types/settings'
 
 /** Outcome of adding to the cart; the message is ready to show to the customer. */
 export type AddItemResult = { ok: true; quantityInCart: number } | { ok: false; message: string }
@@ -10,6 +11,8 @@ export type AddItemResult = { ok: true; quantityInCart: number } | { ok: false; 
 export type UseCartResult = {
   /** Lines persisted in localStorage (SKU, quantity, signed quote token). */
   lines: StoredCartLine[]
+  /** Áruház beállítások → Üzleti szabályok; the server enforces the same limits. */
+  limits: CartLimits
   /** Latest server quote; prices shown in the UI always come from here. */
   quote: CartQuote | null
   itemCount: number

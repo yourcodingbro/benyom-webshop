@@ -163,10 +163,11 @@ async function queueStatusEmail(req: PayloadRequest, doc: OrderDoc, from: string
   if (!isFulfillmentStatus(to) || !SWITCHABLE_STATUS_EMAILS.includes(to)) return []
   const customerEmail = doc.customer?.email
   if (!customerEmail) return []
-  const settings = (await req.payload.findGlobal({ slug: 'notification-settings', req, overrideAccess: true, depth: 0 })) as { statusEmails?: StatusEmailSettings | null }
+  // Email beállítások (automatikus ügyfél e-mailek).
+  const settings = (await req.payload.findGlobal({ slug: 'email-settings', req, overrideAccess: true, depth: 0 })) as { statusEmails?: StatusEmailSettings | null }
   const enabled = settings.statusEmails?.[to] === true
   const templateId = to === 'cancelled' ? 'cancelled-by-store' : 'fulfillment-update'
-  const skipReason = enabled ? null : `Az automatikus e-mail ki van kapcsolva ennél az állapotnál: ${FULFILLMENT_LABELS[to]} (Értesítési beállítások).`
+  const skipReason = enabled ? null : `Az automatikus e-mail ki van kapcsolva ennél az állapotnál: ${FULFILLMENT_LABELS[to]} (Email beállítások (automatikus ügyfél e-mailek)).`
   const job = await enqueueEmailJob(req, {
     idempotencyKey: `${templateId}/${doc.reference}/${to}`,
     category: 'customer',

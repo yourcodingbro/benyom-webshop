@@ -15,7 +15,7 @@ src/
 │   │   ├── rendeles/koszonjuk/          confirmation (cookie-gated, noindex)
 │   │   ├── arvaltozas/[token]/          price-change decision page + POST action
 │   │   ├── info/[slug]/                 general information pages from settings (terms, privacy, warranty)
-│   │   ├── gyik/                        FAQ (content in FaqAccordion, shadcn Accordion; no settings)
+│   │   ├── gyik/                        FAQ (published entries of the faqs collection, shadcn Accordion)
 │   │   ├── fizetes-es-szallitas/        payment & delivery (built from store settings; footer link only)
 │   │   ├── fejlesztes/                  dev tools: manual scheduler run (APP_ENV ≠ production, admin login)
 │   │   └── actions.ts                   quoteCartAction, placeOrderAction
@@ -31,7 +31,7 @@ src/
 │   ├── checkout/            CheckoutForm (animated panels), CheckoutProgress, OrderSummary
 │   ├── home/                PopularSelector (homepage popular brands/categories)
 │   ├── contact/             ContactForm
-│   ├── info/                InfoPageLayout (shared frame for all information pages), InfoPageView (settings page paragraphs), FaqAccordion (standalone FAQ content + shadcn Accordion)
+│   ├── info/                InfoPageLayout (shared frame for all information pages), InfoPageView (settings page paragraphs), FaqAccordion (FAQ entries passed in + shadcn Accordion)
 │   ├── admin/               Payload admin components: OrderActions, EmailPreview, ImportJobView/Client (Termékimportok create + detail), ProductSlugField, ProductImagesField, ClickableListRows, …
 │   ├── shadcn/              shadcn/ui primitives (alias "ui" → @/components/shadcn)
 │   ├── Logo.tsx, Breadcrumbs.tsx

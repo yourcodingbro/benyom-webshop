@@ -23,7 +23,7 @@ export default async function setup(): Promise<() => Promise<void>> {
   const failed = Object.values(report.counts).reduce((sum: number, counts) => sum + counts.failed, 0)
   if (failed > 0) throw new Error(`A teszt-seed sikertelen: ${report.details.join('; ')}`)
   await payload.create({ collection: 'users', data: { email: 'admin@teszt.hu', password: 'Teszt-jelszo-123456', roles: ['admin'] }, overrideAccess: true })
-  await payload.findGlobal({ slug: 'notification-settings', overrideAccess: true })
+  await payload.findGlobal({ slug: 'email-settings', overrideAccess: true })
 
   const tables = await db.execute(sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'payload_migrations'`)
   await db.execute(sql`CREATE SCHEMA test_snapshot`)

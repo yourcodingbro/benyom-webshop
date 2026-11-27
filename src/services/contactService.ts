@@ -2,7 +2,7 @@ import 'server-only'
 
 import { addContactMessage, updateContactMessageStatus } from '@/dto/contact-messages'
 import { getStoreRecipient } from '@/config/email'
-import { getStoreSettings } from '@/dto/settings'
+import { getEmailSettings, getStoreSettings } from '@/dto/settings'
 import { clock } from '@/lib/clock'
 import { checkFormToken } from '@/lib/form-token'
 import { contactSubmissionSchema } from '@/schemas/contact'
@@ -73,7 +73,7 @@ export const contactService: ContactService = {
     if (message.notificationStatus === 'sent_simulated') return { ok: true, delivery: 'simulated' }
 
     const result = await emailService.sendEmail({
-      to: getStoreRecipient(settings),
+      to: getStoreRecipient(await getEmailSettings()),
       replyTo: message.email,
       template: { id: 'contact-message', message },
       settings,

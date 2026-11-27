@@ -2,7 +2,7 @@ import type { IsoDateTime } from '@/types/common'
 import type { ContactMessage } from '@/types/contact'
 import type { FulfillmentStatus, Order } from '@/types/order'
 import type { PriceChangeProposal } from '@/types/proposal'
-import type { StoreSettings } from '@/types/settings'
+import type { CollectionPoint, StoreSettings } from '@/types/settings'
 import type { EmailCategory, EmailJobStatus, EmailTemplateRef } from '@/types/workflow'
 
 /** Provider-independent email contract. Only emailService's implementation changes for Resend. */
@@ -15,7 +15,8 @@ export type EmailTemplate =
   | { id: 'cancelled-after-rejection'; order: Order }
   | { id: 'cancelled-after-timeout'; order: Order }
   | { id: 'cancelled-by-store'; order: Order }
-  | { id: 'fulfillment-update'; order: Order; status: FulfillmentStatus }
+  /** collection: Fizetési és szállítási beállítások → Személyes átvétel, read when the email is built. */
+  | { id: 'fulfillment-update'; order: Order; status: FulfillmentStatus; collection: CollectionPoint }
   | { id: 'contact-message'; message: ContactMessage }
   /** Contains a one-time secret: never re-rendered from storage, so it is not retried automatically. */
   | { id: 'admin-invitation'; email: string; temporaryPassword: string; loginUrl: string; expiresAt: IsoDateTime }
